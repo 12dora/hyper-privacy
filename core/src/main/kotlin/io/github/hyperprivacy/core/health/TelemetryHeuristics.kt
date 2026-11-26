@@ -6,6 +6,7 @@ import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.status.ObservedEndpoint
+import io.github.hyperprivacy.core.system.SettingsObservation
 
 /** Outcome of [TelemetryHeuristics.classify]. */
 public enum class EndpointVerdict {
@@ -64,7 +65,8 @@ public object TelemetryHeuristics {
 
     /**
      * Observed endpoints that were not blocked, are not covered by any rule in [rules], and look
-     * like reporting, in input order.
+     * like reporting, in input order. Settings reads recorded by system_server
+     * ([SettingsObservation]) are not network endpoints and never count.
      */
     public fun suspected(
         endpoints: List<ObservedEndpoint>,
@@ -72,7 +74,8 @@ public object TelemetryHeuristics {
     ): List<ObservedEndpoint> {
         val coverage = if (rules === Catalog.rules) catalogCoverage else coverageOf(rules)
         return endpoints.filter {
-            !it.blocked && classify(it.host, it.pathPrefix, coverage) == EndpointVerdict.SUSPECTED_REPORTING
+            !it.blocked && !SettingsObservation.isSettingsHost(it.host) &&
+                classify(it.host, it.pathPrefix, coverage) == EndpointVerdict.SUSPECTED_REPORTING
         }
     }
 

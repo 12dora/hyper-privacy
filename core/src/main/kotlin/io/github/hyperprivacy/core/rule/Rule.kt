@@ -46,6 +46,13 @@ public enum class RuleKind {
 public enum class IdentifierSource {
     /** OAID / VAID / AAID / UDID served by `content://com.miui.idprovider` (hosted by the security center). */
     MIUI_ID_PROVIDER,
+
+    /**
+     * Identifier- and app-list-bearing vendor keys in `Settings.Global` / `Secure` / `System`,
+     * served by SettingsProvider inside system_server (target: [Catalog.SYSTEM_SCOPE]). Third-party
+     * callers see them as absent; see `core.system.SettingsDenyList`.
+     */
+    SETTINGS_KEYS,
 }
 
 /**
@@ -114,7 +121,7 @@ public sealed interface RulePayload {
         }
     }
 
-    /** Return an opted-out (all-zero) identifier from [source] to callers that are not system apps. */
+    /** Hide identifiers served by [source] from callers that are not system apps (zeroed or absent). */
     public data class Identifiers(val source: IdentifierSource) : RulePayload {
         override val kind: RuleKind get() = RuleKind.IDENTIFIER
     }
@@ -124,7 +131,8 @@ public sealed interface RulePayload {
  * A single user-toggleable protection.
  *
  * @property id stable identifier; persisted in preferences, so never rename a shipped id.
- * @property packages target package names the rule applies to.
+ * @property packages target package names the rule applies to; [Catalog.SYSTEM_SCOPE] stands for
+ *   system_server itself (rules enforced there on behalf of every app, e.g. Settings keys).
  * @property evidence where the reporting channel was observed, e.g.
  *   `traffic: com.miui.analytics → tracking.miui.com` or `dex: Lcom/xiaomi/onetrack/OneTrack`.
  * @property impact null when blocking cannot affect any vendor service. Non-null for a channel
@@ -151,7 +159,9 @@ public data class Rule(
     init {
         require(ID_PATTERN.matches(id)) { "Invalid rule id: $id" }
         require(packages.isNotEmpty()) { "Rule $id has no target package" }
-        require(packages.all { PACKAGE_PATTERN.matches(it) }) { "Rule $id has an invalid package name" }
+        require(packages.all { it == Catalog.SYSTEM_SCOPE || PACKAGE_PATTERN.matches(it) }) {
+            "Rule $id has an invalid package name"
+        }
         require(evidence.isNotBlank()) { "Rule $id has no evidence" }
         require(impact == null || !defaultOn || highRisk) {
             "Rule $id affects a service and must ship disabled unless highRisk"

@@ -38,6 +38,9 @@ internal class IdentifierGuard(private val env: GuardEnv) {
     fun install(rule: Rule, payload: RulePayload.Identifiers): Int {
         val hooked = when (payload.source) {
             IdentifierSource.MIUI_ID_PROVIDER -> installIdProvider(rule.id)
+
+            // Enforced in system_server by xposed.system.SettingsKeyGuard, never in an app process.
+            IdentifierSource.SETTINGS_KEYS -> return 0
         }
         env.reporter.sink(
             env.packageName,

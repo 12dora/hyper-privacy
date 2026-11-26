@@ -15,9 +15,12 @@ class ScopeExportTest {
     }
 
     @Test
-    fun `queries manifest lists every catalog package`() {
+    fun `queries manifest lists every catalog package but the system scope`() {
         val manifest = ScopeExport.queriesManifest()
-        Catalog.allPackages.forEach { assertTrue("""android:name="$it"""" in manifest, it) }
+        Catalog.allPackages.filter { it != Catalog.SYSTEM_SCOPE }.forEach {
+            assertTrue("""android:name="$it"""" in manifest, it)
+        }
+        assertTrue("""android:name="${Catalog.SYSTEM_SCOPE}"""" !in manifest)
     }
 
     @Test

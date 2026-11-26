@@ -19,7 +19,9 @@ public object ScopeExport {
         appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
         appendLine("""<manifest xmlns:android="http://schemas.android.com/apk/res/android">""")
         appendLine("    <queries>")
-        Catalog.allPackages.forEach { appendLine("""        <package android:name="$it" />""") }
+        // system_server is not a package; it needs no visibility.
+        val packages = Catalog.allPackages - Catalog.SYSTEM_SCOPE
+        packages.forEach { appendLine("""        <package android:name="$it" />""") }
         appendLine("    </queries>")
         appendLine("</manifest>")
     }
