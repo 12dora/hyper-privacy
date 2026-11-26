@@ -2,15 +2,101 @@
 <resources>
     <string name="app_name">隐私管控</string>
     <string name="xposed_description">仅拦截隐私上报，不影响系统服务</string>
-    <string name="status_inactive">模块未激活</string>
-    <string name="status_active">已激活</string>
-    <string name="status_inactive_hint">请在 LSPosed 中启用本模块</string>
-    <string name="status_active_hint">%1$s %2$s · API %3$d</string>
+
+    <string name="action_back">返回</string>
+    <string name="action_settings">设置</string>
+    <string name="action_cancel">取消</string>
+
+    <!-- 模块状态 -->
+    <string name="module_checking">正在检查状态</string>
+    <string name="module_checking_hint">正在连接 LSPosed</string>
+    <string name="module_active">已生效</string>
+    <string name="module_inactive">未激活</string>
+    <string name="module_inactive_hint">在 LSPosed 中启用本模块</string>
+    <string name="module_unavailable">未连接</string>
+    <string name="module_unavailable_hint">与 LSPosed 的连接已断开，请重新打开应用</string>
+    <string name="module_reboot">需要重启</string>
+    <string name="module_reboot_hint">重启设备后规则开始生效</string>
+    <string name="module_no_rules">尚未开启任何规则</string>
+    <plurals name="summary_enabled">
+        <item quantity="other">已开启 %1$s 项</item>
+    </plurals>
+    <plurals name="summary_blocked">
+        <item quantity="other">累计拦截 %1$s 次</item>
+    </plurals>
+
+    <!-- 首页 -->
+    <string name="view_by_category">按类型</string>
+    <string name="view_by_app">按应用</string>
+    <string name="group_common">通用</string>
+    <string name="rules_empty">暂无可用规则</string>
+    <plurals name="meta_apps">
+        <item quantity="other">%1$d 个应用</item>
+    </plurals>
+
+    <!-- 分类 -->
+    <string name="category_analytics">统计分析</string>
+    <string name="category_diagnostics">日志诊断</string>
+    <string name="category_ads">广告监测</string>
+    <string name="category_device_id">设备标识</string>
+    <string name="category_app_list">应用列表</string>
+    <string name="category_personal_data">个人数据</string>
+
+    <!-- 规则行 -->
+    <string name="rule_impact">影响：%1$s</string>
     <string name="rule_active">已生效</string>
     <string name="rule_missed">未生效</string>
     <string name="rule_not_run">未运行</string>
-    <string name="group_multiple">多个应用</string>
     <plurals name="rule_hits">
-        <item quantity="other">已拦截 %1$d 次</item>
+        <item quantity="other">已拦截 %1$s 次</item>
     </plurals>
+    <string name="rule_open_details">查看详情</string>
+    <string name="rule_open_details_for">查看“%1$s”的详情</string>
+
+    <!-- 规则详情 -->
+    <string name="detail_title">详情</string>
+    <string name="detail_enable">启用</string>
+    <string name="detail_not_found">该规则不可用</string>
+    <string name="detail_section_impact">影响</string>
+    <string name="detail_section_method">拦截方式</string>
+    <string name="detail_section_apps">涉及应用</string>
+    <string name="detail_section_evidence">依据</string>
+    <string name="detail_evidence_toggle">展开或收起依据</string>
+    <string name="kind_firewall">整应用断网</string>
+    <string name="kind_firewall_desc">禁止以下应用联网</string>
+    <string name="kind_domain">拦截域名</string>
+    <string name="kind_domain_desc">阻止应用连接以下域名及其子域名</string>
+    <string name="kind_method">停用 SDK 上报</string>
+    <string name="kind_method_desc">使以下 SDK 接口不再执行上报</string>
+    <string name="kind_url">拦截接口</string>
+    <string name="kind_url_desc">阻止应用请求以下接口</string>
+    <string name="kind_identifier">隐藏设备标识</string>
+    <string name="kind_identifier_desc">向第三方应用返回空白标识</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_diagnostics">诊断</string>
+    <string name="settings_diag_mode">诊断模式</string>
+    <string name="settings_diag_mode_summary">记录应用的上报请求，用于发现新的上报端点</string>
+    <string name="settings_endpoints">发现的上报端点</string>
+    <string name="settings_endpoints_off">开启诊断模式后，应用的上报请求会显示在这里</string>
+    <string name="settings_endpoints_empty">暂无记录</string>
+    <string name="endpoint_blocked">已拦截</string>
+    <string name="endpoint_allowed">未拦截</string>
+    <plurals name="endpoint_count">
+        <item quantity="other">%1$s 次</item>
+    </plurals>
+    <string name="settings_data">数据</string>
+    <string name="settings_reset">恢复默认</string>
+    <string name="settings_reset_summary">将所有规则恢复为推荐设置</string>
+    <string name="settings_reset_title">恢复默认设置？</string>
+    <string name="settings_reset_body">所有规则和诊断模式将恢复为推荐设置。</string>
+    <string name="settings_reset_confirm">恢复</string>
+    <string name="settings_about">关于</string>
+    <string name="about_version">版本</string>
+    <string name="about_framework">框架</string>
+    <string name="about_repository">开源仓库</string>
+    <string name="common_separator" translatable="false">" · "</string>
+    <!-- Placeholder: replace with the published repository URL. -->
+    <string name="repository_url" translatable="false">https://github.com/hyperprivacy/hyper-privacy</string>
 </resources>
