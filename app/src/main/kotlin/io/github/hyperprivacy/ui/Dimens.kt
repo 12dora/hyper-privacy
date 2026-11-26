@@ -17,6 +17,10 @@ internal object Dimens {
     val HeaderHeight = 36.dp
     val SwitcherHeight = 36.dp
     val AppIcon = 32.dp
+    val ListIcon = 40.dp
+    val BadgeIcon = 22.dp
+    val TallRowMinHeight = 72.dp
+    val Swatch = 48.dp
     val HeaderIcon = 20.dp
     val StatusIcon = 20.dp
 }

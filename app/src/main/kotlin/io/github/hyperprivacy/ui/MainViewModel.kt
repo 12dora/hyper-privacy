@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -32,7 +33,11 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     val state: StateFlow<UiState> = mutableState.asStateFlow()
 
     private val pendingWrites = PendingWrites()
-    private val changeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> requestRebuild() }
+    private val changeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        rebuildRequests.trySend(
+            Unit,
+        )
+    }
 
     // Shared with onCleared(), which runs on the main thread.
     private val remotePrefs = AtomicReference<SharedPreferences?>(null)
@@ -56,9 +61,9 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             launch {
                 delay(SETTLE_MS)
                 settled = true
-                requestRebuild()
+                rebuildRequests.trySend(Unit)
             }
-            requestRebuild()
+            rebuildRequests.trySend(Unit)
             rebuildRequests.receiveAsFlow().collect {
                 rebuild(loaded)
                 delay(THROTTLE_MS)
@@ -66,24 +71,37 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun setRuleEnabled(ruleId: String, enabled: Boolean) = write(ConfigCodec.key(ruleId), enabled)
+    /** Switches one or more rules in a single preferences commit (a row switch, or a category bulk switch). */
+    fun setRulesEnabled(ruleIds: Collection<String>, enabled: Boolean) = write(ruleIds.map(ConfigCodec::key), enabled)
 
-    fun setDiagnosticMode(enabled: Boolean) = write(ConfigCodec.OBSERVE_KEY, enabled)
+    /** The Markdown diagnostic report; built on the worker, which reads preferences and the package manager. */
+    suspend fun diagnosticReport(): String? = withContext(worker) {
+        val loaded = backend ?: return@withContext null
+        val stored = remotePrefs.get()?.let { runCatching { it.all }.getOrNull() }.orEmpty()
+        runCatching {
+            loaded.health.report(loaded.versionName) { rule ->
+                pendingWrites.resolve(stored, ConfigCodec.key(rule.id), rule.defaultOn)
+            }
+        }.getOrNull()
+    }
+
+    fun setDiagnosticMode(enabled: Boolean) = write(listOf(ConfigCodec.OBSERVE_KEY), enabled)
 
     fun resetDefaults() {
         viewModelScope.launch(worker) {
             val prefs = remotePrefs.get() ?: return@launch
-            Catalog.rules.forEach { pendingWrites.put(ConfigCodec.key(it.id), it.defaultOn) }
+            val rules = backend?.view?.rules ?: Catalog.rules
+            rules.forEach { pendingWrites.put(ConfigCodec.key(it.id), it.defaultOn) }
             pendingWrites.put(ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT)
-            requestRebuild()
+            rebuildRequests.trySend(Unit)
             runCatching {
                 prefs.edit {
-                    Catalog.rules.forEach { remove(ConfigCodec.key(it.id)) }
+                    rules.forEach { remove(ConfigCodec.key(it.id)) }
                     remove(ConfigCodec.OBSERVE_KEY)
                 }
             }.onFailure {
                 pendingWrites.clear()
-                requestRebuild()
+                rebuildRequests.trySend(Unit)
             }
         }
     }
@@ -114,18 +132,14 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         mutableState.update { it.copy(observed = list) }
     }
 
-    private fun requestRebuild() {
-        rebuildRequests.trySend(Unit)
-    }
-
-    private fun write(key: String, value: Boolean) {
+    private fun write(keys: List<String>, value: Boolean) {
         viewModelScope.launch(worker) {
             val prefs = remotePrefs.get() ?: return@launch
-            pendingWrites.put(key, value)
-            requestRebuild()
-            runCatching { prefs.edit { putBoolean(key, value) } }.onFailure {
-                pendingWrites.remove(key)
-                requestRebuild()
+            keys.forEach { pendingWrites.put(it, value) }
+            rebuildRequests.trySend(Unit)
+            runCatching { prefs.edit { keys.forEach { putBoolean(it, value) } } }.onFailure {
+                keys.forEach(pendingWrites::remove)
+                rebuildRequests.trySend(Unit)
             }
         }
     }
@@ -137,7 +151,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         remotePrefs.getAndSet(prefs)?.unregisterOnSharedPreferenceChangeListener(changeListener)
         prefs?.registerOnSharedPreferenceChangeListener(changeListener)
         framework = service?.let { runCatching { "${it.frameworkName} ${it.frameworkVersion}" }.getOrNull() }
-        requestRebuild()
+        rebuildRequests.trySend(Unit)
     }
 
     private fun rebuild(backend: Backend) {
@@ -146,6 +160,9 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         val snapshot = backend.view.snapshot { rule ->
             pendingWrites.resolve(stored, ConfigCodec.key(rule.id), rule.defaultOn)
         }
+        val suspected = runCatching { backend.health.suspected() }.getOrDefault(emptyList())
+            .sortedByDescending { it.lastSeen }
+            .map { it.toUi(backend.view.apps) }
         mutableState.value = UiState(
             loaded = true,
             module = resolveModuleState(
@@ -157,10 +174,12 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             framework = framework,
             versionName = backend.versionName,
             byCategory = snapshot.byCategory,
-            byApp = snapshot.byApp,
+            apps = snapshot.apps,
             rules = snapshot.rules,
             enabledCount = snapshot.enabledCount,
             totalHits = snapshot.totalHits,
+            attention = attentionOf(snapshot.rules, suspected.size),
+            suspected = suspected,
             diagnosticMode = pendingWrites.resolve(stored, ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT),
             observed = observed,
         )
@@ -173,18 +192,25 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
 }
 
 /** Objects that must not be created on the main thread. */
-private class Backend(val store: StatusStore, val view: RuleCatalogView, val versionName: String) {
+private class Backend(
+    val store: StatusStore,
+    val health: RuleHealthSource,
+    val view: RuleCatalogView,
+    val versionName: String,
+) {
     val endpoints: ObservedEndpointsSource = StatusStoreEndpoints(store, view.apps)
 
     companion object {
         fun create(application: Application, listener: SharedPreferences.OnSharedPreferenceChangeListener): Backend {
             val store = StatusStore(application)
             store.registerListener(listener)
-            val apps = InstalledApps.load(application.packageManager)
+            val rules = Catalog.rules
+            val health: RuleHealthSource = StoreHealthSource(store)
+            val apps = InstalledApps.load(application.packageManager, rules.flatMapTo(sortedSetOf()) { it.packages })
             val version = runCatching {
                 application.packageManager.getPackageInfo(application.packageName, 0).versionName
             }.getOrNull().orEmpty()
-            return Backend(store, RuleCatalogView(store, apps), version)
+            return Backend(store, health, RuleCatalogView(store, health, apps, rules), version)
         }
     }
 }

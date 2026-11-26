@@ -1,43 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hyper Privacy</string>
+    <string name="app_name" translatable="false">HyperPrivacy</string>
     <string name="xposed_description">Blocks privacy reporting only; system services are unaffected</string>
 
     <string name="action_back">Back</string>
     <string name="action_settings">Settings</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_search">Search</string>
+    <string name="action_more">More options</string>
 
     <!-- Module state -->
     <string name="module_checking">Checking status</string>
-    <string name="module_active">Active</string>
-    <string name="module_inactive">Not activated</string>
-    <string name="module_inactive_hint">Enable in LSPosed</string>
+    <string name="module_active">Protection is on</string>
+    <string name="module_inactive">Module not activated</string>
+    <string name="module_inactive_hint">Enable HyperPrivacy in LSPosed</string>
     <string name="module_unavailable">Not connected</string>
     <string name="module_unavailable_hint">Reopen the app</string>
     <string name="module_reboot">Restart required</string>
-    <string name="module_reboot_hint">Restart your device</string>
-    <string name="module_no_rules">No rules on</string>
+    <string name="module_reboot_hint">Restart your device to apply rules</string>
+    <string name="module_no_rules">No rules turned on</string>
     <plurals name="summary_enabled">
         <item quantity="one">%1$s rule on</item>
         <item quantity="other">%1$s rules on</item>
     </plurals>
     <plurals name="summary_blocked">
-        <item quantity="one">%1$s blocked</item>
-        <item quantity="other">%1$s blocked</item>
+        <item quantity="one">%1$s blocked in total</item>
+        <item quantity="other">%1$s blocked in total</item>
     </plurals>
-    <plurals name="rule_hits_short">
-        <item quantity="one">%1$s blocked</item>
-        <item quantity="other">%1$s blocked</item>
+
+    <!-- Attention -->
+    <plurals name="attention_rules">
+        <item quantity="one">%1$d rule needs attention</item>
+        <item quantity="other">%1$d rules need attention</item>
     </plurals>
+    <plurals name="attention_suspected">
+        <item quantity="one">%1$d possible tracker found</item>
+        <item quantity="other">%1$d possible trackers found</item>
+    </plurals>
+    <plurals name="attention_suspected_short">
+        <item quantity="one">%1$d possible tracker</item>
+        <item quantity="other">%1$d possible trackers</item>
+    </plurals>
+    <plurals name="attention_broken">
+        <item quantity="one">%1$d stopped working</item>
+        <item quantity="other">%1$d stopped working</item>
+    </plurals>
+    <plurals name="attention_review">
+        <item quantity="one">%1$d to review</item>
+        <item quantity="other">%1$d to review</item>
+    </plurals>
+    <plurals name="attention_idle">
+        <item quantity="one">%1$d idle</item>
+        <item quantity="other">%1$d idle</item>
+    </plurals>
+    <string name="attention_suspected_hint">Export a diagnostic report to share</string>
 
     <!-- Home -->
     <string name="view_by_category">By type</string>
     <string name="view_by_app">By app</string>
-    <string name="group_common">General</string>
     <string name="rules_empty">No rules available</string>
     <plurals name="meta_apps">
         <item quantity="one">%1$d app</item>
         <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="category_enabled">%1$d of %2$d on</string>
+    <string name="category_enable_all">Turn all on</string>
+    <string name="category_disable_all">Turn all off</string>
+    <string name="category_enable_title">Turn on all %1$s rules?</string>
+    <string name="category_disable_title">Turn off all %1$s rules?</string>
+    <plurals name="category_enable_body">
+        <item quantity="one">%1$d rule in this category will be turned on.</item>
+        <item quantity="other">%1$d rules in this category will be turned on.</item>
+    </plurals>
+    <plurals name="category_enable_body_impact">
+        <item quantity="one">%1$d rule will be turned on. %2$d that affect features stay as they are.</item>
+        <item quantity="other">%1$d rules will be turned on. %2$d that affect features stay as they are.</item>
+    </plurals>
+    <plurals name="category_disable_body">
+        <item quantity="one">%1$d rule will be turned off and its data will be reported again.</item>
+        <item quantity="other">%1$d rules will be turned off and their data will be reported again.</item>
+    </plurals>
+    <string name="category_enable_confirm">Turn on</string>
+    <string name="category_disable_confirm">Turn off</string>
+    <plurals name="app_rule_count">
+        <item quantity="one">%1$d rule</item>
+        <item quantity="other">%1$d rules</item>
+    </plurals>
+    <plurals name="app_rules_off">
+        <item quantity="one">%1$d off</item>
+        <item quantity="other">%1$d off</item>
+    </plurals>
+    <plurals name="app_attention">
+        <item quantity="one">%1$d needs attention</item>
+        <item quantity="other">%1$d need attention</item>
     </plurals>
 
     <!-- Categories -->
@@ -59,14 +114,52 @@
     </plurals>
     <string name="rule_open_details">View details</string>
 
+    <!-- Rule health -->
+    <string name="health_broken">Stopped working</string>
+    <string name="health_review">To review</string>
+    <string name="health_idle">Idle</string>
+    <string name="health_ok">OK</string>
+    <string name="health_not_run">Not running</string>
+    <string name="health_not_installed">Not installed</string>
+    <string name="health_broken_desc">The app changed internally; this rule no longer applies</string>
+    <string name="health_review_desc">The app was updated; this rule may need a check</string>
+    <string name="health_idle_desc">Nothing blocked for a long time; reporting may have moved</string>
+    <string name="health_title">Rule health</string>
+    <string name="health_all_ok">All rules are working</string>
+    <plurals name="health_ok_count">
+        <item quantity="one">%1$d rule working normally</item>
+        <item quantity="other">%1$d rules working normally</item>
+    </plurals>
+    <string name="health_section_suspected">Possible new trackers</string>
+    <string name="health_suspected_note">Requests seen in diagnostic mode that no rule covers yet</string>
+    <string name="health_export">Export diagnostic report</string>
+    <string name="health_export_summary">No personal data; helps fix rules</string>
+    <string name="health_export_failed">Could not create the report</string>
+    <string name="health_report_subject">HyperPrivacy diagnostic report</string>
+
+    <!-- App -->
+    <string name="app_not_found">This app is not available</string>
+    <string name="app_section_rules">Rules</string>
+
+    <!-- Search -->
+    <string name="search_hint">Search apps or rules</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_apps">Apps</string>
+    <string name="search_rules">Rules</string>
+    <string name="search_empty">No results</string>
+
     <!-- Rule detail -->
-    <string name="detail_title">Details</string>
+    <string name="detail_title">Rule details</string>
     <string name="detail_enable">Enable</string>
     <string name="detail_not_found">This rule is not available</string>
     <string name="detail_section_impact">Impact</string>
     <string name="detail_section_method">How it works</string>
     <string name="detail_section_apps">Apps</string>
     <string name="detail_section_evidence">Evidence</string>
+    <plurals name="detail_show_all_apps">
+        <item quantity="one">Show %1$d app</item>
+        <item quantity="other">Show all %1$d apps</item>
+    </plurals>
     <string name="state_expanded">Expanded</string>
     <string name="state_collapsed">Collapsed</string>
     <string name="detail_evidence_toggle">Expand or collapse evidence</string>
@@ -83,7 +176,21 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="appearance_mode_system">System</string>
+    <string name="appearance_mode_light">Light</string>
+    <string name="appearance_mode_dark">Dark</string>
+    <string name="appearance_theme">Theme color</string>
+    <string name="palette_dynamic">Wallpaper</string>
+    <string name="palette_sea">Sea</string>
+    <string name="palette_jade">Jade</string>
+    <string name="palette_amber">Amber</string>
+    <string name="palette_sakura">Sakura</string>
+    <string name="palette_graphite">Graphite</string>
+    <string name="appearance_pure_black">Pure black</string>
+    <string name="appearance_pure_black_summary">Use a black background in dark mode, for OLED screens</string>
     <string name="settings_diagnostics">Diagnostics</string>
+    <string name="settings_health_summary">See rules that stopped working or need review</string>
     <string name="settings_diag_mode">Diagnostic mode</string>
     <string name="settings_diag_mode_summary">Records app network requests to find new reporting channels</string>
     <string name="settings_endpoints">Discovered endpoints</string>
@@ -103,7 +210,6 @@
     <string name="settings_reset_body">All rules will reset to defaults and diagnostic mode will turn off.</string>
     <string name="settings_reset_confirm">Restore</string>
     <string name="settings_about">About</string>
-    <string name="about_version">Version</string>
     <string name="about_framework">Framework</string>
     <string name="about_repository">Source code</string>
     <string name="common_separator" translatable="false">" · "</string>
