@@ -80,8 +80,7 @@ internal fun HealthScreen(
     ) { inner ->
         val issues = state.rules.filter { it.attention != null }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
-            val okCount = state.rules.count { it.enabled } - issues.size
-            item(key = "summary") { Summary(okCount, allOk = issues.isEmpty()) }
+            item(key = "summary") { Summary(issues.size) }
             ISSUE_ORDER.forEach { health ->
                 issueSection(health, issues.filter { it.attention == health }, onOpenRule)
             }
@@ -93,17 +92,17 @@ internal fun HealthScreen(
 }
 
 @Composable
-private fun Summary(okCount: Int, allOk: Boolean) {
+private fun Summary(issueCount: Int) {
     val colors = MaterialTheme.colorScheme
     SingleCard {
-        StaticRow(
-            title = if (allOk) {
-                stringResource(R.string.health_all_ok)
-            } else {
-                pluralStringResource(R.plurals.health_ok_count, okCount, okCount)
-            },
-        ) {
-            IconBadge(AppIcons.Shield, colors.primaryContainer, colors.onPrimaryContainer)
+        if (issueCount == 0) {
+            StaticRow(stringResource(R.string.health_all_ok)) {
+                IconBadge(AppIcons.Shield, colors.primaryContainer, colors.onPrimaryContainer)
+            }
+        } else {
+            StaticRow(pluralStringResource(R.plurals.attention_rules, issueCount, issueCount)) {
+                IconBadge(AppIcons.ShieldAlert, colors.tertiaryContainer, colors.onTertiaryContainer)
+            }
         }
     }
 }
@@ -134,7 +133,7 @@ private fun LazyListScope.issueSection(health: Health, rules: List<RuleItem>, on
 private fun IssueRow(item: RuleItem, health: Health, onOpenRule: (String) -> Unit) {
     val tag = LocalLanguageTag.current
     val affected = item.apps.filter { it.health == health }.map { it.label }
-    val names = affected.take(MAX_APP_NAMES).joinToString("、")
+    val names = affected.take(MAX_APP_NAMES).joinToString(stringResource(R.string.list_separator))
     val apps = if (affected.size > MAX_APP_NAMES) {
         names + stringResource(R.string.common_separator) + pluralStringResource(
             R.plurals.meta_apps,
