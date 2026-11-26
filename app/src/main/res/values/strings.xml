@@ -215,9 +215,9 @@
     </plurals>
     <string name="settings_data">Data</string>
     <string name="settings_reset">Restore defaults</string>
-    <string name="settings_reset_summary">Reset all rules to the recommended settings</string>
+    <string name="settings_reset_summary">Reset rules, app options and app-list settings</string>
     <string name="settings_reset_title">Restore defaults?</string>
-    <string name="settings_reset_body">All rules will reset to defaults and diagnostic mode will turn off.</string>
+    <string name="settings_reset_body">Rules, per-app options and app-list settings return to their defaults, and diagnostic mode turns off. Protected apps stay protected.</string>
     <string name="settings_reset_confirm">Restore</string>
     <string name="settings_about">About</string>
     <string name="about_framework">Framework</string>
@@ -329,15 +329,15 @@
     <string name="backup_import">Import configuration</string>
     <string name="backup_import_summary">Restore settings from an exported file</string>
     <string name="backup_import_title">Import this configuration?</string>
-    <string name="backup_import_body">This replaces your current rule switches, app options and app-list settings. Protected apps stay as they are; newly protected apps still need LSPosed approval.</string>
+    <string name="backup_import_body">This replaces your rule switches, app options, app-list settings and appearance. Apps already protected stay protected and take the file's options. Apps newly protected by the file need approval on the Apps page. Only third-party apps installed on this device are configured.</string>
     <string name="backup_import_confirm">Import</string>
     <plurals name="backup_summary_rules">
         <item quantity="one">%1$d rule switch</item>
         <item quantity="other">%1$d rule switches</item>
     </plurals>
     <plurals name="backup_summary_apps">
-        <item quantity="one">options for %1$d app</item>
-        <item quantity="other">options for %1$d apps</item>
+        <item quantity="one">Options for %1$d app</item>
+        <item quantity="other">Options for %1$d apps</item>
     </plurals>
     <string name="backup_summary_applist">App-list settings</string>
     <string name="backup_summary_appearance">Appearance</string>
@@ -349,7 +349,9 @@
     <string name="backup_exported">Configuration exported</string>
     <string name="backup_export_failed">Couldn\'t export the configuration</string>
     <string name="backup_imported">Configuration imported</string>
-    <string name="backup_imported_partial">Imported; some apps need protection re-enabled</string>
+    <string name="backup_imported_partial">Imported; apps unavailable here were skipped</string>
+    <string name="backup_importing">Importing the configuration…</string>
+    <string name="list_bullet" translatable="false">• </string>
     <string name="backup_import_failed">Couldn\'t import the configuration</string>
     <string name="backup_invalid">Not a HyperPrivacy configuration file</string>
     <string name="backup_newer">File is from a newer version; update the app</string>

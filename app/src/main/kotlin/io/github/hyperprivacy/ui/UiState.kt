@@ -137,6 +137,11 @@ internal data class UiState(
     val rebootReason: RebootReason = RebootReason.NONE,
     /** `pause.until` ([ProtectionPause]): `0` not paused, `UNTIL_MANUAL`, or the deadline in wall-clock millis. */
     val pausedUntil: Long = 0L,
+    /**
+     * Something protects right now besides the catalog rules counted in [enabledCount]: app-list or
+     * module hiding, or a protected third-party app. Pausing is offered whenever this or a rule is on.
+     */
+    val otherProtectionOn: Boolean = false,
     val conflict: ConflictUi? = null,
 ) {
     fun rule(id: String): RuleItem? = rules.firstOrNull { it.id == id }

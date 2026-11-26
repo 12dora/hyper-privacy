@@ -8,12 +8,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.hyperprivacy.BuildConfig
 import io.github.hyperprivacy.ModuleConnection
+import io.github.hyperprivacy.core.config.ConfigBackup
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.health.RebootAdvice
 import io.github.hyperprivacy.core.health.RebootReason
 import io.github.hyperprivacy.core.health.SystemHalf
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.status.StatusStore
 import io.github.hyperprivacy.status.systemReport
 import io.github.hyperprivacy.ui.apps.TrackerController
@@ -82,6 +84,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
 
     /** The global pause switch. */
     val pause = PauseController(
+        context = application,
         scope = viewModelScope,
         worker = worker,
         prefs = { remotePrefs.get() },
@@ -101,9 +104,11 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     /** Configuration export and import. */
     val config = ConfigTransfer(
         context = application,
+        scope = viewModelScope,
         worker = worker,
         prefs = { remotePrefs.get() },
         pendingWrites = pendingWrites,
+        clearAppsPending = { trackers.clearPending() },
         moduleVersion = { backend?.versionName.orEmpty() },
         onChange = { rebuildRequests.trySend(Unit) },
     )
@@ -157,15 +162,15 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             val prefs = remotePrefs.get() ?: return@launch
             pause.resume()
             val rules = backend?.view?.rules ?: Catalog.rules
+            // Everything an import can write: rule switches, per-app options, app-list settings.
+            val stored = runCatching { prefs.all }.getOrNull().orEmpty()
+            val keys = ConfigBackup.resetKeys(stored) + rules.map { ConfigCodec.key(it.id) } + ConfigCodec.OBSERVE_KEY
             rules.forEach { pendingWrites.put(ConfigCodec.key(it.id), it.defaultOn) }
             pendingWrites.put(ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT)
+            pendingWrites.put(AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
+            trackers.clearPending()
             rebuildRequests.trySend(Unit)
-            runCatching {
-                prefs.edit {
-                    rules.forEach { remove(ConfigCodec.key(it.id)) }
-                    remove(ConfigCodec.OBSERVE_KEY)
-                }
-            }.onFailure {
+            runCatching { prefs.edit { keys.forEach(::remove) } }.onFailure {
                 pendingWrites.clear()
                 rebuildRequests.trySend(Unit)
             }
@@ -246,6 +251,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         pause.track(until)
         val selfHidden = pendingWrites.resolve(stored, AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
         val hidingApps = selfHidden || AppListConfig.decode(stored).restricted.isNotEmpty()
+        val otherProtectionOn = hidingApps || TrackerProtection.protectedPackages(stored).isNotEmpty()
         val suspected = runCatching { backend.health.suspected() }.getOrDefault(emptyList())
             .sortedByDescending { it.lastSeen }
             .map { it.toUi(backend.view.apps) }
@@ -273,6 +279,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             scope = device.ui,
             rebootReason = rebootReason,
             pausedUntil = until,
+            otherProtectionOn = otherProtectionOn,
             conflict = conflicts.ui(appListHidingOn = hidingApps),
         )
     }

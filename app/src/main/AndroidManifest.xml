@@ -12,6 +12,9 @@
         </intent>
     </queries>
 
+    <!-- Only used while a timed pause is pending: its receiver is disabled otherwise (PauseAlarm). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:name=".HyperPrivacyApp"
         android:allowBackup="false"
@@ -39,5 +42,20 @@
             android:authorities="${applicationId}.status"
             android:exported="true"
             tools:ignore="ExportedContentProvider" />
+
+        <!-- Ends a timed pause: the target of this app's own one-shot alarm. -->
+        <receiver
+            android:name=".pause.PauseReceiver"
+            android:exported="false" />
+
+        <!-- Sets the pause alarm again after a reboot; enabled only while a timed pause is pending. -->
+        <receiver
+            android:name=".pause.PauseBootReceiver"
+            android:enabled="false"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

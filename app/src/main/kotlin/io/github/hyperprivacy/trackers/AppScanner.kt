@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.trackers
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -41,10 +42,18 @@ internal class AppScanner(private val pm: PackageManager, private val store: Tra
      * select those ([io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]).
      */
     // Visibility comes from the manifest's launcher <queries>; QUERY_ALL_PACKAGES is not needed.
+    // Other <queries> (known modules, the module settings intent) make more packages visible: only
+    // apps with a launcher activity are listed, so those never reach the Apps page.
     @SuppressLint("QueryPermissionsNeeded")
     fun installedUserApps(): List<UserApp> {
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val launchable = pm.queryIntentActivities(launcher, PackageManager.ResolveInfoFlags.of(0))
+            .mapNotNullTo(HashSet()) { it.activityInfo?.packageName }
         val flags = PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
-        val packages = pm.getInstalledPackages(flags).mapNotNull { info -> info.installedApp()?.let { info to it } }
+        val packages = pm.getInstalledPackages(flags).mapNotNull { info ->
+            if (info.packageName !in launchable) return@mapNotNull null
+            info.installedApp()?.let { info to it }
+        }
         val trusted = VendorTrust.trustedSigners(packages.map { it.second })
         val collator = Collator.getInstance(Locale.getDefault())
         return packages.mapNotNull { (info, installed) ->
