@@ -7,7 +7,12 @@ import io.github.hyperprivacy.core.tracker.Trackers
 
 /** Picks the whitelisted keys of the live preferences into a [ConfigBackup]. */
 internal object BackupExtractor {
-    val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
+    private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
+
+    /** Android's own limit on a package name's length. */
+    private const val MAX_PACKAGE_LENGTH = 255
+
+    fun isPackageName(name: String): Boolean = name.length <= MAX_PACKAGE_LENGTH && PACKAGE_NAME.matches(name)
 
     fun extract(raw: Map<String, *>, appearance: AppearanceBackup): ConfigBackup {
         val rules = sortedMapOf<String, Boolean>()
@@ -16,7 +21,7 @@ internal object BackupExtractor {
             val ruleId = ConfigCodec.ruleIdOf(key)
             if (ruleId != null && ConfigBackup.isRuleId(ruleId) && value is Boolean) rules[ruleId] = value
             appEdit(key, value)?.let { (pkg, change) ->
-                if (PACKAGE_NAME.matches(pkg)) apps[pkg] = change(apps[pkg] ?: AppBackup())
+                if (isPackageName(pkg)) apps[pkg] = change(apps[pkg] ?: AppBackup())
             }
         }
         return ConfigBackup(

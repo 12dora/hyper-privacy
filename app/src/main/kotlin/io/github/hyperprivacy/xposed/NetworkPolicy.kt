@@ -28,7 +28,13 @@ internal class NetworkPolicy(
     private val matchers = AtomicReference(build())
 
     init {
-        switches.addListener { matchers.set(build()) }
+        switches.addListener(::rebuild)
+    }
+
+    /** Serialized, so switch changes on different threads cannot publish an older build over a newer one. */
+    @Synchronized
+    private fun rebuild() {
+        matchers.set(build())
     }
 
     /** Id of the enabled DOMAIN rule blocking [host], or `null` if allowed. */

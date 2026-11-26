@@ -37,7 +37,11 @@ internal class FailOpenHooker(
 ) : Hooker {
     private val failures = AtomicInteger()
 
-    /** Resolved on the first measured call (diagnostics mode only); set before the hook is installed if renamed. */
+    /**
+     * Resolved on the first measured call (diagnostics mode only); set before the hook is installed if
+     * renamed. Volatile: binder threads race on the first call; read only while measuring.
+     */
+    @Volatile
     private var cell: SinkStats.Cell? = null
 
     /** Records this hook's cost under sink [key] instead of its [name], e.g. to group many hooks of one kind. */

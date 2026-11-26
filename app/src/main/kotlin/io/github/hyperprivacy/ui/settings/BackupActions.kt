@@ -10,26 +10,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.R
-import io.github.hyperprivacy.core.config.BackupProblem
 import io.github.hyperprivacy.core.config.BackupSummary
-import io.github.hyperprivacy.core.config.ConfigBackup
-import io.github.hyperprivacy.core.config.ParsedBackup
-import io.github.hyperprivacy.ui.ImportOutcome
 import io.github.hyperprivacy.ui.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val FILE_NAME = "hyperprivacy-config.json"
-private const val MAX_FILE_BYTES = 1 shl 20
 private val IMPORT_TYPES = arrayOf("application/json", "text/plain", "application/octet-stream")
 
 private fun createJson() = ActivityResultContracts.CreateDocument("application/json")
@@ -40,13 +35,15 @@ internal class BackupActions(val onExport: () -> Unit, val onImport: () -> Unit)
 /**
  * Export and import through the system file picker (no storage permission: the user picks the
  * file). An import is read and checked first, then shown as a short summary and applied only after
- * the user confirms.
+ * the user confirms. Reading, the waiting file and the import itself belong to the view model
+ * ([io.github.hyperprivacy.ui.ConfigTransfer]), so rotation or navigation does not lose them.
  */
 @Composable
 internal fun rememberBackupActions(viewModel: MainViewModel): BackupActions {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var pending by remember { mutableStateOf<ConfigBackup?>(null) }
+    val pending by viewModel.config.pendingImport.collectAsStateWithLifecycle()
+    val importing by viewModel.config.importing.collectAsStateWithLifecycle()
     val exporter = rememberLauncherForActivityResult(createJson()) { uri ->
         if (uri != null) {
             scope.launch {
@@ -56,43 +53,20 @@ internal fun rememberBackupActions(viewModel: MainViewModel): BackupActions {
         }
     }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                when (val parsed = readConfig(context, uri)) {
-                    is ParsedBackup.Ok -> pending = parsed.backup
-                    is ParsedBackup.Rejected -> toast(context, parsed.problem.messageRes())
-                    null -> toast(context, R.string.backup_unreadable)
-                }
-            }
-        }
+        if (uri != null) viewModel.config.read(uri)
     }
     pending?.let { backup ->
         ImportDialog(
             summary = backup.summary,
-            onConfirm = {
-                pending = null
-                scope.launch {
-                    when (val outcome = viewModel.config.import(backup)) {
-                        is ImportOutcome.Done -> toast(context, outcome.messageRes())
-                        ImportOutcome.Failed -> toast(context, R.string.backup_import_failed)
-                    }
-                }
-            },
-            onDismiss = { pending = null },
+            onConfirm = viewModel.config::confirm,
+            onDismiss = viewModel.config::dismiss,
         )
     }
+    if (importing) ImportingDialog()
     return remember(exporter, importer) {
         BackupActions(onExport = { exporter.launch(FILE_NAME) }, onImport = { importer.launch(IMPORT_TYPES) })
     }
 }
-
-private fun BackupProblem.messageRes(): Int = when (this) {
-    BackupProblem.NOT_A_BACKUP -> R.string.backup_invalid
-    BackupProblem.NEWER_VERSION -> R.string.backup_newer
-}
-
-private fun ImportOutcome.Done.messageRes(): Int =
-    if (skippedProtection > 0) R.string.backup_imported_partial else R.string.backup_imported
 
 private suspend fun writeConfig(context: Context, uri: Uri, text: String?): Boolean = withContext(Dispatchers.IO) {
     if (text == null) return@withContext false
@@ -101,29 +75,21 @@ private suspend fun writeConfig(context: Context, uri: Uri, text: String?): Bool
     }.getOrDefault(false)
 }
 
-/** The parsed file, or `null` when it cannot be read; anything over [MAX_FILE_BYTES] is not a backup. */
-private suspend fun readConfig(context: Context, uri: Uri): ParsedBackup? = withContext(Dispatchers.IO) {
-    val bytes = runCatching {
-        context.contentResolver.openInputStream(uri)?.use { it.readNBytes(MAX_FILE_BYTES + 1) }
-    }.getOrNull() ?: return@withContext null
-    if (bytes.size > MAX_FILE_BYTES) return@withContext ParsedBackup.Rejected(BackupProblem.NOT_A_BACKUP)
-    ConfigBackup.parse(bytes.toString(Charsets.UTF_8))
-}
-
 private fun toast(context: Context, message: Int) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
 @Composable
 private fun ImportDialog(summary: BackupSummary, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    val separator = stringResource(R.string.list_separator)
-    val parts = listOfNotNull(
+    // One item per line, each a phrase in sentence case, so differently cased items never share a line.
+    val lines = listOfNotNull(
         pluralStringResource(R.plurals.backup_summary_rules, summary.rules, summary.rules).takeIf { summary.rules > 0 },
         pluralStringResource(R.plurals.backup_summary_apps, summary.apps, summary.apps).takeIf { summary.apps > 0 },
         stringResource(R.string.backup_summary_applist).takeIf { summary.hasAppList },
         stringResource(R.string.backup_summary_appearance).takeIf { summary.hasAppearance },
     )
-    val contents = parts.joinToString(separator).ifEmpty { stringResource(R.string.backup_summary_empty) }
+    val bullet = stringResource(R.string.list_bullet)
+    val contents = lines.joinToString("\n") { bullet + it }.ifEmpty { stringResource(R.string.backup_summary_empty) }
     val ignored = if (summary.ignored > 0) {
         "\n" + pluralStringResource(R.plurals.backup_summary_ignored, summary.ignored, summary.ignored)
     } else {
@@ -135,5 +101,17 @@ private fun ImportDialog(summary: BackupSummary, onConfirm: () -> Unit, onDismis
         text = { Text(contents + ignored + "\n\n" + stringResource(R.string.backup_import_body)) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.backup_import_confirm)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+/** Shown while an import runs; it cannot be dismissed and closes by itself, followed by a toast. */
+@Composable
+private fun ImportingDialog() {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(stringResource(R.string.backup_import_title)) },
+        text = { Text(stringResource(R.string.backup_importing)) },
+        confirmButton = {},
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     )
 }

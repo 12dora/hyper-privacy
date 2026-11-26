@@ -66,6 +66,27 @@ class HardwareTraitsTest {
     }
 
     @Test
+    fun `resolution never exceeds the real value, so never the maximum range`() {
+        // Binary sensors (proximity, step detector, significant motion) report resolution == maximumRange.
+        val binary = listOf(1f, 5f, 0.1f, 10_000f, Float.MIN_VALUE, 1e-40f)
+        packages.map { HardwareTraits.derive(it, secret) }.forEach { traits ->
+            binary.forEach { maximumRange ->
+                val resolution = traits.resolution(maximumRange)
+                assertTrue(resolution > 0f && resolution <= maximumRange, "$maximumRange -> $resolution")
+                assertTrue((maximumRange / resolution).toInt() >= 1, "$maximumRange -> $resolution")
+            }
+        }
+    }
+
+    @Test
+    fun `values that would underflow to zero stay as they are`() {
+        packages.map { HardwareTraits.derive(it, secret) }.forEach { traits ->
+            assertEquals(Float.MIN_VALUE, traits.resolution(Float.MIN_VALUE))
+            assertNotEquals(0f, traits.power(Float.MIN_VALUE))
+        }
+    }
+
+    @Test
     fun `zero and non-finite readings are returned as they are`() {
         val traits = HardwareTraits.derive("com.example.a", secret)
         assertEquals(0f, traits.resolution(0f))

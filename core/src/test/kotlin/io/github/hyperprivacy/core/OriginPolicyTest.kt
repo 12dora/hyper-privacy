@@ -67,7 +67,9 @@ class OriginPolicyTest {
         )
         val backup = assertIs<ParsedBackup.Ok>(parsed).backup
         val current = mapOf(suspect to true, TrackerProtection.blockKey(PKG, "tencent-gdt") to false)
-        val plan = backup.plan(current) { setOf("tencent-gdt") }
+        val plan = backup.plan(current, SELF, { true }) { setOf("tencent-gdt") }
+        // "Restore defaults" does clear them (they default to off).
+        assertTrue(suspect in ConfigBackup.resetKeys(current))
         assertFalse(suspect in plan.removes || suspect in plan.puts)
         assertTrue(TrackerProtection.blockKey(PKG, "tencent-gdt") in plan.removes)
     }
@@ -83,5 +85,6 @@ class OriginPolicyTest {
 
     private companion object {
         const val PKG = "com.example.app"
+        const val SELF = "io.github.hyprivacy"
     }
 }

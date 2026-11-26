@@ -21,7 +21,9 @@ internal class SensorTraitHooks(private val env: GuardEnv, private val state: Fi
 
     private inline fun <reified T : Any> hook(name: String, noinline map: (HardwareTraits, T) -> T): Int {
         val method = env.declared(Sensor::class.java, name) ?: return 0
-        val hooker = ResultHook(state) { real -> (real as? T)?.let { state.replace(GROUP, it, map) } }
+        val hooker = ResultHook(state, HardwareFingerprintGuard.SENSOR_SINK) { real ->
+            (real as? T)?.let { state.replace(GROUP, it, map) }
+        }
         return env.hookAll(listOf(method), hooker)
     }
 

@@ -5,8 +5,13 @@ import io.github.hyperprivacy.core.tracker.Trackers
 
 /** The JSON form of a [ConfigBackup]: writing it, and reading a file the user picked. */
 internal object BackupJson {
-    /** Most entries read from any one section; a real configuration is far smaller. */
+    /**
+     * Most entries read from the whole file (rule switches, per-app choices, allowlist entries),
+     * and most apps; a real configuration is far smaller. Everything an import writes ends up in
+     * the preferences every hooked process and system_server load, so a file cannot grow them.
+     */
     private const val MAX_ENTRIES = 4_000
+    private const val MAX_APPS = 500
     private const val MAX_ALLOWLIST = 512
     private const val MAX_VERSION = 32
     private val APPEARANCE_NAME = Regex("[A-Z][A-Z0-9_]{0,31}")
@@ -50,14 +55,21 @@ internal object BackupJson {
     /** Reads one document, counting what it skips. */
     private class Reader {
         private var ignored = 0
+        private var budget = MAX_ENTRIES
+
+        /** Takes one entry from the file-wide [budget]; `false` once it is spent. */
+        private fun take(): Boolean = (budget > 0).also { if (it) budget-- }
+
+        /** Whether one more app fits, besides [apps] read so far; takes from the budget when it does. */
+        private fun hasRoom(apps: Int): Boolean = apps < MAX_APPS && take()
 
         fun read(root: Map<*, *>): ConfigBackup {
             val rules = booleans(root["rules"], ConfigBackup::isRuleId)
             val apps = LinkedHashMap<String, AppBackup>()
-            (root["apps"] as? Map<*, *>)?.entries?.forEachIndexed { index, (key, value) ->
-                val pkg = (key as? String)?.takeIf(BackupExtractor.PACKAGE_NAME::matches)
+            (root["apps"] as? Map<*, *>)?.entries?.forEach { (key, value) ->
+                val pkg = (key as? String)?.takeIf(BackupExtractor::isPackageName)
                 val app = value as? Map<*, *>
-                if (index < MAX_ENTRIES && pkg != null && app != null) apps[pkg] = readApp(app) else ignored++
+                if (pkg != null && app != null && hasRoom(apps.size)) apps[pkg] = readApp(app) else ignored++
             }
             return ConfigBackup(
                 rules = rules,
@@ -78,7 +90,8 @@ internal object BackupJson {
 
         private fun readAppList(section: Map<*, *>?): AppListBackup {
             val allow = (section?.get("allow") as? List<*>)?.let { list ->
-                list.take(MAX_ALLOWLIST).mapNotNull { (it as? String)?.takeIf(BackupExtractor.PACKAGE_NAME::matches) }
+                list.take(MAX_ALLOWLIST)
+                    .mapNotNull { (it as? String)?.takeIf { name -> BackupExtractor.isPackageName(name) && take() } }
                     .also { ignored += list.size - it.size }
             }
             return AppListBackup(hideSelf = section?.get("hideSelf") as? Boolean, allow = allow)
@@ -96,9 +109,9 @@ internal object BackupJson {
         private fun booleans(section: Any?, valid: (String) -> Boolean): Map<String, Boolean> {
             val entries = (section as? Map<*, *>)?.entries ?: return emptyMap()
             val result = LinkedHashMap<String, Boolean>()
-            entries.forEachIndexed { index, (key, value) ->
+            entries.forEach { (key, value) ->
                 val name = (key as? String)?.takeIf(valid)
-                if (index < MAX_ENTRIES && name != null && value is Boolean) result[name] = value else ignored++
+                if (name != null && value is Boolean && take()) result[name] = value else ignored++
             }
             return result
         }

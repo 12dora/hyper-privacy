@@ -122,9 +122,19 @@ internal class TrackerController(
         }
     }
 
-    /** Re-publishes after the remote preferences changed (called from the view model's rebuild). */
-    fun onPreferencesChanged() {
-        scope.launch(worker) { if (started) publishRequests.trySend(Unit) }
+    /**
+     * Re-publishes after the remote preferences changed (called from the view model's rebuild).
+     * With [overwritten] (an import or a reset wrote over the per-app switches), switch writes not
+     * yet visible in the preferences are dropped too, so the stored values show.
+     */
+    fun onPreferencesChanged(overwritten: Boolean = false) {
+        scope.launch(worker) {
+            if (overwritten) {
+                pending.clear()
+                pendingProtect.clear()
+            }
+            if (started) publishRequests.trySend(Unit)
+        }
     }
 
     fun setProtected(packageName: String, on: Boolean) {

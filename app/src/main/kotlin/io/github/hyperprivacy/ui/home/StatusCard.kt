@@ -104,7 +104,7 @@ private fun statusDetail(module: ModuleState, enabledCount: Int, totalHits: Long
 @Composable
 internal fun StatusCard(state: UiState, actions: HomeActions, modifier: Modifier = Modifier) {
     val module = state.module
-    val now = rememberNow(active = state.pausedUntil != 0L)
+    val now = rememberNow(active = state.pauseCountdown)
     val paused = module.canEdit && ProtectionPause.isPaused(state.pausedUntil, now)
     var choosing by remember { mutableStateOf(false) }
     val rows = buildList {
@@ -181,7 +181,7 @@ private fun StatusRow(state: UiState, onPause: () -> Unit) {
                 }
             }
         }
-        if (module.canEdit && state.enabledCount > 0) PauseButton(onPause)
+        if (state.canPause) PauseButton(onPause)
     }
 }
 

@@ -81,7 +81,7 @@ internal class SystemServerGuards(private val xposed: XposedInterface, private v
         }
         // Never slows below the 5 min cap: relayed status must flow again soon after the user unlocks.
         val backoff = RetryBackoff(slowMillis = RetryBackoff.DEFAULT_MAX_MILLIS)
-        val reporter = StatusReporter(log, context = { context }, backoff = backoff)
+        val reporter = StatusReporter(log, context = { context }, backoff = backoff, systemServer = true)
         state.reporter = reporter
         state.switches = RuleSwitches.open(xposed, log, RULES)
         val prefs = log.guard("open app-list preferences") { xposed.getRemotePreferences(ConfigCodec.PREFS_GROUP) }

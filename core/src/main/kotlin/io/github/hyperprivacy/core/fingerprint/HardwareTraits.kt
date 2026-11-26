@@ -12,7 +12,9 @@ import io.github.hyperprivacy.core.id.DerivedIds
  *
  * - sensor resolution and power draw: scaled by a stable per-app factor within +-[MAX_SCALE_DELTA]
  *   (1 %). Neither is an input to motion, compass or proximity logic, and 1 % is below any
- *   threshold an app derives from them. Zero and non-finite values stay as they are.
+ *   threshold an app derives from them. Resolution is only ever scaled down, so the platform
+ *   invariant `0 < resolution <= maximumRange` holds (binary sensors report both as equal). Zero,
+ *   non-finite values and results that would underflow to zero stay as they are.
  * - sensor version: raised by a stable per-app amount of 1..[MAX_VERSION_OFFSET]. It is an opaque
  *   module version no app branches on; zero ("unspecified") stays zero and the value never wraps.
  * - file system id (`statvfs` `f_fsid`): XOR with a stable per-app mask. That is a bijection, so
@@ -45,12 +47,15 @@ public class HardwareTraits private constructor(
     private fun scale(real: Float, factor: Float): Float {
         if (real == 0f || !real.isFinite()) return real
         val scaled = real * factor
-        return if (scaled.isFinite()) scaled else real
+        return if (scaled.isFinite() && scaled != 0f) scaled else real
     }
 
     public companion object {
         /** Largest relative change of a scaled value. */
         public const val MAX_SCALE_DELTA: Float = 0.01f
+
+        /** Smallest relative change of a scaled-down value, so it never rounds back to the real one. */
+        private const val MIN_SCALE_DELTA: Float = 0.0001f
 
         /** Largest amount added to a sensor version. */
         public const val MAX_VERSION_OFFSET: Int = 255
@@ -74,7 +79,7 @@ public class HardwareTraits private constructor(
                 (acc shl BITS_PER_BYTE) or (bytes[FSID_AT + i].toLong() and BYTE_MASK.toLong())
             }
             return HardwareTraits(
-                resolutionScale = scaleAt(bytes, 0),
+                resolutionScale = downScaleAt(bytes, 0),
                 powerScale = scaleAt(bytes, POWER_AT),
                 versionOffset = 1 + unsigned(bytes[VERSION_AT]) % MAX_VERSION_OFFSET,
                 fsidMask = if (mask == 0L) 1L else mask,
@@ -82,6 +87,15 @@ public class HardwareTraits private constructor(
         }
 
         private fun unsigned(byte: Byte): Int = byte.toInt() and BYTE_MASK
+
+        /**
+         * A factor in `[1 - MAX_SCALE_DELTA, 1 - MIN_SCALE_DELTA]`: a scaled resolution is always
+         * below the real one, and so never above the sensor's maximum range.
+         */
+        private fun downScaleAt(bytes: ByteArray, index: Int): Float {
+            val unit = (unsigned(bytes[index]) shl BITS_PER_BYTE) or unsigned(bytes[index + 1])
+            return 1f - MIN_SCALE_DELTA - unit / SHORT_MAX * (MAX_SCALE_DELTA - MIN_SCALE_DELTA)
+        }
 
         /** A factor in `[1 - MAX_SCALE_DELTA, 1 + MAX_SCALE_DELTA]`, never exactly 1. */
         private fun scaleAt(bytes: ByteArray, index: Int): Float {

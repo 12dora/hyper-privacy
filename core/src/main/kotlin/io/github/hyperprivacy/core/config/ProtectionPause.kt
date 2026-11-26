@@ -8,9 +8,10 @@ package io.github.hyperprivacy.core.config
  *   [UNTIL_MANUAL] pauses until the user resumes. Absent, zero or negative: not paused.
  *
  * Wall-clock time is used because the value crosses processes and survives reboots. Hooked
- * processes never compare against the clock per call: they derive the effective switches once
- * when the preference changes, and again from a timer when the deadline passes
- * ([nextCheckDelayMs]).
+ * processes and system_server never run a timer and never compare against the clock per call:
+ * they derive the effective switches once, with one clock read, whenever the preferences change
+ * (so a process that starts after the deadline is not paused). The module app ends a timed pause
+ * by removing [KEY] from one scheduled alarm at [resumeAt]; every process reacts to that change.
  */
 public object ProtectionPause {
     public const val KEY: String = "pause.until"
@@ -19,14 +20,12 @@ public object ProtectionPause {
     public const val UNTIL_MANUAL: Long = Long.MAX_VALUE
 
     private const val MINUTE_MS = 60_000L
+    private const val RETRY_DELAY_MS = 2 * MINUTE_MS
+
+    /** How many times the module app tries again to end a pause when the preferences were unreachable. */
+    public const val MAX_RETRIES: Int = 3
     private const val QUARTER_HOUR_MINUTES = 15
     private const val HOUR_MINUTES = 60
-
-    /** Longest wait of the resume timer; bounds the lateness after the device slept through the deadline. */
-    private const val MAX_CHECK_MS = MINUTE_MS
-
-    /** Smallest wait, so a deadline a few millis away does not spin the timer. */
-    private const val MIN_CHECK_MS = 50L
 
     /** The durations the UI offers; `null` means until the user resumes. */
     public enum class Option(public val durationMs: Long?) {
@@ -51,12 +50,20 @@ public object ProtectionPause {
     }
 
     /**
-     * How long a timer should wait before looking again, or `null` when no timer is needed (not
-     * paused, or paused until resumed). Capped at one minute and re-armed from the wall clock each
-     * time, so a deadline the device slept through is honoured within a minute of waking.
+     * When the module app should clear the stored [until] (its one resume alarm), or `null` when
+     * nothing is to be scheduled: not paused, already over, or paused until resumed.
      */
-    public fun nextCheckDelayMs(until: Long, now: Long): Long? {
-        if (until == UNTIL_MANUAL || !isPaused(until, now)) return null
-        return (until - now).coerceIn(MIN_CHECK_MS, MAX_CHECK_MS)
+    public fun resumeAt(until: Long, now: Long): Long? = until.takeIf { it != UNTIL_MANUAL && isPaused(it, now) }
+
+    /** Whether [until] is a timed pause whose deadline has passed at [now]: the stored value is stale. */
+    public fun isExpired(until: Long, now: Long): Boolean = until > 0 && until != UNTIL_MANUAL && now >= until
+
+    /**
+     * When to try again to end a pause after [attempt] failed tries (`0` for the first wake), or
+     * `null` once [MAX_RETRIES] are used up. The delay is fixed: this is a bounded retry, not a poll.
+     */
+    public fun retryAt(now: Long, attempt: Int): Long? {
+        if (attempt !in 0 until MAX_RETRIES) return null
+        return now + RETRY_DELAY_MS
     }
 }
