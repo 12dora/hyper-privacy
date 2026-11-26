@@ -86,6 +86,13 @@ class RuleHealthTest {
         Case("url: all url sinks missed", u, sinks("url.java" to MISSED, "dns" to ACTIVE), Health.BROKEN),
         Case("url: one url sink active", u, sinks("url.java" to ACTIVE, "url.okhttp" to MISSED), Health.OK),
         Case("url: no url sink reported", u, sinks("dns" to MISSED), Health.OK),
+        Case(
+            "domain: webview sink active",
+            d,
+            sinks("dns" to MISSED, "tls" to MISSED, "url.webview" to ACTIVE),
+            Health.OK,
+        ),
+        Case("url: webview sink active", u, sinks("url.okhttp" to MISSED, "url.webview" to ACTIVE), Health.OK),
         Case("method ignores sinks", m, sinks("dns" to MISSED, "url.java" to MISSED), Health.OK),
         Case(
             "domain: sinks missed, one was active before",
