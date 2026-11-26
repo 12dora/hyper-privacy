@@ -80,7 +80,6 @@ internal class AppsActions(
     val onFilterChange: (Boolean) -> Unit,
     val onToggle: (String, Boolean) -> Unit,
     val onOpen: (String) -> Unit,
-    val onBack: () -> Unit,
 )
 
 /** Callbacks of the app detail page. */

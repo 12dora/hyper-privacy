@@ -26,7 +26,7 @@ internal class PauseController(
     private val worker: CoroutineDispatcher,
     private val prefs: () -> SharedPreferences?,
     private val onChange: () -> Unit,
-) {
+) : PauseModel {
     private val appContext = context.applicationContext
 
     /** A deadline written but not yet visible in the preferences (`0`: a resume). */
@@ -66,9 +66,11 @@ internal class PauseController(
         }
     }
 
-    fun pause(option: ProtectionPause.Option) = write(ProtectionPause.deadline(option, System.currentTimeMillis()))
+    override fun pause(option: ProtectionPause.Option) = write(
+        ProtectionPause.deadline(option, System.currentTimeMillis()),
+    )
 
-    fun resume() = write(0)
+    override fun resume() = write(0)
 
     private fun write(until: Long) {
         scope.launch(worker) {

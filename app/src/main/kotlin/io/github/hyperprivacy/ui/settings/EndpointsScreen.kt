@@ -4,16 +4,22 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,11 +28,12 @@ import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.ObservedEndpointUi
 import io.github.hyperprivacy.ui.UiState
+import io.github.hyperprivacy.ui.components.BackButton
 import io.github.hyperprivacy.ui.components.MonoText
-import io.github.hyperprivacy.ui.components.SectionHeader
 import io.github.hyperprivacy.ui.components.SingleCard
 import io.github.hyperprivacy.ui.components.countString
 import io.github.hyperprivacy.ui.components.groupedItems
+import io.github.hyperprivacy.ui.components.listPadding
 import io.github.hyperprivacy.ui.sampleState
 
 /** Upper bound on listed endpoints; the list is a lead generator, not an audit log. */
@@ -34,22 +41,53 @@ private const val MAX_ENDPOINTS = 100
 
 private fun ObservedEndpointUi.key() = "$appLabel|$host|${path.orEmpty()}"
 
-internal fun LazyListScope.endpointsSection(state: UiState, onClear: () -> Unit) {
-    val endpoints = state.observed.distinctBy { it.key() }.take(MAX_ENDPOINTS)
-    item(key = "endpoints-title") {
-        SectionHeader(
-            text = stringResource(R.string.settings_endpoints),
-            trailing = if (endpoints.isEmpty()) {
-                null
-            } else {
-                { TextButton(onClick = onClear) { Text(stringResource(R.string.settings_endpoints_clear)) } }
-            },
-        )
+private fun UiState.endpoints(): List<ObservedEndpointUi> = observed.distinctBy { it.key() }.take(MAX_ENDPOINTS)
+
+/** The endpoints row's summary in Settings: how many were recorded, or how to start recording. */
+@Composable
+internal fun endpointsSummary(state: UiState): String {
+    val count = state.endpoints().size
+    return when {
+        count > 0 -> pluralStringResource(R.plurals.settings_endpoints_count, count, count)
+        state.diagnosticMode -> stringResource(R.string.settings_endpoints_empty)
+        else -> stringResource(R.string.settings_endpoints_off)
     }
-    if (endpoints.isEmpty()) {
-        item(key = "endpoints-empty") { EmptyEndpoints(state.diagnosticMode) }
-    } else {
-        groupedItems(endpoints, key = { "endpoint/${it.key()}" }) { EndpointRow(it) }
+}
+
+/** Endpoints recorded in diagnostic mode, newest first; kept fresh while diagnostic mode is on. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun EndpointsScreen(
+    state: UiState,
+    onRefresh: () -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ObservedRefresh(polling = state.diagnosticMode, onRefresh = onRefresh)
+    val endpoints = state.endpoints()
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_endpoints)) },
+                navigationIcon = { BackButton(onBack) },
+                actions = {
+                    if (endpoints.isNotEmpty()) {
+                        TextButton(onClick = onClear) { Text(stringResource(R.string.settings_endpoints_clear)) }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            )
+        },
+    ) { inner ->
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
+            if (endpoints.isEmpty()) {
+                item(key = "endpoints-empty") { EmptyEndpoints(state.diagnosticMode) }
+            } else {
+                groupedItems(endpoints, key = { "endpoint/${it.key()}" }) { EndpointRow(it) }
+            }
+        }
     }
 }
 

@@ -19,7 +19,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.config.BackupSummary
-import io.github.hyperprivacy.ui.MainViewModel
+import io.github.hyperprivacy.ui.BackupModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,27 +39,27 @@ internal class BackupActions(val onExport: () -> Unit, val onImport: () -> Unit)
  * ([io.github.hyperprivacy.ui.ConfigTransfer]), so rotation or navigation does not lose them.
  */
 @Composable
-internal fun rememberBackupActions(viewModel: MainViewModel): BackupActions {
+internal fun rememberBackupActions(model: BackupModel): BackupActions {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pending by viewModel.config.pendingImport.collectAsStateWithLifecycle()
-    val importing by viewModel.config.importing.collectAsStateWithLifecycle()
+    val pending by model.pendingImport.collectAsStateWithLifecycle()
+    val importing by model.importing.collectAsStateWithLifecycle()
     val exporter = rememberLauncherForActivityResult(createJson()) { uri ->
         if (uri != null) {
             scope.launch {
-                val saved = writeConfig(context, uri, viewModel.config.export())
+                val saved = writeConfig(context, uri, model.export())
                 toast(context, if (saved) R.string.backup_exported else R.string.backup_export_failed)
             }
         }
     }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) viewModel.config.read(uri)
+        if (uri != null) model.read(uri)
     }
     pending?.let { backup ->
         ImportDialog(
             summary = backup.summary,
-            onConfirm = viewModel.config::confirm,
-            onDismiss = viewModel.config::dismiss,
+            onConfirm = model::confirm,
+            onDismiss = model::dismiss,
         )
     }
     if (importing) ImportingDialog()

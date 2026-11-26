@@ -1,6 +1,5 @@
 package io.github.hyperprivacy.ui.apps
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,9 +45,10 @@ import io.github.hyperprivacy.ui.components.listPadding
 private val HeaderIcon = 48.dp
 
 /**
- * One user-installed app: the protection switch, detected SDKs grouped by category with a switch
- * each (opt-in SDKs carry a one-line impact note), suspected ad components (off unless enabled),
- * the app-level protections (DRM device ID, system DNS) with a switch each, and app-list hiding.
+ * One user-installed app, in this order: the protection switch; detected tracker SDKs grouped by
+ * category with a switch each (opt-in SDKs carry a one-line impact note); suspected ad components
+ * (off unless enabled); privacy hardening (DRM device ID, system DNS, hardware fingerprint); and
+ * app-list hiding. A section has at most one short note.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +83,7 @@ internal fun UserAppScreen(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             item(key = "header") { Header(app) }
             item(key = "protect") { ProtectionCard(app, canEdit, actions) }
-            sdkSections(app, canEdit, actions.onSdk)
+            sdkSection(app, canEdit, actions.onSdk)
             suspectSection(app, canEdit, actions.onSuspect)
             appRuleSection(app, canEdit, actions.onAppRule)
             appListSection(app, canEdit, actions)
@@ -144,68 +144,11 @@ private fun ProtectionCard(app: UserAppUi, canEdit: Boolean, actions: UserAppAct
             }
         }
     }
-    Note(
-        when {
-            app.scan == ScanState.PENDING -> R.string.app_note_checking
-            app.scan == ScanState.FAILED -> R.string.app_note_failed
-            app.sdks.isEmpty() && app.suspects.isNotEmpty() -> R.string.app_note_suspects_only
-            app.sdks.isEmpty() -> R.string.app_note_no_sdk
-            app.detectionOnly -> R.string.app_note_detect_only
-            else -> R.string.app_note_protection
-        },
-    )
-}
-
-@Composable
-private fun Note(@StringRes text: Int) {
-    Text(
-        text = stringResource(text),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
-    )
-}
-
-private fun LazyListScope.sdkSections(app: UserAppUi, canEdit: Boolean, onSdk: (String, Boolean) -> Unit) {
-    // Category order follows the enum; within a category, blockable SDKs first, then by name.
-    app.sdks.groupBy { it.category }.toSortedMap().forEach { (category, sdks) ->
-        item(key = "cat/${category.name}") { SectionHeader(stringResource(category.label())) }
-        val ordered = sdks.sortedWith(compareBy<SdkUi> { !it.blockable }.thenBy { it.name.en.lowercase() })
-        groupedItems(ordered, key = { "sdk/${it.id}" }) { sdk ->
-            SdkRow(sdk, enabled = canEdit && app.protected, onToggle = { onSdk(sdk.id, it) })
-        }
-    }
-}
-
-@Composable
-private fun SdkRow(sdk: SdkUi, enabled: Boolean, onToggle: (Boolean) -> Unit) {
-    val language = LocalConfiguration.current.locales[0].toLanguageTag()
-    val separator = stringResource(R.string.common_separator)
-    val details = buildList {
-        add(sdk.vendor)
-        if (!sdk.blockable) add(stringResource(R.string.sdk_detect_only))
-        if (sdk.hits > 0) add(countString(R.plurals.rule_hits, sdk.hits))
-    }.joinToString(separator)
-    val impact = if (sdk.blockable && !sdk.defaultBlock) stringResource(sdk.impactNote()) else null
-    SwitchRow(
-        title = sdk.name.resolve(language),
-        summary = listOfNotNull(details, impact).joinToString("\n"),
-        checked = sdk.blocked,
-        enabled = enabled && sdk.blockable,
-        onCheckedChange = onToggle,
-    )
-}
-
-@StringRes
-private fun SdkUi.impactNote(): Int = when (category) {
-    TrackerCategory.IDENTIFICATION -> R.string.sdk_impact_verification
-    TrackerCategory.CRASH -> R.string.sdk_impact_updates
-    else -> R.string.sdk_impact_features
 }
 
 private fun LazyListScope.appRuleSection(app: UserAppUi, canEdit: Boolean, onToggle: (String, Boolean) -> Unit) {
     if (app.appRules.isEmpty()) return
-    item(key = "rules-title") { SectionHeader(stringResource(R.string.app_protection_rules)) }
+    item(key = "rules-title") { SectionHeader(stringResource(R.string.app_section_hardening)) }
     groupedItems(app.appRules, key = { "rule/${it.id}" }) { rule ->
         val language = LocalConfiguration.current.locales[0].toLanguageTag()
         val separator = stringResource(R.string.common_separator)
@@ -246,18 +189,6 @@ private fun LazyListScope.appListSection(app: UserAppUi, canEdit: Boolean, actio
             )
         }
     }
-}
-
-@StringRes
-internal fun TrackerCategory.label(): Int = when (this) {
-    TrackerCategory.ADS -> R.string.tracker_cat_ads
-    TrackerCategory.ANALYTICS -> R.string.tracker_cat_analytics
-    TrackerCategory.CRASH -> R.string.tracker_cat_crash
-    TrackerCategory.IDENTIFICATION -> R.string.tracker_cat_identification
-    TrackerCategory.PROFILING -> R.string.tracker_cat_profiling
-    TrackerCategory.LOCATION -> R.string.tracker_cat_location
-    TrackerCategory.PUSH -> R.string.tracker_cat_push
-    TrackerCategory.ATTRIBUTION -> R.string.tracker_cat_attribution
 }
 
 @Preview(showBackground = true, heightDp = 800)

@@ -12,8 +12,8 @@ import kotlin.test.assertTrue
 /**
  * Copy gate for the Apps page strings (app module resources), with the same width measure as
  * [CatalogCopyTest]: titles and one-line summaries must fit a phone row without truncation, and
- * both languages must define the same strings. Paragraph notes (`app_note_*`, `apps_intro`) wrap
- * and are exempt from width limits.
+ * both languages must define the same strings. Section notes (`app_note_*`) are one short line
+ * too; only the page intro (`apps_intro`) wraps and is exempt from width limits.
  */
 class AppsCopyTest {
     private val res: File = requireNotNull(
@@ -66,7 +66,7 @@ class AppsCopyTest {
 
     private fun isAppsKey(key: String) = PREFIXES.any { key.startsWith(it) }
 
-    private fun isNote(key: String) = key.startsWith("app_note_") || key == "apps_intro"
+    private fun isNote(key: String) = key == "apps_intro"
 
     private fun isTitle(key: String) = key in TITLES || key.startsWith("tracker_cat_")
 
@@ -91,16 +91,18 @@ class AppsCopyTest {
 
     private companion object {
         val PREFIXES = listOf(
-            "apps_", "app_protection", "app_scope_", "app_section_privacy", "app_hide", "app_strict",
-            "app_note_", "sdk_", "tracker_cat_", "action_apps",
+            "apps_", "app_protection", "app_scope_", "app_section_", "app_hide", "app_strict",
+            "app_note_", "sdk_", "tracker_cat_",
         )
         val TITLES = setOf(
             "apps_title",
-            "action_apps",
             "apps_filter_trackers",
             "app_protection",
             "app_scope_retry",
             "app_section_privacy",
+            "app_section_sdk",
+            "app_section_hardening",
+            "app_section_rules",
             "app_hide_apps",
             "app_strict",
             "sdk_suspect_title",

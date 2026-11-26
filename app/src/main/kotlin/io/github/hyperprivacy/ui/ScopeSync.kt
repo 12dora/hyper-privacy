@@ -61,11 +61,11 @@ internal class ScopeSync(
     private val installed: () -> Set<String>?,
     private val refreshApps: () -> Unit,
     private val onChange: () -> Unit,
-) {
+) : ScopeModel {
     private val results = Channel<ScopeResult>(Channel.BUFFERED)
 
     /** One-shot request outcomes. */
-    val messages: Flow<ScopeResult> = results.receiveAsFlow()
+    override val messages: Flow<ScopeResult> = results.receiveAsFlow()
 
     private var missing: List<String> = emptyList()
     private var pending: Request? = null
@@ -97,7 +97,7 @@ internal class ScopeSync(
     }
 
     /** Asks LSPosed to add the missing entries; it shows its own approval prompt. Only ever on a user tap. */
-    fun request() {
+    override fun request() {
         scope.launch(worker) { requestNow() }
     }
 

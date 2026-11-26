@@ -142,6 +142,8 @@ internal data class UiState(
      * module hiding, or a protected third-party app. Pausing is offered whenever this or a rule is on.
      */
     val otherProtectionOn: Boolean = false,
+    /** User-installed apps with protection turned on, as stored. */
+    val protectedApps: Int = 0,
     val conflict: ConflictUi? = null,
 ) {
     /**

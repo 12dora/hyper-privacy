@@ -8,6 +8,20 @@
     <string name="action_search">搜索</string>
     <string name="action_more">更多操作</string>
 
+    <!-- 导航 -->
+    <string name="tab_overview">概览</string>
+    <string name="tab_system">系统</string>
+    <string name="tab_apps">应用</string>
+    <string name="system_title">系统应用</string>
+    <string name="system_locked">模块未生效，暂不能修改规则</string>
+    <string name="overview_coverage">防护范围</string>
+    <string name="overview_rules_summary">已开启规则 %1$d/%2$d</string>
+    <plurals name="overview_apps_protected">
+        <item quantity="other">%1$d 个应用已开启防护</item>
+    </plurals>
+    <string name="overview_apps_none">尚未为应用开启防护</string>
+    <string name="overview_blocked">拦截记录</string>
+
     <!-- 模块状态 -->
     <string name="module_checking">正在检查状态</string>
     <string name="module_active">保护已生效</string>
@@ -18,9 +32,6 @@
     <string name="module_reboot">需要重启</string>
     <string name="module_reboot_hint">重启设备后规则生效</string>
     <string name="module_no_rules">未开启任何规则</string>
-    <plurals name="summary_enabled">
-        <item quantity="other">已开启 %1$s 项</item>
-    </plurals>
     <plurals name="summary_blocked">
         <item quantity="other">累计拦截 %1$s 次</item>
     </plurals>
@@ -120,7 +131,7 @@
     <string name="health_export_summary">不含个人信息，便于反馈规则问题</string>
     <string name="health_export_failed">暂时无法生成报告</string>
     <string name="health_export_apps_title">包含你的应用？</string>
-    <string name="health_export_apps_body">报告可以列出受保护的应用及其连接过的服务器。如不需要分享这些信息，请选择不包含。</string>
+    <string name="health_export_apps_body">报告可以列出已开启防护的应用及其连接过的服务器。如不需要分享这些信息，请选择不包含。</string>
     <string name="health_export_apps_omit">不包含</string>
     <string name="health_export_apps_include">包含</string>
     <string name="health_report_subject">HyperPrivacy 诊断报告</string>
@@ -130,9 +141,9 @@
     <string name="app_section_rules">规则</string>
 
     <!-- 搜索 -->
-    <string name="search_hint">搜索应用或规则</string>
+    <string name="search_hint">搜索系统应用或规则</string>
     <string name="search_clear">清除</string>
-    <string name="search_apps">应用</string>
+    <string name="search_apps">系统应用</string>
     <string name="search_rules">规则</string>
     <string name="search_empty">没有找到相关结果</string>
 
@@ -177,23 +188,25 @@
     <string name="palette_graphite">石墨</string>
     <string name="appearance_pure_black">纯黑背景</string>
     <string name="appearance_pure_black_summary">深色模式下使用纯黑，适合 OLED 屏幕</string>
-    <string name="settings_stealth">隐身</string>
+    <string name="settings_privacy">隐私</string>
     <string name="settings_self_hide">对其他应用隐藏本模块</string>
-    <string name="settings_self_hide_summary">第三方应用检测不到本模块；安装器需要更新本模块时可关闭</string>
+    <string name="settings_self_hide_summary">第三方应用无法检测本模块，更新前请关闭</string>
     <string name="settings_diagnostics">诊断</string>
     <string name="settings_health_summary">查看失效或待复核的规则</string>
     <string name="settings_diag_mode">诊断模式</string>
     <string name="settings_diag_mode_summary">记录应用的网络请求，用于发现新的上报通道</string>
     <string name="settings_endpoints">已发现的端点</string>
     <string name="settings_endpoints_clear">清除</string>
-    <string name="settings_endpoints_off">开启诊断模式后，此处显示捕获的请求</string>
+    <string name="settings_endpoints_off">开启诊断模式后开始记录</string>
+    <plurals name="settings_endpoints_count">
+        <item quantity="other">已记录 %1$d 个</item>
+    </plurals>
     <string name="settings_endpoints_empty">暂无记录</string>
     <string name="endpoint_blocked">已拦截</string>
     <string name="endpoint_allowed">未拦截</string>
     <plurals name="endpoint_count">
         <item quantity="other">%1$s 次</item>
     </plurals>
-    <string name="settings_data">数据</string>
     <string name="settings_reset">恢复默认</string>
     <string name="settings_reset_summary">恢复规则、应用选项与应用列表设置</string>
     <string name="settings_reset_title">恢复默认设置？</string>
@@ -203,9 +216,9 @@
     <string name="about_framework">框架</string>
     <string name="about_repository">开源仓库</string>
     <plurals name="scope_missing_apps">
-        <item quantity="other">%1$d 个应用未启用防护</item>
+        <item quantity="other">%1$d 个系统应用未启用</item>
     </plurals>
-    <string name="scope_missing_system">系统框架未启用防护</string>
+    <string name="scope_missing_system">系统框架未启用</string>
     <string name="scope_missing_hint">尚未加入 LSPosed 作用域</string>
     <string name="scope_missing_system_hint">含系统框架，启用后需重启</string>
     <string name="scope_requesting">请在 LSPosed 通知中确认</string>
@@ -221,8 +234,7 @@
     </plurals>
 
     <!-- 应用（第三方应用追踪防护） -->
-    <string name="apps_title">应用</string>
-    <string name="action_apps">应用防护</string>
+    <string name="apps_title">已安装应用</string>
     <string name="apps_intro">识别已安装应用中的追踪 SDK，开启防护后拦截其上报。</string>
     <string name="apps_filter_trackers">含追踪 SDK</string>
     <string name="apps_scanning">正在检查 %1$d/%2$d</string>
@@ -236,23 +248,22 @@
     <string name="apps_awaiting_scope">待 LSPosed 确认</string>
     <string name="apps_empty">没有可显示的应用</string>
     <string name="apps_empty_filtered">未发现含追踪 SDK 的应用</string>
-    <string name="apps_protect_description">%1$s 的追踪防护</string>
-    <string name="app_protection">追踪防护</string>
+    <string name="apps_protect_description">%1$s 的防护</string>
+    <string name="app_protection">开启防护</string>
     <string name="app_protection_summary">应用重新启动后生效</string>
     <string name="app_scope_pending">需在 LSPosed 通知中确认</string>
     <string name="app_scope_retry">重新请求</string>
     <string name="app_section_privacy">应用列表</string>
-    <string name="app_protection_rules">应用防护</string>
+    <string name="app_section_sdk">追踪 SDK</string>
+    <string name="app_section_hardening">隐私增强</string>
     <string name="app_hide_apps">隐藏已安装应用</string>
     <string name="app_hide_apps_summary">该应用将看不到你安装的其他应用</string>
     <string name="app_strict">严格模式</string>
     <string name="app_strict_summary">常用的分享、登录和支付应用也一并隐藏</string>
     <string name="app_note_checking">正在检查此应用…</string>
-    <string name="app_note_failed">无法读取此应用的安装包。</string>
-    <string name="app_note_no_sdk">未在此应用中发现追踪 SDK。部分加固应用无法识别；下方的应用防护仍会生效。</string>
-    <string name="app_note_suspects_only">未发现已知追踪 SDK。下方列出疑似广告组件，默认不拦截，可手动开启；应用防护仍会生效。</string>
-    <string name="app_note_detect_only">此应用中的 SDK 只能识别、无法拦截；下方的应用防护仍会生效。</string>
-    <string name="app_note_protection">开启后拦截下列 SDK 的上报，下方的应用防护同时生效。</string>
+    <string name="app_note_failed">无法读取此应用的安装包</string>
+    <string name="app_note_no_sdk">未发现已知追踪 SDK</string>
+    <string name="app_note_detect_only">以下 SDK 仅能识别，无法拦截</string>
     <string name="sdk_detect_only">仅识别，不拦截</string>
     <string name="sdk_impact_verification">拦截后登录或支付可能需要额外验证</string>
     <string name="sdk_impact_updates">拦截后应用内更新可能失效</string>
@@ -297,7 +308,7 @@
     <string name="action_undo">撤销</string>
 
     <!-- 设置：备份 -->
-    <string name="settings_backup">备份</string>
+    <string name="settings_backup">备份与恢复</string>
     <string name="backup_export">导出配置</string>
     <string name="backup_export_summary">规则、应用选项与外观，不含密钥</string>
     <string name="backup_import">导入配置</string>

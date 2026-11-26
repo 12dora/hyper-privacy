@@ -1,7 +1,5 @@
 package io.github.hyperprivacy.ui
 
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -17,31 +15,31 @@ import androidx.compose.ui.platform.LocalResources
 import kotlinx.coroutines.launch
 
 /**
- * Apps page state that must outlive the page while an app's page is shown (the two are swapped by
- * the navigation's `AnimatedContent`): the filter, the list position, and the one snackbar host
- * that scope request outcomes are collected into.
+ * Apps tab state that must outlive the tab while another tab or an app's page is shown (pages are
+ * swapped by the navigation's `AnimatedContent`): the filter, the list and title bar positions, and
+ * the one snackbar host that scope request outcomes are collected into.
  */
 @Stable
-internal class AppsMemory(onlyTrackers: MutableState<Boolean>, val listState: LazyListState) {
+internal class AppsMemory(onlyTrackers: MutableState<Boolean>, val scroll: TabScroll) {
     var onlyTrackers by onlyTrackers
     val snackbar = SnackbarHostState()
 }
 
 @Composable
-internal fun rememberAppsMemory(viewModel: MainViewModel): AppsMemory {
+internal fun rememberAppsMemory(model: AppsModel): AppsMemory {
     val onlyTrackers = rememberSaveable { mutableStateOf(false) }
-    val listState = rememberLazyListState()
-    val memory = remember(onlyTrackers, listState) { AppsMemory(onlyTrackers, listState) }
-    TrackerMessages(viewModel, memory.snackbar)
+    val scroll = rememberTabScroll()
+    val memory = remember(onlyTrackers, scroll) { AppsMemory(onlyTrackers, scroll) }
+    TrackerMessages(model, memory.snackbar)
     return memory
 }
 
 /** Scope request outcomes of tracker protection: one collector, on the host both Apps pages show. */
 @Composable
-private fun TrackerMessages(viewModel: MainViewModel, snackbar: SnackbarHostState) {
+private fun TrackerMessages(model: AppsModel, snackbar: SnackbarHostState) {
     val resources = LocalResources.current
-    LaunchedEffect(viewModel, snackbar, resources) {
-        viewModel.trackers.messages.collect { result ->
+    LaunchedEffect(model, snackbar, resources) {
+        model.messages.collect { result ->
             snackbar.currentSnackbarData?.dismiss()
             launch { snackbar.showSnackbar(resources.getString(result.messageRes()), duration = SnackbarDuration.Long) }
         }

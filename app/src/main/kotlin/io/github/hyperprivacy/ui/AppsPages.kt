@@ -11,30 +11,23 @@ import io.github.hyperprivacy.ui.apps.AppsScreen
 import io.github.hyperprivacy.ui.apps.UserAppActions
 import io.github.hyperprivacy.ui.apps.UserAppScreen
 
-/* The Apps pages (user-installed apps and tracker protection), wired to [MainViewModel.trackers]. */
+/* The Apps tab and an app's page (user-installed apps and their protection), wired to [UiModel.trackers]. */
 
 @Composable
-internal fun AppsPage(
-    state: UiState,
-    viewModel: MainViewModel,
-    nav: Navigator,
-    memory: AppsMemory,
-    modifier: Modifier,
-) {
-    val apps by viewModel.trackers.state.collectAsStateWithLifecycle()
-    LaunchedEffect(viewModel) { viewModel.trackers.refresh(start = true) }
+internal fun AppsPage(state: UiState, trackers: AppsModel, nav: Navigator, memory: AppsMemory) {
+    val apps by trackers.state.collectAsStateWithLifecycle()
+    LaunchedEffect(trackers) { trackers.start() }
     AppsScreen(
         state = apps,
         canEdit = state.module.canEdit,
         onlyTrackers = memory.onlyTrackers,
         actions = AppsActions(
             onFilterChange = { memory.onlyTrackers = it },
-            onToggle = viewModel.trackers::setProtected,
+            onToggle = trackers::setProtected,
             onOpen = { nav.push(Route.UserApp(it)) },
-            onBack = nav::pop,
         ),
-        modifier = modifier,
-        listState = memory.listState,
+        listState = memory.scroll.list,
+        barState = memory.scroll.bar,
         snackbarHostState = memory.snackbar,
     )
 }
@@ -43,16 +36,15 @@ internal fun AppsPage(
 internal fun UserAppPage(
     packageName: String,
     state: UiState,
-    viewModel: MainViewModel,
+    trackers: AppsModel,
     nav: Navigator,
     memory: AppsMemory,
     modifier: Modifier,
 ) {
-    val apps by viewModel.trackers.state.collectAsStateWithLifecycle()
-    LaunchedEffect(viewModel) { viewModel.trackers.refresh(start = true) }
+    val apps by trackers.state.collectAsStateWithLifecycle()
+    LaunchedEffect(trackers) { trackers.start() }
     // Until the first list arrives there is nothing to show, and "not found" would flash.
     if (!apps.loaded) return
-    val trackers = viewModel.trackers
     UserAppScreen(
         app = apps.app(packageName),
         canEdit = state.module.canEdit,

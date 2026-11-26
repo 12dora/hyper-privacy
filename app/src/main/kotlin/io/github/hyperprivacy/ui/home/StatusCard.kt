@@ -38,7 +38,6 @@ import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.components.GroupedSurface
 import io.github.hyperprivacy.ui.components.IconBadge
 import io.github.hyperprivacy.ui.components.NavRow
-import io.github.hyperprivacy.ui.components.countString
 import io.github.hyperprivacy.ui.sampleState
 
 private class BadgeStyle(val icon: ImageVector, val container: Color, val content: Color)
@@ -70,39 +69,38 @@ private fun RebootReason.hintRes(): Int = when (this) {
     RebootReason.SCOPE_ADDED, RebootReason.NONE -> R.string.module_reboot_hint
 }
 
-/** The numbers when working, otherwise the one thing the user should do. */
+/**
+ * The one thing the user should do, or `null` when all is well: the numbers live in the coverage
+ * group below the card.
+ */
 @Composable
-private fun statusDetail(module: ModuleState, enabledCount: Int, totalHits: Long, reboot: RebootReason): String? =
-    when (module) {
-        ModuleState.ACTIVE -> if (enabledCount == 0) {
-            stringResource(R.string.module_no_rules)
-        } else if (totalHits == 0L) {
-            // "0 blocked" reads like a failure; right after install or reboot it is simply too early.
-            countString(R.plurals.summary_enabled, enabledCount.toLong())
-        } else {
-            countString(R.plurals.summary_enabled, enabledCount.toLong()) +
-                stringResource(R.string.common_separator) +
-                countString(R.plurals.summary_blocked, totalHits)
-        }
+private fun statusDetail(module: ModuleState, enabledCount: Int, reboot: RebootReason): String? = when (module) {
+    ModuleState.ACTIVE -> if (enabledCount == 0) stringResource(R.string.module_no_rules) else null
+    ModuleState.NEEDS_REBOOT -> stringResource(reboot.hintRes())
+    ModuleState.INACTIVE -> stringResource(R.string.module_inactive_hint)
+    ModuleState.UNAVAILABLE -> stringResource(R.string.module_unavailable_hint)
+    ModuleState.CHECKING -> null
+}
 
-        ModuleState.NEEDS_REBOOT -> stringResource(reboot.hintRes())
-
-        ModuleState.INACTIVE -> stringResource(R.string.module_inactive_hint)
-
-        ModuleState.UNAVAILABLE -> stringResource(R.string.module_unavailable_hint)
-
-        ModuleState.CHECKING -> null
-    }
+/** Callbacks of the status card. */
+internal class StatusActions(
+    val onOpenHealth: () -> Unit = {},
+    val onEnableScope: () -> Unit = {},
+    val onPause: (ProtectionPause.Option) -> Unit = {},
+    val onResume: () -> Unit = {},
+    val onDisableAppListHiding: () -> Unit = {},
+    val onDismissConflict: () -> Unit = {},
+)
 
 /**
- * Home's first card: module state (or, while protection is paused, the paused banner with the way
+ * The Overview's first card: module state (or, while protection is paused, the paused banner with the way
  * back), and directly beneath it (same card) a row for installed apps missing from the LSPosed
  * scope, the hint about an overlapping module and the attention entry when any rule needs a look.
  * Only the state title is a live region, so TalkBack announces state changes but not every change
  * of the blocked count.
  */
 @Composable
-internal fun StatusCard(state: UiState, actions: HomeActions, modifier: Modifier = Modifier) {
+internal fun StatusCard(state: UiState, actions: StatusActions, modifier: Modifier = Modifier) {
     val module = state.module
     val now = rememberNow(active = state.pauseCountdown)
     val paused = module.canEdit && ProtectionPause.isPaused(state.pausedUntil, now)
@@ -151,7 +149,7 @@ private enum class CardRow { STATUS, SCOPE, CONFLICT, ATTENTION }
 private fun StatusRow(state: UiState, onPause: () -> Unit) {
     val module = state.module
     val style = badgeStyle(module)
-    val detail = statusDetail(module, state.enabledCount, state.totalHits, state.rebootReason)
+    val detail = statusDetail(module, state.enabledCount, state.rebootReason)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,7 +217,7 @@ private fun AttentionRow(attention: Attention, onClick: () -> Unit) {
     )
 }
 
-private val previewActions = HomeActions({}, {}, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {})
+private val previewActions = StatusActions()
 
 @Preview(showBackground = true)
 @Composable
