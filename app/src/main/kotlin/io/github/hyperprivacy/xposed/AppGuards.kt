@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.xposed.drm.MediaDrmGuard
+import io.github.hyperprivacy.xposed.fp.HardwareFingerprintGuard
 import io.github.hyperprivacy.xposed.id.IdentifierGuard
 import io.github.libxposed.api.XposedInterface
 
@@ -46,11 +47,13 @@ internal class AppGuards(
     private fun installIdentifierRules(env: GuardEnv) {
         val guard by lazy { IdentifierGuard(env) }
         val mediaDrm by lazy { MediaDrmGuard(env) }
+        val hardware by lazy { HardwareFingerprintGuard(env) }
         rules.forEach { rule ->
             val payload = rule.payload as? RulePayload.Identifiers ?: return@forEach
             val count = log.guard(rule.id) {
                 when (payload.source) {
                     IdentifierSource.MEDIA_DRM_ID -> mediaDrm.install(rule)
+                    IdentifierSource.HARDWARE_TRAITS -> hardware.install(rule)
                     else -> guard.install(rule, payload)
                 }
             } ?: 0
