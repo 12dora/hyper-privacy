@@ -1,54 +1,123 @@
 # HyperPrivacy
 
-面向小米 HyperOS 的 LSPosed 模块：**只拦截隐私上报与遥测，不影响任何厂商服务**（应用商店、安全扫描、推送、云同步、查找设备、天气、系统更新等）。
+**小米 HyperOS 隐私上报与广告屏蔽模块（LSPosed）。只拦截上报和广告，不影响任何厂商服务。**
+
+[![CI](https://github.com/12dora/hyper-privacy/actions/workflows/ci.yml/badge.svg)](https://github.com/12dora/hyper-privacy/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/12dora/hyper-privacy?include_prereleases)](https://github.com/12dora/hyper-privacy/releases)
+![Android 14+](https://img.shields.io/badge/Android-14%2B-3DDC84)
+![LSPosed API 101+](https://img.shields.io/badge/LSPosed-API%20101%2B-7E57C2)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+关闭了「用户体验计划」，系统应用还在上报吗？是的。HyperPrivacy 在一台 HyperOS 4 真机上逐个排查了 318 个系统应用，把能找到的统计、日志、广告、设备标识、应用列表上报通道整理成 91 条规则，一键拦截。应用商店、推送、云同步、查找设备、天气、系统更新照常工作。
+
+<p align="center">
+  <img src="docs/images/screenshots/home.png" width="23%" alt="首页">
+  <img src="docs/images/screenshots/category.png" width="23%" alt="分类规则">
+  <img src="docs/images/screenshots/detail.png" width="23%" alt="规则详情">
+  <img src="docs/images/screenshots/settings.png" width="23%" alt="设置与主题">
+</p>
+
+## 为什么需要它
+
+在真机上抓包和反编译后发现：
+
+- **系统开关不是隐私边界。** 用户体验计划、个性化广告都已关闭，系统分析服务仍在连接统计服务器、快手广告和夸克，并在后台读取精确位置。
+- **OneTrack 统计 SDK 内置在 102 个系统应用里**，上报地址被编码成字节数组隐藏，普通的域名扫描查不到。它还会上传已安装应用列表，新版本另有一条经 Google Pub/Sub 的原生上报通道。
+- **负一屏会上传完整的应用列表**：每个应用的包名、版本和安装时间，此后每次安装、卸载都会增量上报。
+- **系统输入法内置多套第三方统计**：腾讯 qimei 设备指纹、Bugly、灯塔、百度统计等，打字时就在上报。
+- **同一个服务器上混着服务和上报**：例如安全中心的同一域名既承载隐私授权，也承载月度数据上传。按域名一刀切会误伤服务，必须按接口路径区分。
+
+完整的排查方法、证据和覆盖情况见 [隐私上报面与规则覆盖](docs/privacy-surface.md)。
+
+## 功能
+
+- **91 条规则，覆盖 117 个系统应用**，分为统计分析、日志诊断、广告、设备标识、应用列表、个人数据 6 类。
+- **默认安全**：76 条纯上报和广告规则默认开启；15 条会影响具体功能的规则（如云查杀、问题反馈）默认关闭，并写明影响，需要时可以手动开启。
+- **隐藏设备标识**：第三方应用读取 OAID / VAID / AAID 时得到全零（MSA 规范的「限制广告追踪」值），小米自家服务不受影响。
+- **规则健康检测**：厂商接口变化时，自动提示「已失效」「待复核」「长期无拦截」；在其他机型上不存在的 SDK 显示为「不适用」，不会误报。
+- **诊断模式**：记录系统应用的网络请求，标出疑似新的上报通道；一键导出不含个人信息的诊断报告，方便反馈。
+- **即时生效**：切换开关后立刻作用于正在运行的应用，不需要重启。
+- **应用本身没有联网权限**，不收集、不上传任何数据。
+- 浅色 / 深色 / 跟随系统，动态取色与 5 套内置配色。
+
+## 与其他方案的对比
+
+| | hosts / DNS 拦截 | VPN 防火墙 | 常见 Xposed 隐私模块 | **HyperPrivacy** |
+|---|---|---|---|---|
+| 拦截精度 | 整个域名 | 整个应用 | 视实现而定 | 域名或接口路径，同一服务器上服务照常 |
+| HTTPDNS / 写死 IP 直连 | 拦不住 | 只能整应用断网 | 多数拦不住 | 按 TLS 握手中的域名（SNI）拦截 |
+| 应用自带网络栈（Cronet、内嵌网页） | 拦不住 | 只能整应用断网 | 多数拦不住 | HTTP 客户端层与 WebView 请求层拦截 |
+| 原生代码直接联网 | 部分可拦 | 可拦 | 拦不住 | 纯上报应用由内核防火墙按 uid 断网 |
+| 占用 VPN 通道 | 部分方案占用 | 占用，与代理冲突 | 不占用 | 不占用，可与代理工具共存 |
+| 运行时需要 root | 视方案而定 | 不需要 | 常常需要 | 不需要，只需 LSPosed |
+| 配置是否暴露给其他应用 | — | — | 有的写进全局设置，任何应用可读 | 经 LSPosed 私有通道传递，不外泄 |
+| 每条规则有取证依据 | 否 | 否 | 少见 | 是，抓包、反编译或 dex 证据 |
+| 接口变化能否察觉 | 否 | 否 | 否 | 规则健康检测 |
 
 ## 工作原理
 
-规则表（`core/.../rule/Catalog.kt`）中每条规则对应一个上报通道，并注明证据来源（抓包或 DEX）。规则通过三种机制生效：
+每条规则对应一个上报通道。根据通道特点，选用最精确、且不会误伤服务的拦截层：
 
-| 机制 | 作用位置 | 说明 |
+| 拦截层 | 作用位置 | 用途 |
 |---|---|---|
-| 整应用断网 | system_server | 对纯遥测、独立 uid 的应用，通过系统防火墙链（`FIREWALL_CHAIN_OEM_DENY_3`）按 uid 拒绝联网，覆盖 native 网络栈。拒绝 uid < 10000 或共享 uid 的目标 |
-| 域名拦截 | 目标进程 | 在 Java DNS 出口（`Inet6AddressImpl#lookupAllHostAddr`）与 TLS 握手（Conscrypt `startHandshake`，按 SNI）拦截指定域名及其子域，后者覆盖 HTTPDNS 直连 IP 的情况 |
-| SDK 方法置空 | 目标进程 | 将公开 SDK 入口（如 OneTrack `track*`）替换为返回默认值；返回引用类型的方法默认跳过 |
+| 内核防火墙 | system_server | 对独立 uid 的纯上报应用（系统分析服务、系统广告服务）整体断网，原生代码也无法绕过 |
+| DNS 解析 | 目标应用进程 | 拦截上报域名的解析 |
+| TLS 握手 | 目标应用进程 | 按 SNI 拦截，覆盖 HTTPDNS 和写死 IP 的直连 |
+| HTTP 客户端 | 目标应用进程 | 按域名 + 路径拦截，覆盖 HttpURLConnection、OkHttp、Cronet 与内嵌网页 |
+| SDK 方法 | 目标应用进程 | 停用统计 SDK 的上报接口 |
+| 设备标识 | 安全中心进程 | 向第三方应用返回全零的 OAID / VAID / AAID |
 
-设计约束：
+所有拦截都是「失败即放行」：即使模块自身出错，目标应用也只会照常运行，不会崩溃。
 
-- **失败放行**：所有拦截回调统一兜底异常，自身逻辑出错时调用原方法，宁可漏拦也不让宿主崩溃。
-- **实时生效**：开关保存在 libxposed `RemotePreferences`，目标进程监听变更，无需重启或热重载。
-- **可验证**：各进程上报每条规则的真实挂载结果与拦截次数，界面显示「已生效 / 未生效 / 未运行」。
-- 作用域 `scope.list` 在构建时由规则表生成（需注入的应用 + `system`），不会与规则脱节。
+## 安装
 
-## 环境要求
+1. 准备：HyperOS（Android 14 及以上），已安装 LSPosed（libxposed API 101 及以上，如 LSPosed 2.x）。
+2. 从 [Releases](https://github.com/12dora/hyper-privacy/releases) 下载最新的 APK 并安装。
+3. 打开 LSPosed，启用 HyperPrivacy，在模块页右上角菜单中选择「勾选推荐」。
+4. 重启手机。打开 HyperPrivacy，看到「保护已生效」即可。
 
-- HyperOS（Android 14+），推荐 Android 17
-- LSPosed，支持 libxposed API 101 及以上
+## 常见问题
 
-## 构建
+**会影响推送、云同步、应用更新吗？**
+不会。账号、推送、云服务、系统与应用更新、天气、定位查询、云输入等服务端点都不在拦截范围内，排查文档里逐项列出了保留的服务。
 
-需要 JDK 21 与 Android SDK（`platforms;android-37.2`、`build-tools;37.0.0`）。在 `local.properties` 中设置 `sdk.dir`，或设置 `ANDROID_HOME`。
+**为什么有些规则默认关闭？**
+这些通道和某个功能共用接口，例如云查杀会上传应用特征。拦截它们会让对应功能失效，所以默认关闭，规则里写明了影响，由你决定。
+
+**提示「已失效」「待复核」「不适用」是什么意思？**
+- 「已失效」：规则在本机生效过，现在找不到拦截点了，通常是厂商改了接口。
+- 「待复核」：应用更新后还没有重新确认规则。
+- 「不适用」：本机的这个应用里本来就没有对应的 SDK，属于正常情况。
+
+**换一台小米手机能用吗？**
+可以。模块只会作用于本机已安装的应用；不存在的 SDK 显示为「不适用」，不会报错。欢迎用诊断模式导出报告，帮助补充其他机型的规则。
+
+**为什么不直接用 hosts 或 DNS 拦截？**
+很多上报和服务共用同一个域名，按域名拦截会误伤服务。还有不少应用用 HTTPDNS 或自带网络栈，根本不经过系统 DNS。
+
+## 开发
 
 ```sh
-./gradlew assembleDebug        # 调试包
-./gradlew assembleRelease      # 发布包（未配置签名时输出未签名 APK）
+./gradlew check            # detekt、Android Lint（警告即错误）、单元测试
+./gradlew assembleDebug
+scripts/privacy-scan.sh    # 防止仓库中出现本机路径、主机名、个人邮箱等信息
 ```
 
-发布签名只在 CI 中进行：推送 `v*` 标签后，Release 工作流从仓库 Secret 解码密钥并签名。仓库中不存放任何密钥。
+- `core/`：规则目录、匹配器、健康检测等纯 Kotlin 逻辑，全部有单元测试。
+- `app/`：Xposed 钩子层与 Jetpack Compose 界面。
+- 规则文案受门禁约束：标题不超过 10 字，描述不超过 14 字，同一分类下标题不重复。
+- 正式版由 CI 构建并签名，签名密钥只存放在 GitHub Secrets 中。
 
-## 质量门禁
+## English
 
-```sh
-./gradlew check                # detekt（含 ktlint 规则）+ Android Lint + 单元测试
-scripts/privacy-scan.sh        # 检查已跟踪文件中是否含本机路径、主机名、内网 IP、邮箱等
-```
+**HyperPrivacy** is an LSPosed module for Xiaomi HyperOS that blocks system telemetry, ad SDKs, device-ID collection and installed-app-list uploads — without breaking any vendor service (app store, push, cloud sync, Find Device, weather, OTA).
 
-- detekt：`config/detekt/detekt.yml`，在默认规则上收紧，任何问题即失败，无基线。本地可用 `./gradlew detekt -PdetektFix` 自动修正格式。
-- Android Lint：警告视为错误，并检查依赖模块；仅在 `config/lint/lint.xml` 中保留有注释说明的抑制项。
-- Kotlin：`allWarningsAsErrors = true`。
+- 91 evidence-backed rules covering 117 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
+- Six enforcement layers: kernel firewall per uid, DNS, TLS SNI (defeats HTTPDNS and hard-coded IPs), HTTP client and WebView (path-level, so services on the same host keep working), SDK method no-op, and zeroed OAID/VAID/AAID for third-party apps.
+- Rule health detection flags rules broken by vendor updates; diagnostics mode discovers new reporting channels.
+- No VPN slot, no root at runtime, no network permission in the app itself. Changes apply instantly without a reboot.
 
-## 许可证
-
-独立实现，未使用任何第三方模块的代码。
+Keywords: HyperOS privacy, MIUI telemetry blocker, Xiaomi ad blocker, OneTrack, MSA ads, LSPosed module, Xposed privacy.
 
 ## 贡献者
 
@@ -61,3 +130,7 @@ scripts/privacy-scan.sh        # 检查已跟踪文件中是否含本机路径�
 </table>
 
 <sub>头像图标来自 LobeHub Icons（MIT），商标归各自所有者。</sub>
+
+## 许可证
+
+[MIT](LICENSE)
