@@ -14,12 +14,8 @@ import io.github.hyperprivacy.core.rule.Catalog
  * - [BLOCK_PREFIX]`<pkg>.<ruleId>` → Boolean: the user's choice for one app-level rule
  *   ([io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]) in one app; see
  *   [TrackerRules.isAppRuleOn]. SDK ids have no dot and rule ids do, so the two never collide.
- * - [ORIGIN_PREFIX]`<pkg>` → String: what the manifest scan found for origin attribution
- *   ([OriginHints.encode]: relocated SDK roots, the app's own roots, suspected ad packages).
- *   Written and removed together with the protect key.
- * - [suspectKey]`(<pkg>, <root>)` → Boolean: the user's choice for one suspected ad package; absent
- *   means off. Lives under the per-app block keys with an id `suspect:<root>` (a colon, so it
- *   collides with neither SDK nor rule ids).
+ * - origin attribution keys ([TrackerOrigin]): the manifest findings of `<pkg>` and the user's
+ *   choices for its suspected ad packages (under the block keys above).
  *
  * [TrackerRules] turns this into the rules enforced inside a protected app.
  */
@@ -27,31 +23,11 @@ public object TrackerProtection {
     public const val PROTECT_PREFIX: String = "trackers."
     public const val BLOCK_PREFIX: String = "tracker.block."
     public const val RULE_PREFIX: String = "tracker."
-    public const val ORIGIN_PREFIX: String = "tracker.origin."
-
-    /** Rule id hits on enabled suspected ad packages are counted under (one per app). */
-    public const val SUSPECT_RULE_ID: String = "tracker.suspect"
-
-    private const val SUSPECT_ID_PREFIX = "suspect:"
-
     private const val SEPARATOR = ","
 
     public fun protectKey(packageName: String): String = PROTECT_PREFIX + packageName
 
     public fun blockKey(packageName: String, sdkId: String): String = "$BLOCK_PREFIX$packageName.$sdkId"
-
-    public fun originKey(packageName: String): String = ORIGIN_PREFIX + packageName
-
-    public fun suspectKey(packageName: String, root: String): String =
-        blockKey(packageName, SUSPECT_ID_PREFIX + root)
-
-    /** The stored [OriginHints] of [packageName] (empty when none). */
-    public fun origin(raw: Map<String, *>, packageName: String): OriginHints =
-        OriginHints.decode(raw[originKey(packageName)] as? String)
-
-    /** Whether the user switched on suspected ad package [root] in [packageName]. */
-    public fun isSuspectBlocked(raw: Map<String, *>, packageName: String, root: String): Boolean =
-        raw[suspectKey(packageName, root)] as? Boolean ?: false
 
     /** Rule id of [sdkId]'s synthetic rules. */
     public fun ruleId(sdkId: String): String = RULE_PREFIX + sdkId
@@ -62,7 +38,8 @@ public object TrackerProtection {
 
     /** Whether a change of preference [key] can affect tracker protection (`null`: everything changed). */
     public fun affects(key: String?): Boolean =
-        key == null || key.startsWith(PROTECT_PREFIX) || key.startsWith(BLOCK_PREFIX) || key.startsWith(ORIGIN_PREFIX)
+        key == null || key.startsWith(PROTECT_PREFIX) || key.startsWith(BLOCK_PREFIX) ||
+            key.startsWith(TrackerOrigin.ORIGIN_PREFIX)
 
     /**
      * Whether a change of preference [key] can affect tracker protection inside [packageName]
@@ -70,7 +47,7 @@ public object TrackerProtection {
      * [io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]. Edits for other apps are ignored.
      */
     public fun affects(key: String?, packageName: String): Boolean = key == null ||
-        key == protectKey(packageName) || key == originKey(packageName) ||
+        key == protectKey(packageName) || key == TrackerOrigin.originKey(packageName) ||
         key.startsWith("$BLOCK_PREFIX$packageName.") ||
         ConfigCodec.ruleIdOf(key)?.let { it in Catalog.protectedAppRuleIds } == true
 

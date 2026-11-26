@@ -28,7 +28,7 @@ public data class OriginHints(
     /**
      * Compact form for preferences: comma-separated `r:<sdkId>:<root>`, `o:<root>` and
      * `s:<root>:<name>/<name>` tokens ([detected] is stored separately). Class names contain none
-     * of `,` `:` `/`.
+     * of `, ` `:` `/`.
      */
     public fun encode(): String = buildList {
         relocated.forEach { (root, sdkId) -> add("$RELOCATED$SEP$sdkId$SEP$root") }
@@ -59,10 +59,13 @@ public data class OriginHints(
                     RELOCATED -> if (fields.size == SUSPECT_FIELDS && isRoot(fields[2]) && fields[1].isNotEmpty()) {
                         relocated[fields[2]] = fields[1]
                     }
+
                     OWN -> if (fields.size == 2 && isRoot(fields[1])) own += fields[1]
+
                     SUSPECT -> if (fields.size == SUSPECT_FIELDS && isRoot(fields[1])) {
                         suspects += Suspect(fields[1], fields[2].split(NAME_SEP).filter { it.isNotEmpty() })
                     }
+
                     else -> Unit
                 }
             }
@@ -111,23 +114,24 @@ public object ManifestAnalyzer {
         val appRoot = info.packageName + "."
         for (component in info.components) {
             val name = component.className
-            matcher.match(name)?.let {
-                detected += it
-                continue
-            }
-            val anchor = anchorList.firstOrNull { name.length > it.tail.length + 1 && name.endsWith(".${it.tail}") }
-            if (anchor != null) {
-                val root = name.substring(0, name.length - anchor.tail.length)
-                if (isSafeRoot(root, appRoot, own) && relocated.size < MAX_RELOCATED) {
-                    relocated.putIfAbsent(root, anchor.sdkId)
-                    detected += anchor.sdkId
-                }
-                continue
-            }
+            val known = matcher.match(name)
+            val anchor = if (known == null) anchorList.firstOrNull { name.endsWith(".${it.tail}") } else null
             val simple = name.substringAfterLast('.')
-            if (looksLikeAd(simple)) {
-                val root = name.substring(0, name.length - simple.length)
-                suspectNames.getOrPut(root) { ArrayList() }.let { if (it.size < MAX_NAMES) it += simple }
+            when {
+                known != null -> detected += known
+
+                anchor != null -> {
+                    val root = name.substring(0, name.length - anchor.tail.length)
+                    if (isSafeRoot(root, appRoot, own) && relocated.size < MAX_RELOCATED) {
+                        relocated.putIfAbsent(root, anchor.sdkId)
+                        detected += anchor.sdkId
+                    }
+                }
+
+                looksLikeAd(simple) -> {
+                    val names = suspectNames.getOrPut(name.substring(0, name.length - simple.length)) { ArrayList() }
+                    if (names.size < MAX_NAMES) names += simple
+                }
             }
         }
         val suspects = suspectNames.filterKeys { root ->

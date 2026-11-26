@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.core.status
 
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -52,10 +53,10 @@ public object StatusRelay {
 
     /**
      * Rule ids a protected app reports for itself: its SDK rules, suspected ad packages
-     * ([TrackerProtection.SUSPECT_RULE_ID]) and [Catalog.protectedAppRules].
+     * ([TrackerOrigin.SUSPECT_RULE_ID]) and [Catalog.protectedAppRules].
      */
     public fun isProtectedAppRuleId(ruleId: String): Boolean = TrackerProtection.sdkIdOf(ruleId) != null ||
-        ruleId == TrackerProtection.SUSPECT_RULE_ID || Catalog.protectedAppRuleIds.contains(ruleId)
+        ruleId == TrackerOrigin.SUSPECT_RULE_ID || Catalog.protectedAppRuleIds.contains(ruleId)
 
     /**
      * What system_server relays from one caller: rows about packages [ownedByCaller] accepts (the

@@ -14,13 +14,23 @@ internal data class SdkUi(
     val name: Text,
     val vendor: String,
     val category: TrackerCategory,
-    /** False for detection-only SDKs (push delivery, unverified endpoints): nothing to switch. */
+    /**
+     * False for detection-only SDKs (push delivery, unverified endpoints): nothing to switch. Ad SDKs
+     * are always switchable (blocked by origin, whatever hosts they use).
+     */
     val blockable: Boolean,
     /** False for SDKs whose blocking can affect sign-in, payment or updates; they need an opt-in. */
     val defaultBlock: Boolean,
     val blocked: Boolean,
     val hits: Long,
 )
+
+/**
+ * One suspected ad package in one app: the package [root] of manifest components that look like
+ * ad pages but belong to no known SDK, with the matching component names. Off unless enabled.
+ */
+@Immutable
+internal data class SuspectUi(val root: String, val components: List<String>, val blocked: Boolean)
 
 /** One app-level protection ([io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]) in one app. */
 @Immutable
@@ -40,6 +50,9 @@ internal data class UserAppUi(
     val requesting: Boolean,
     val hideApps: Boolean,
     val strict: Boolean,
+    val suspects: List<SuspectUi> = emptyList(),
+    /** Requests and pages blocked in enabled [suspects], all packages together. */
+    val suspectHits: Long = 0,
 ) {
     val sdkCount: Int get() = sdks.size
 
@@ -76,6 +89,7 @@ internal class UserAppActions(
     val onRetryScope: () -> Unit,
     val onSdk: (String, Boolean) -> Unit,
     val onAppRule: (String, Boolean) -> Unit,
+    val onSuspect: (String, Boolean) -> Unit,
     val onHideApps: (Boolean) -> Unit,
     val onStrict: (Boolean) -> Unit,
     val onBack: () -> Unit,

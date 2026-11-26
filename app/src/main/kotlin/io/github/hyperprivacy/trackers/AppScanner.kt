@@ -9,6 +9,9 @@ import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.InstalledApp
 import io.github.hyperprivacy.core.system.VendorTrust
 import io.github.hyperprivacy.core.tracker.DexScanner
+import io.github.hyperprivacy.core.tracker.ManifestAnalyzer
+import io.github.hyperprivacy.core.tracker.ManifestScanner
+import io.github.hyperprivacy.core.tracker.OriginHints
 import io.github.hyperprivacy.xposed.id.SignerDigests
 import java.io.File
 import java.text.Collator
@@ -18,9 +21,16 @@ import java.util.Locale
 internal data class UserApp(val packageName: String, val label: String, val key: ScanKey, val apks: List<File>)
 
 /**
+ * One app's offline scan: the SDK ids found in its dex or declared in its manifest, and what the
+ * manifest says for origin attribution ([OriginHints]; its own `detected` is merged into [ids]).
+ */
+internal data class AppScan(val ids: Set<String>, val hints: OriginHints = OriginHints.EMPTY)
+
+/**
  * Lists user-installed apps and scans their APKs for tracker SDKs, in the module app's own process
- * only (never in a hooked app). Scanning reads dex tables from the APK files ([DexScanner]); no
- * code is loaded. Callers run it on a background dispatcher.
+ * only (never in a hooked app). Scanning reads dex tables from the APK files ([DexScanner]) and the
+ * base APK's binary manifest ([ManifestScanner]); no code is loaded. Callers run it on a background
+ * dispatcher.
  */
 internal class AppScanner(private val pm: PackageManager, private val store: TrackerStore) {
     /**
@@ -54,18 +64,31 @@ internal class AppScanner(private val pm: PackageManager, private val store: Tra
     }
 
     /** Cached result for [app]'s current build, if any; cheap, no file access. */
-    fun cached(app: UserApp): Set<String>? = store.cached(app.packageName, app.key)
+    fun cached(app: UserApp): AppScan? = store.cached(app.packageName, app.key)
 
     /**
-     * Scans [app] and caches the result; `null` (nothing cached, retried later) when the base APK
-     * could not be read or the scan failed in any other way.
+     * Scans [app] and caches the result; `null` (nothing cached, retried later) when the base APK's
+     * dex could not be read or the scan failed in any other way. An unreadable manifest only loses
+     * the manifest findings.
      */
     // A hostile or corrupt APK must never crash the module app; any Exception means "scan failed".
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
-    fun scan(app: UserApp): Set<String>? = try {
-        DexScanner.scanApks(app.apks).also { store.putScan(app.packageName, app.key, it) }
+    fun scan(app: UserApp): AppScan? = try {
+        val dex = DexScanner.scanApks(app.apks)
+        val hints = manifestHints(app)
+        AppScan(dex + hints.detected, hints.copy(detected = emptySet())).also {
+            store.putScan(app.packageName, app.key, it)
+        }
     } catch (_: Exception) {
         null
+    }
+
+    // Same policy: a malformed manifest (any Exception) yields no manifest findings, never a crash.
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private fun manifestHints(app: UserApp): OriginHints = try {
+        app.apks.firstOrNull()?.let(ManifestScanner::scan)?.let { ManifestAnalyzer.analyze(it) } ?: OriginHints.EMPTY
+    } catch (_: Exception) {
+        OriginHints.EMPTY
     }
 
     private fun PackageInfo.installedApp(): InstalledApp? {

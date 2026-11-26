@@ -281,6 +281,8 @@
     <string name="sdk_impact_verification">Sign-in or payment may need extra checks</string>
     <string name="sdk_impact_updates">In-app updates may stop working</string>
     <string name="sdk_impact_features">Some features may be affected</string>
+    <string name="sdk_suspect_title">Suspected ad components</string>
+    <string name="sdk_suspect_summary">Not a known SDK; off by default</string>
     <string name="tracker_cat_ads">Ads</string>
     <string name="tracker_cat_analytics">Analytics</string>
     <string name="tracker_cat_crash">Crash and performance</string>
