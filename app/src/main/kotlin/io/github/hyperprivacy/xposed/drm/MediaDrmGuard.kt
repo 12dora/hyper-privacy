@@ -2,6 +2,7 @@ package io.github.hyperprivacy.xposed.drm
 
 import android.media.MediaDrm
 import io.github.hyperprivacy.core.id.DerivedIds
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.xposed.GuardEnv
@@ -23,6 +24,10 @@ import java.util.concurrent.atomic.AtomicReference
  * licences, so playback is unaffected. The real call always runs first and any failure, a missing
  * module secret included, returns the real value (fail-open). The NDK `AMediaDrm_*` path is native
  * and out of reach.
+ *
+ * Reusable for any protected third-party app ([Catalog.protectedAppRules]); it refuses to run in a
+ * vendor-catalog package even if a rule list routes it there, because vendor backends (account,
+ * wallet, TSM, FIDO, Find Device) bind the device by this id across all vendor apps.
  */
 internal class MediaDrmGuard(private val env: GuardEnv) {
     private class Cached(val real: ByteArray, val derived: ByteArray, val secret: ByteArray)
@@ -33,6 +38,10 @@ internal class MediaDrmGuard(private val env: GuardEnv) {
 
     /** Returns the number of methods hooked for [rule]. */
     fun install(rule: Rule): Int {
+        if (env.packageName in Catalog.allPackages) {
+            env.log.warn("${rule.id}: ${env.packageName} is a vendor package; DRM id left untouched")
+            return 0
+        }
         val methods = METHODS.mapNotNull(::find)
         methods.forEach { env.xposed.hook(it).intercept(DerivingHooker(rule.id)) }
         val hooked = methods.size

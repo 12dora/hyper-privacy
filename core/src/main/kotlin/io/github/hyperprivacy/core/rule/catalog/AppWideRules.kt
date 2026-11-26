@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core.rule.catalog
 
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.Rule
@@ -7,15 +8,28 @@ import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
 
 /*
- * Rules that apply to every package the module is injected into anyway ([targets] is the set of
- * packages of all other in-process rules), so they never widen the LSPosed scope. They are
- * `preventive`: a target that never trips them is the normal case.
+ * Rules that are not tied to one SDK or channel, defined once and applied to a computed target set:
+ *
+ * - [httpDnsRule] targets every package the module is injected into anyway (the packages of all
+ *   other in-process catalog rules) except [HTTPDNS_EXCLUDED_APPS], so it never widens the LSPosed
+ *   scope;
+ * - [mediaDrmRule] targets only [Catalog.PROTECTED_APPS]:
+ *   user-installed third-party apps the user chose to protect, never a vendor package.
+ *
+ * Both are `preventive`: a target that never trips them is the normal case.
  */
 
-/** Per-app `MediaDrm` device id; listed with the device-id rules. */
-internal fun mediaDrmRule(targets: Set<String>): Rule = Rule(
+/**
+ * Per-app `MediaDrm` device id, for protected third-party apps only
+ * ([Catalog.protectedAppRules]).
+ *
+ * Never applied to vendor packages: vendor apps are the vendor, so hiding the shared id from them
+ * protects nothing, while account, wallet, TSM, FIDO and Find Device backends use it to bind the
+ * device and expect every vendor app to report the same value.
+ */
+internal fun mediaDrmRule(): Rule = Rule(
     id = "mediadrm.device-id",
-    packages = targets,
+    packages = setOf(Catalog.PROTECTED_APPS),
     title = Text("隔离 DRM 设备号", "Isolate DRM device ID"),
     summary = Text("每个应用拿到不同的设备号", "Each app sees a different DRM ID"),
     payload = RulePayload.Identifiers(IdentifierSource.MEDIA_DRM_ID),
