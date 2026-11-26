@@ -16,6 +16,12 @@ public enum class Category {
 
     /** Device identifier collection. */
     DEVICE_ID,
+
+    /** Installed-app list, app activity and usage-time uploads. */
+    APP_LIST,
+
+    /** Location, Wi-Fi / cell environment and other personal data uploads. */
+    PERSONAL_DATA,
 }
 
 /** The enforcement mechanism behind a rule. */
