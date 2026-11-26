@@ -53,6 +53,14 @@ internal object AppIcons {
             "M12 15.6 V15.7",
         )
     }
+    val ShieldPaused: ImageVector by lazy {
+        outline(
+            "ShieldPaused",
+            "M12 3 L19 6 V11.5 C19 15.8 16 19.4 12 21 C8 19.4 5 15.8 5 11.5 V6 Z",
+            "M10 9.5 V14.5",
+            "M14 9.5 V14.5",
+        )
+    }
     val Analytics: ImageVector by lazy { outline("Analytics", "M6 19 V13", "M12 19 V5", "M18 19 V10") }
     val Diagnostics: ImageVector by lazy { outline("Diagnostics", "M3 12 H7 L9.5 6 L14.5 18 L17 12 H21") }
     val Ads: ImageVector by lazy {

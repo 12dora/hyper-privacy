@@ -11,6 +11,10 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,11 +26,14 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.config.ProtectionPause
+import io.github.hyperprivacy.core.health.RebootReason
 import io.github.hyperprivacy.ui.Attention
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.ModuleState
 import io.github.hyperprivacy.ui.ScopeUi
+import io.github.hyperprivacy.ui.UiState
 import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.components.GroupedSurface
 import io.github.hyperprivacy.ui.components.IconBadge
@@ -57,88 +64,124 @@ private fun ModuleState.titleRes(): Int = when (this) {
     ModuleState.UNAVAILABLE -> R.string.module_unavailable
 }
 
+private fun RebootReason.hintRes(): Int = when (this) {
+    RebootReason.MODULE_UPDATED -> R.string.module_reboot_updated_hint
+    RebootReason.GUARDS_INACTIVE -> R.string.module_reboot_guards_hint
+    RebootReason.SCOPE_ADDED, RebootReason.NONE -> R.string.module_reboot_hint
+}
+
 /** The numbers when working, otherwise the one thing the user should do. */
 @Composable
-private fun statusDetail(module: ModuleState, enabledCount: Int, totalHits: Long): String? = when (module) {
-    ModuleState.ACTIVE -> if (enabledCount == 0) {
-        stringResource(R.string.module_no_rules)
-    } else if (totalHits == 0L) {
-        // "0 blocked" reads like a failure; right after install or reboot it is simply too early.
-        countString(R.plurals.summary_enabled, enabledCount.toLong())
-    } else {
-        countString(R.plurals.summary_enabled, enabledCount.toLong()) +
-            stringResource(R.string.common_separator) +
-            countString(R.plurals.summary_blocked, totalHits)
+private fun statusDetail(module: ModuleState, enabledCount: Int, totalHits: Long, reboot: RebootReason): String? =
+    when (module) {
+        ModuleState.ACTIVE -> if (enabledCount == 0) {
+            stringResource(R.string.module_no_rules)
+        } else if (totalHits == 0L) {
+            // "0 blocked" reads like a failure; right after install or reboot it is simply too early.
+            countString(R.plurals.summary_enabled, enabledCount.toLong())
+        } else {
+            countString(R.plurals.summary_enabled, enabledCount.toLong()) +
+                stringResource(R.string.common_separator) +
+                countString(R.plurals.summary_blocked, totalHits)
+        }
+
+        ModuleState.NEEDS_REBOOT -> stringResource(reboot.hintRes())
+
+        ModuleState.INACTIVE -> stringResource(R.string.module_inactive_hint)
+
+        ModuleState.UNAVAILABLE -> stringResource(R.string.module_unavailable_hint)
+
+        ModuleState.CHECKING -> null
     }
-
-    ModuleState.NEEDS_REBOOT -> stringResource(R.string.module_reboot_hint)
-
-    ModuleState.INACTIVE -> stringResource(R.string.module_inactive_hint)
-
-    ModuleState.UNAVAILABLE -> stringResource(R.string.module_unavailable_hint)
-
-    ModuleState.CHECKING -> null
-}
 
 /**
- * Home's first card: module state, and directly beneath it (same card) a row for installed apps
- * missing from the LSPosed scope and the attention entry when any rule needs a look. Only the
- * state title is a live region, so TalkBack announces state changes but not every change of the
- * blocked count.
+ * Home's first card: module state (or, while protection is paused, the paused banner with the way
+ * back), and directly beneath it (same card) a row for installed apps missing from the LSPosed
+ * scope, the hint about an overlapping module and the attention entry when any rule needs a look.
+ * Only the state title is a live region, so TalkBack announces state changes but not every change
+ * of the blocked count.
  */
 @Composable
-internal fun StatusCard(
-    module: ModuleState,
-    enabledCount: Int,
-    totalHits: Long,
-    attention: Attention,
-    onOpenHealth: () -> Unit,
-    modifier: Modifier = Modifier,
-    scope: ScopeUi = ScopeUi(),
-    onEnableScope: () -> Unit = {},
-) {
-    val showScope = !scope.isEmpty
-    val showAttention = !attention.isEmpty && module.canEdit
-    val rows = 1 + listOf(showScope, showAttention).count { it }
+internal fun StatusCard(state: UiState, actions: HomeActions, modifier: Modifier = Modifier) {
+    val module = state.module
+    val now = rememberNow(active = state.pausedUntil != 0L)
+    val paused = module.canEdit && ProtectionPause.isPaused(state.pausedUntil, now)
+    var choosing by remember { mutableStateOf(false) }
+    val rows = buildList {
+        add(CardRow.STATUS)
+        if (!state.scope.isEmpty) add(CardRow.SCOPE)
+        if (state.conflict != null && module.canEdit) add(CardRow.CONFLICT)
+        if (!state.attention.isEmpty && module.canEdit) add(CardRow.ATTENTION)
+    }
     Column(modifier) {
-        GroupedSurface(index = 0, count = rows) { StatusRow(module, enabledCount, totalHits) }
-        if (showScope) {
-            GroupedSurface(index = 1, count = rows) { ScopeRow(scope, onEnableScope) }
+        rows.forEachIndexed { index, row ->
+            GroupedSurface(index = index, count = rows.size) {
+                when (row) {
+                    CardRow.STATUS -> if (paused) {
+                        PausedRow(state.pausedUntil, now, onResume = actions.onResume)
+                    } else {
+                        StatusRow(state, onPause = { choosing = true })
+                    }
+
+                    CardRow.SCOPE -> ScopeRow(state.scope, actions.onEnableScope)
+
+                    CardRow.CONFLICT -> state.conflict?.let {
+                        ConflictRow(it, actions.onDisableAppListHiding, actions.onDismissConflict)
+                    }
+
+                    CardRow.ATTENTION -> AttentionRow(state.attention, actions.onOpenHealth)
+                }
+            }
         }
-        if (showAttention) {
-            GroupedSurface(index = rows - 1, count = rows) { AttentionRow(attention, onOpenHealth) }
-        }
+    }
+    if (choosing) {
+        PauseDialog(
+            onChoose = {
+                choosing = false
+                actions.onPause(it)
+            },
+            onDismiss = { choosing = false },
+        )
     }
 }
 
+private enum class CardRow { STATUS, SCOPE, CONFLICT, ATTENTION }
+
 @Composable
-private fun StatusRow(module: ModuleState, enabledCount: Int, totalHits: Long) {
+private fun StatusRow(state: UiState, onPause: () -> Unit) {
+    val module = state.module
     val style = badgeStyle(module)
-    val detail = statusDetail(module, enabledCount, totalHits)
+    val detail = statusDetail(module, state.enabledCount, state.totalHits, state.rebootReason)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.TallRowMinHeight)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny)
-            .semantics(mergeDescendants = true) {},
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(style.icon, style.container, style.content)
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = stringResource(module.titleRes()),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            if (detail != null) {
+        Row(
+            modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {},
+            horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconBadge(style.icon, style.container, style.content)
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = detail,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(module.titleRes()),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
+                if (detail != null) {
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
+        if (module.canEdit && state.enabledCount > 0) PauseButton(onPause)
     }
 }
 
@@ -176,33 +219,35 @@ private fun AttentionRow(attention: Attention, onClick: () -> Unit) {
     )
 }
 
+private val previewActions = HomeActions({}, {}, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {})
+
 @Preview(showBackground = true)
 @Composable
 private fun StatusCardPreview() {
-    HyperPrivacyTheme {
-        val state = sampleState()
-        StatusCard(state.module, state.enabledCount, state.totalHits, state.attention, onOpenHealth = {})
-    }
+    HyperPrivacyTheme { StatusCard(sampleState(), previewActions) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun StatusCardScopePreview() {
     HyperPrivacyTheme {
-        val state = sampleState()
-        StatusCard(
-            module = state.module,
-            enabledCount = state.enabledCount,
-            totalHits = state.totalHits,
-            attention = state.attention,
-            onOpenHealth = {},
-            scope = ScopeUi(missingApps = 3, systemMissing = true),
-        )
+        StatusCard(sampleState().copy(scope = ScopeUi(missingApps = 3, systemMissing = true)), previewActions)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun StatusCardPausedPreview() {
+    HyperPrivacyTheme {
+        val until = System.currentTimeMillis() + PREVIEW_PAUSE_MS
+        StatusCard(sampleState().copy(pausedUntil = until), previewActions)
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun StatusCardInactivePreview() {
-    HyperPrivacyTheme { StatusCard(ModuleState.INACTIVE, 0, 0, Attention(), onOpenHealth = {}) }
+    HyperPrivacyTheme { StatusCard(UiState(module = ModuleState.INACTIVE), previewActions) }
 }
+
+private const val PREVIEW_PAUSE_MS = 12 * 60_000L

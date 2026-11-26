@@ -289,4 +289,67 @@
     <string name="tracker_cat_location">Location</string>
     <string name="tracker_cat_push">Push</string>
     <string name="tracker_cat_attribution">Ad attribution</string>
+
+    <!-- Home hints: restart, pause, overlapping module -->
+    <string name="module_reboot_updated_hint">Module updated; restart to apply</string>
+    <string name="module_reboot_guards_hint">System protection isn\'t running; restart</string>
+    <string name="pause_action">Pause</string>
+    <string name="pause_resume">Resume</string>
+    <string name="pause_active">All protection paused</string>
+    <string name="pause_until_resumed">Until you resume</string>
+    <plurals name="pause_remaining">
+        <item quantity="one">%1$d minute left</item>
+        <item quantity="other">%1$d minutes left</item>
+    </plurals>
+    <string name="pause_dialog_title">Pause all protection?</string>
+    <string name="pause_dialog_body">While paused, no rule is enforced, including the firewall and app-list hiding.</string>
+    <string name="pause_15m">15 minutes</string>
+    <string name="pause_1h">1 hour</string>
+    <string name="pause_manual">Until I resume</string>
+    <string name="conflict_title">Overlapping module found</string>
+    <string name="conflict_summary_applist">%1$s also hides the app list</string>
+    <string name="conflict_summary_ads">%1$s also blocks ads</string>
+    <string name="conflict_summary_privacy">%1$s also blocks privacy reporting</string>
+    <plurals name="conflict_more">
+        <item quantity="one">%1$d more module</item>
+        <item quantity="other">%1$d more modules</item>
+    </plurals>
+    <string name="conflict_hint">Running both may double-block or conflict</string>
+    <string name="conflict_disable_applist">Turn off app-list hiding</string>
+    <string name="conflict_dismiss">Dismiss</string>
+    <string name="conflict_applist_off">App-list hiding turned off</string>
+    <string name="action_undo">Undo</string>
+
+    <!-- Settings: backup -->
+    <string name="settings_backup">Backup</string>
+    <string name="backup_export">Export configuration</string>
+    <string name="backup_export_summary">Rules, app options and appearance; no secrets</string>
+    <string name="backup_import">Import configuration</string>
+    <string name="backup_import_summary">Restore settings from an exported file</string>
+    <string name="backup_import_title">Import this configuration?</string>
+    <string name="backup_import_body">This replaces your current rule switches, app options and app-list settings. Protected apps stay as they are; newly protected apps still need LSPosed approval.</string>
+    <string name="backup_import_confirm">Import</string>
+    <plurals name="backup_summary_rules">
+        <item quantity="one">%1$d rule switch</item>
+        <item quantity="other">%1$d rule switches</item>
+    </plurals>
+    <plurals name="backup_summary_apps">
+        <item quantity="one">options for %1$d app</item>
+        <item quantity="other">options for %1$d apps</item>
+    </plurals>
+    <string name="backup_summary_applist">App-list settings</string>
+    <string name="backup_summary_appearance">Appearance</string>
+    <string name="backup_summary_empty">No settings</string>
+    <plurals name="backup_summary_ignored">
+        <item quantity="one">%1$d unrecognised item skipped</item>
+        <item quantity="other">%1$d unrecognised items skipped</item>
+    </plurals>
+    <string name="backup_exported">Configuration exported</string>
+    <string name="backup_export_failed">Couldn\'t export the configuration</string>
+    <string name="backup_imported">Configuration imported</string>
+    <string name="backup_imported_partial">Imported; some apps need protection re-enabled</string>
+    <string name="backup_import_failed">Couldn\'t import the configuration</string>
+    <string name="backup_invalid">Not a HyperPrivacy configuration file</string>
+    <string name="backup_newer">File is from a newer version; update the app</string>
+    <string name="backup_unreadable">Couldn\'t read the file</string>
 </resources>

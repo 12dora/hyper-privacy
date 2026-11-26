@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.ui
 
+import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -42,7 +44,9 @@ import io.github.hyperprivacy.ui.home.HomeActions
 import io.github.hyperprivacy.ui.home.HomeScreen
 import io.github.hyperprivacy.ui.home.HomeView
 import io.github.hyperprivacy.ui.search.SearchScreen
+import io.github.hyperprivacy.ui.settings.BackupActions
 import io.github.hyperprivacy.ui.settings.SettingsScreen
+import io.github.hyperprivacy.ui.settings.rememberBackupActions
 import io.github.hyperprivacy.ui.theme.Appearance
 import io.github.hyperprivacy.ui.theme.AppearanceStore
 import kotlinx.coroutines.launch
@@ -150,6 +154,7 @@ private fun Page(
     val openRule: (String) -> Unit = { nav.push(Route.RuleDetail(it)) }
     val openApp: (String) -> Unit = { nav.push(Route.App(it)) }
     val export = rememberReportExport(viewModel)
+    val backup = rememberBackupActions(viewModel)
     when (route) {
         Route.Home -> HomeScreen(
             state = state,
@@ -170,12 +175,18 @@ private fun Page(
                 onOpenHealth = { nav.push(Route.Health) },
                 onEnableScope = viewModel.device::request,
                 onOpenApps = { nav.push(Route.Apps) },
+                onPause = viewModel.pause::pause,
+                onResume = viewModel.pause::resume,
+                onDisableAppListHiding = {
+                    scope.launch { disableAppListHiding(viewModel, snackbar, context) }
+                },
+                onDismissConflict = viewModel.conflicts::dismiss,
             ),
             listState = home.listState,
             snackbarHostState = snackbar,
         )
 
-        Route.Settings -> SettingsPage(state, viewModel, nav, export, modifier)
+        Route.Settings -> SettingsPage(state, viewModel, nav, export, backup, modifier)
 
         Route.Search -> SearchPage(state, toggleRule, openRule, openApp, nav, modifier)
 
@@ -208,6 +219,7 @@ private fun SettingsPage(
     viewModel: MainViewModel,
     nav: Navigator,
     onExport: () -> Unit,
+    backup: BackupActions,
     modifier: Modifier,
 ) {
     val appearance by AppearanceStore.appearance.collectAsStateWithLifecycle()
@@ -218,6 +230,7 @@ private fun SettingsPage(
         onBack = nav::pop,
         onOpenHealth = { nav.push(Route.Health) },
         onExport = onExport,
+        backup = backup,
         onDiagnosticChange = { viewModel.setSwitch(ModuleSwitch.DIAGNOSTICS, it) },
         onSelfHideChange = { viewModel.setSwitch(ModuleSwitch.SELF_HIDE, it) },
         onResetDefaults = viewModel::resetDefaults,
@@ -248,6 +261,18 @@ private fun SearchPage(
         onBack = nav::pop,
         modifier = modifier,
     )
+}
+
+/** Turns off app-list hiding for the overlap hint, and offers to take it back for a while. */
+private suspend fun disableAppListHiding(viewModel: MainViewModel, snackbar: SnackbarHostState, context: Context) {
+    val restore = viewModel.conflicts.disableAppListHiding() ?: return
+    snackbar.currentSnackbarData?.dismiss()
+    val result = snackbar.showSnackbar(
+        message = context.getString(R.string.conflict_applist_off),
+        actionLabel = context.getString(R.string.action_undo),
+        duration = SnackbarDuration.Long,
+    )
+    if (result == SnackbarResult.ActionPerformed) viewModel.conflicts.restoreAppListHiding(restore)
 }
 
 /** Shows each scope request outcome once, on Home's snackbar host (requests are only made from Home). */
