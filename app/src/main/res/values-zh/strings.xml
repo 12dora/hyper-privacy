@@ -62,7 +62,10 @@
         <item quantity="other">将开启此类下的 %1$d 项规则。</item>
     </plurals>
     <plurals name="category_enable_body_impact">
-        <item quantity="other">将开启此类下的 %1$d 项规则。会影响功能的 %2$d 项保持不变，可单独开启。</item>
+        <item quantity="other">将开启此类下的 %1$d 项规则；其余 %2$d 项会影响功能，保持不变。</item>
+    </plurals>
+    <plurals name="category_enable_side_effects">
+        <item quantity="other">其中 %1$d 项有副作用。</item>
     </plurals>
     <plurals name="category_disable_body">
         <item quantity="other">将关闭此类下的 %1$d 项规则，相关数据会恢复上报。</item>
@@ -192,4 +195,21 @@
     <string name="settings_about">关于</string>
     <string name="about_framework">框架</string>
     <string name="about_repository">开源仓库</string>
+    <plurals name="scope_missing_apps">
+        <item quantity="other">%1$d 个应用未启用防护</item>
+    </plurals>
+    <string name="scope_missing_system">系统框架未启用防护</string>
+    <string name="scope_missing_hint">尚未加入 LSPosed 作用域</string>
+    <string name="scope_missing_system_hint">含系统框架，启用后需重启</string>
+    <string name="scope_requesting">请在 LSPosed 通知中确认</string>
+    <string name="scope_enable">启用</string>
+    <string name="scope_enable_description">将缺少的应用加入 LSPosed 作用域</string>
+    <string name="scope_approved">已启用，应用重新启动后生效</string>
+    <string name="scope_approved_reboot">已启用，重启设备后生效</string>
+    <string name="scope_denied">LSPosed 未批准此请求</string>
+    <string name="scope_no_response">暂未收到回应，请查看 LSPosed 通知或在 LSPosed 中手动启用</string>
+    <string name="scope_unsupported">无法发起请求，请在 LSPosed 中手动勾选</string>
+    <plurals name="detail_not_installed">
+        <item quantity="other">另有 %1$d 个应用未安装</item>
+    </plurals>
 </resources>

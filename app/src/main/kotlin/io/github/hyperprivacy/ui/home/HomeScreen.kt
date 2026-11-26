@@ -18,6 +18,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -57,6 +59,7 @@ internal class HomeActions(
     val onOpenSearch: () -> Unit,
     val onOpenSettings: () -> Unit,
     val onOpenHealth: () -> Unit,
+    val onEnableScope: () -> Unit = {},
 )
 
 /**
@@ -72,12 +75,14 @@ internal fun HomeScreen(
     actions: HomeActions,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var bulk by remember { mutableStateOf<BulkToggle?>(null) }
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = { HomeTopBar(scrollBehavior, actions) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { inner ->
         LazyColumn(
             state = listState,
@@ -91,6 +96,8 @@ internal fun HomeScreen(
                     totalHits = state.totalHits,
                     attention = state.attention,
                     onOpenHealth = actions.onOpenHealth,
+                    scope = state.scope,
+                    onEnableScope = actions.onEnableScope,
                 )
             }
             item(key = VIEW_KEY, contentType = VIEW_KEY) {

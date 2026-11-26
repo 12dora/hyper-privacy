@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(PackageWatcher(applicationContext, viewModel.device::refresh))
         setContent {
             val appearance by AppearanceStore.appearance.collectAsStateWithLifecycle()
             // Loading takes a frame or two; showing nothing beats flashing the wrong palette.
