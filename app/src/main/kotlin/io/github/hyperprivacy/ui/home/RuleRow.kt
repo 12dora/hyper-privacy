@@ -27,9 +27,9 @@ import io.github.hyperprivacy.ui.LocalLanguageTag
 import io.github.hyperprivacy.ui.RowMeta
 import io.github.hyperprivacy.ui.RuleEntry
 import io.github.hyperprivacy.ui.components.appCountString
+import io.github.hyperprivacy.ui.components.compactCountString
 import io.github.hyperprivacy.ui.components.countString
 import io.github.hyperprivacy.ui.sampleEntries
-import java.text.NumberFormat
 
 /**
  * One rule, 56dp minimum: tapping the text opens the details, the switch toggles the rule.
@@ -111,7 +111,7 @@ private fun StatusLabel(status: DisplayStatus, hits: Long, modifier: Modifier = 
         hits > 0 -> {
             val description = countString(R.plurals.rule_hits, hits)
             Text(
-                text = NumberFormat.getIntegerInstance().format(hits),
+                text = compactCountString(R.plurals.rule_hits_short, hits),
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.onSurfaceVariant,
                 modifier = modifier.semantics { contentDescription = description },

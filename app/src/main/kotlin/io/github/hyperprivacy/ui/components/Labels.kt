@@ -1,8 +1,10 @@
 package io.github.hyperprivacy.ui.components
 
+import android.icu.text.CompactDecimalFormat
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.rule.Category
@@ -43,6 +45,18 @@ internal fun RuleKind.descriptionRes(): Int = when (this) {
 internal fun countString(@PluralsRes id: Int, count: Long): String {
     val quantity = count.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
     return pluralStringResource(id, quantity, NumberFormat.getIntegerInstance().format(count))
+}
+
+/**
+ * A plural string whose argument is [count] in the locale's short compact form
+ * ("1.2万", "1.2K"), for tight spots such as the trailing label of a rule row.
+ */
+@Composable
+internal fun compactCountString(@PluralsRes id: Int, count: Long): String {
+    val quantity = count.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+    val locale = LocalLocale.current.platformLocale
+    val formatted = CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT).format(count)
+    return pluralStringResource(id, quantity, formatted)
 }
 
 /** Plural for small counts such as app counts, formatted by the resource itself. */
