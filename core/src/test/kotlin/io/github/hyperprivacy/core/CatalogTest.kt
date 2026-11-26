@@ -53,7 +53,7 @@ class CatalogTest {
 
     @Test
     fun `every rule has user-facing copy`() {
-        assertTrue(Catalog.rules.all { it.title.isNotBlank() && it.summary.isNotBlank() })
+        assertTrue(Catalog.rules.all { it.title.zh.isNotBlank() && it.summary.en.isNotBlank() })
     }
 
     @Test
