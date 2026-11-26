@@ -29,7 +29,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * Single writer: [refresh] reads the preferences and publishes the snapshot under one lock, with a
  * version that only grows, so a slow reader can never publish an older view over a newer one.
- * Listeners run after the lock is released and read whatever is current.
+ * Listeners run after the lock is released and read whatever is current; each one serializes its
+ * own cold-path rebuild (and re-reads the current switches inside it), so the last change always wins.
  */
 internal class RuleSwitches private constructor(
     private val prefs: SharedPreferences?,

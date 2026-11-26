@@ -73,6 +73,7 @@ internal class AdOrigin(
     val active: Boolean get() = table != null
 
     /** Recomputes the table from the raw preferences (the listener thread, never a hooked one). */
+    @Synchronized
     fun rebuild(raw: Map<String, *>) {
         table = log.guard("build origin table") { build(raw) }
     }

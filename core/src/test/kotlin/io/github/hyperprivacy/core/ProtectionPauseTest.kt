@@ -71,4 +71,13 @@ class ProtectionPauseTest {
     fun `the pause key wakes hooks`() {
         assertTrue(ConfigCodec.affectsHooks(ProtectionPause.KEY))
     }
+
+    @Test
+    fun `a failed wake is retried a bounded number of times`() {
+        val first = ProtectionPause.retryAt(now, 0)
+        assertEquals(now + 2 * 60_000, first)
+        assertTrue(ProtectionPause.retryAt(now, ProtectionPause.MAX_RETRIES - 1) != null)
+        assertNull(ProtectionPause.retryAt(now, ProtectionPause.MAX_RETRIES))
+        assertNull(ProtectionPause.retryAt(now, -1))
+    }
 }

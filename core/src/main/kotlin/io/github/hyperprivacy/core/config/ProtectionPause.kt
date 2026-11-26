@@ -20,6 +20,10 @@ public object ProtectionPause {
     public const val UNTIL_MANUAL: Long = Long.MAX_VALUE
 
     private const val MINUTE_MS = 60_000L
+    private const val RETRY_DELAY_MS = 2 * MINUTE_MS
+
+    /** How many times the module app tries again to end a pause when the preferences were unreachable. */
+    public const val MAX_RETRIES: Int = 3
     private const val QUARTER_HOUR_MINUTES = 15
     private const val HOUR_MINUTES = 60
 
@@ -53,4 +57,13 @@ public object ProtectionPause {
 
     /** Whether [until] is a timed pause whose deadline has passed at [now]: the stored value is stale. */
     public fun isExpired(until: Long, now: Long): Boolean = until > 0 && until != UNTIL_MANUAL && now >= until
+
+    /**
+     * When to try again to end a pause after [attempt] failed tries (`0` for the first wake), or
+     * `null` once [MAX_RETRIES] are used up. The delay is fixed: this is a bounded retry, not a poll.
+     */
+    public fun retryAt(now: Long, attempt: Int): Long? {
+        if (attempt !in 0 until MAX_RETRIES) return null
+        return now + RETRY_DELAY_MS
+    }
 }
