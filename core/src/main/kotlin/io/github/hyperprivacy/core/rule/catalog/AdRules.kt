@@ -41,8 +41,8 @@ internal val adRules: List<Rule> = listOf(
     Rule(
         id = "gdt.domains",
         packages = setOf("com.baidu.input_mi", "com.miui.player", "com.sohu.inputmethod.sogou.xiaomi"),
-        title = Text("广点通", "Tencent GDT ads"),
-        summary = Text("阻止腾讯广告请求与回传", "Block Tencent ad requests and reports"),
+        title = Text("应用内广告联盟", "In-app ad network"),
+        summary = Text("阻止广告请求与回传", "Block ad requests and reports"),
         payload = RulePayload.Domains(listOf("gdt.qq.com", "e.qq.com", "gdtimg.com", "pgdt.gtimg.cn", "us.l.qq.com")),
         category = Category.ADS,
         evidence = "traffic cap2/cap4: player -> xs.gdt.qq.com x27, pgdt.gtimg.cn x13, sdkreport.e.qq.com x9, " +
@@ -52,8 +52,8 @@ internal val adRules: List<Rule> = listOf(
     Rule(
         id = "music.ads",
         packages = setOf("com.miui.player"),
-        title = Text("音乐广告", "Music app ads"),
-        summary = Text("阻止腾讯音乐广告投放", "Block Tencent Music ads"),
+        title = Text("音乐应用广告", "Music app ads"),
+        summary = Text("阻止音乐广告投放", "Block music ad delivery"),
         payload = RulePayload.Domains(listOf("ad.tencentmusic.com", "tmead.y.qq.com", "tmeadcomm.y.qq.com")),
         category = Category.ADS,
         evidence = "traffic cap2/cap4: player -> ad.tencentmusic.com x4, tmead.y.qq.com, tmeadcomm.y.qq.com; dex " +
@@ -62,8 +62,8 @@ internal val adRules: List<Rule> = listOf(
     Rule(
         id = "pangle.domains",
         packages = setOf("com.android.browser", "com.mi.globalbrowser", "com.miui.voiceassist"),
-        title = Text("穿山甲", "Pangle ads"),
-        summary = Text("阻止字节广告请求与回传", "Block ByteDance ad requests and reports"),
+        title = Text("浏览器广告联盟", "Browser ad network"),
+        summary = Text("阻止浏览器联盟广告请求", "Block browser ad-network requests"),
         payload = RulePayload.Domains(
             listOf(
                 "pangolin-sdk-toutiao.com",
@@ -83,8 +83,8 @@ internal val adRules: List<Rule> = listOf(
     Rule(
         id = "google.ads",
         packages = setOf("com.mi.globalbrowser"),
-        title = Text("谷歌广告", "Google ads"),
-        summary = Text("阻止 AdMob 与 DoubleClick", "Block AdMob and DoubleClick ads"),
+        title = Text("海外广告联盟", "Overseas ad network"),
+        summary = Text("阻止海外广告请求与回传", "Block overseas ad requests"),
         payload = RulePayload.Domains(
             listOf(
                 "googleads.g.doubleclick.net",
@@ -161,8 +161,8 @@ internal val adRules: List<Rule> = listOf(
     Rule(
         id = "baidu.ads",
         packages = setOf("com.baidu.input_mi"),
-        title = Text("百度联盟广告", "Baidu Union ads"),
-        summary = Text("阻止百度联盟广告投放", "Block Baidu Union ads"),
+        title = Text("输入法广告联盟", "IME ad network"),
+        summary = Text("阻止输入法联盟广告投放", "Block IME ad-network ads"),
         payload = RulePayload.Domains(listOf("union.baidu.com", "cpro.baidustatic.com")),
         category = Category.ADS,
         evidence = "evidence.md L322 baidu.input_mi union.baidu.com, cpro.baidustatic.com, com.baidu.input.ad.info; " +
