@@ -1,0 +1,106 @@
+package io.github.hyperprivacy.core.config
+
+import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.tracker.Trackers
+
+/** The JSON form of a [ConfigBackup]: writing it, and reading a file the user picked. */
+internal object BackupJson {
+    /** Most entries read from any one section; a real configuration is far smaller. */
+    private const val MAX_ENTRIES = 4_000
+    private const val MAX_ALLOWLIST = 512
+    private const val MAX_VERSION = 32
+    private val APPEARANCE_NAME = Regex("[A-Z][A-Z0-9_]{0,31}")
+
+    fun encode(backup: ConfigBackup, moduleVersion: String): String {
+        val doc = LinkedHashMap<String, Any?>()
+        doc["format"] = ConfigBackup.FORMAT
+        doc["schema"] = ConfigBackup.SCHEMA
+        doc["module"] = moduleVersion.filter { it.isLetterOrDigit() || it in "._+-" }.take(MAX_VERSION)
+        doc["rules"] = backup.rules
+        doc["apps"] = backup.apps.mapValues { (_, app) -> appJson(app) }
+        doc["appList"] = LinkedHashMap<String, Any?>().apply {
+            backup.appList.hideSelf?.let { put("hideSelf", it) }
+            backup.appList.allow?.let { put("allow", it) }
+        }
+        doc["appearance"] = LinkedHashMap<String, Any?>().apply {
+            backup.appearance.mode?.let { put("mode", it) }
+            backup.appearance.palette?.let { put("palette", it) }
+            backup.appearance.pureBlack?.let { put("pureBlack", it) }
+        }
+        return MiniJson.write(doc)
+    }
+
+    private fun appJson(app: AppBackup): Map<String, Any?> = LinkedHashMap<String, Any?>().apply {
+        if (app.protect) put("protect", true)
+        if (app.hide) put("hide", true)
+        if (app.strict) put("strict", true)
+        if (app.sdk.isNotEmpty()) put("sdk", app.sdk.toSortedMap())
+        if (app.rules.isNotEmpty()) put("rules", app.rules.toSortedMap())
+    }
+
+    fun parse(text: String): ParsedBackup {
+        val root = MiniJson.parse(text) as? Map<*, *> ?: return ParsedBackup.Rejected(BackupProblem.NOT_A_BACKUP)
+        if (root["format"] != ConfigBackup.FORMAT) return ParsedBackup.Rejected(BackupProblem.NOT_A_BACKUP)
+        val schema = root["schema"] as? Long
+        if (schema == null || schema < 1) return ParsedBackup.Rejected(BackupProblem.NOT_A_BACKUP)
+        if (schema > ConfigBackup.SCHEMA) return ParsedBackup.Rejected(BackupProblem.NEWER_VERSION)
+        return ParsedBackup.Ok(Reader().read(root))
+    }
+
+    /** Reads one document, counting what it skips. */
+    private class Reader {
+        private var ignored = 0
+
+        fun read(root: Map<*, *>): ConfigBackup {
+            val rules = booleans(root["rules"], ConfigBackup::isRuleId)
+            val apps = LinkedHashMap<String, AppBackup>()
+            (root["apps"] as? Map<*, *>)?.entries?.forEachIndexed { index, (key, value) ->
+                val pkg = (key as? String)?.takeIf(BackupExtractor.PACKAGE_NAME::matches)
+                val app = value as? Map<*, *>
+                if (index < MAX_ENTRIES && pkg != null && app != null) apps[pkg] = readApp(app) else ignored++
+            }
+            return ConfigBackup(
+                rules = rules,
+                apps = apps,
+                appList = readAppList(root["appList"] as? Map<*, *>),
+                appearance = readAppearance(root["appearance"] as? Map<*, *>),
+                ignored = ignored,
+            )
+        }
+
+        private fun readApp(app: Map<*, *>) = AppBackup(
+            protect = app["protect"] == true,
+            sdk = booleans(app["sdk"]) { Trackers.byId(it) != null },
+            rules = booleans(app["rules"]) { it in Catalog.protectedAppRuleIds },
+            hide = app["hide"] == true,
+            strict = app["strict"] == true,
+        )
+
+        private fun readAppList(section: Map<*, *>?): AppListBackup {
+            val allow = (section?.get("allow") as? List<*>)?.let { list ->
+                list.take(MAX_ALLOWLIST).mapNotNull { (it as? String)?.takeIf(BackupExtractor.PACKAGE_NAME::matches) }
+                    .also { ignored += list.size - it.size }
+            }
+            return AppListBackup(hideSelf = section?.get("hideSelf") as? Boolean, allow = allow)
+        }
+
+        private fun readAppearance(section: Map<*, *>?) = AppearanceBackup(
+            mode = name(section?.get("mode")),
+            palette = name(section?.get("palette")),
+            pureBlack = section?.get("pureBlack") as? Boolean,
+        )
+
+        private fun name(value: Any?): String? = (value as? String)?.takeIf(APPEARANCE_NAME::matches)
+
+        /** Boolean entries of [section] whose key passes [valid]; the others count as ignored. */
+        private fun booleans(section: Any?, valid: (String) -> Boolean): Map<String, Boolean> {
+            val entries = (section as? Map<*, *>)?.entries ?: return emptyMap()
+            val result = LinkedHashMap<String, Boolean>()
+            entries.forEachIndexed { index, (key, value) ->
+                val name = (key as? String)?.takeIf(valid)
+                if (index < MAX_ENTRIES && name != null && value is Boolean) result[name] = value else ignored++
+            }
+            return result
+        }
+    }
+}
