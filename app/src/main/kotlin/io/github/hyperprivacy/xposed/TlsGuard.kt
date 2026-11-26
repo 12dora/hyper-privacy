@@ -5,7 +5,6 @@ import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.util.concurrent.ConcurrentHashMap
-import javax.net.ssl.SSLHandshakeException
 
 /**
  * Blocks TLS handshakes by SNI host name at the platform Conscrypt sockets.
@@ -44,7 +43,7 @@ internal class TlsGuard(private val sinks: SinkContext) {
         val getter = hostnameGetter(socket.javaClass) ?: return Verdict.Proceed
         val host = getter.invoke(socket) as? String
         sinks.checkHost(host) ?: return Verdict.Proceed
-        return Verdict.Throw(SSLHandshakeException("Connection to $host blocked by privacy policy"))
+        return Verdict.Throw(NetErrors.tlsHandshake(host))
     }
 
     private fun hostnameGetter(type: Class<*>): MethodHandle? = hostnameGetters[type]

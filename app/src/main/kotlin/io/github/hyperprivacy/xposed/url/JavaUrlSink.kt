@@ -6,14 +6,14 @@ import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
-import java.io.IOException
 import java.lang.reflect.Method
 import java.net.Proxy
 import java.net.URL
 
 /**
  * `java.net.URL#openConnection()` and `openConnection(Proxy)`: the entry of HttpURLConnection
- * (and of libraries built on it). Throws [IOException], which both overloads declare.
+ * (and of libraries built on it). Throws an `IOException` subtype (both overloads declare it)
+ * worded like a real network failure ([SinkContext.urlFailure]).
  * Non-HTTP(S) URLs (`file:`, `jar:` class-loading resources …) are let through untouched.
  */
 internal class JavaUrlSink(private val sinks: SinkContext) {
@@ -35,7 +35,7 @@ internal class JavaUrlSink(private val sinks: SinkContext) {
         val url = chain.thisObject as? URL ?: return Verdict.Proceed
         if (url.protocol != HTTP && url.protocol != HTTPS) return Verdict.Proceed
         sinks.checkUrl(url.host, url.path) ?: return Verdict.Proceed
-        return Verdict.Throw(IOException(BLOCKED_MESSAGE))
+        return Verdict.Throw(sinks.urlFailure(url.host, url.protocol, url.port))
     }
 
     private fun method(vararg parameterTypes: Class<*>): Method? =

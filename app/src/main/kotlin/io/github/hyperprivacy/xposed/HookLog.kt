@@ -3,9 +3,21 @@ package io.github.hyperprivacy.xposed
 import android.util.Log
 import io.github.libxposed.api.XposedInterface
 
-/** Thin wrapper over the framework log so every message carries the module tag. */
+/**
+ * Thin wrapper over the framework log so every message carries the module tag.
+ *
+ * In an app process the framework log also lands in that app's own logcat, which crash and log
+ * SDKs read and upload. So once [verbose] is set (app processes: diagnostics mode), info messages
+ * (hook inventories, blocked hosts, observed endpoints) are written only while it returns true;
+ * warnings and errors always are.
+ */
 internal class HookLog(private val xposed: XposedInterface) {
-    fun info(message: String) = xposed.log(Log.INFO, TAG, message)
+    @Volatile
+    var verbose: () -> Boolean = { true }
+
+    fun info(message: String) {
+        if (verbose()) xposed.log(Log.INFO, TAG, message)
+    }
 
     fun warn(message: String, error: Throwable? = null) = xposed.log(Log.WARN, TAG, message, error)
 

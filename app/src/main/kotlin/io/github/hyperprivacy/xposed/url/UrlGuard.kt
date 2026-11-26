@@ -16,6 +16,3 @@ internal class UrlGuard(private val sinks: SinkContext) {
         return java || okhttp || cronet || webView
     }
 }
-
-/** Message of the exceptions thrown by blocking URL sinks. */
-internal const val BLOCKED_MESSAGE = "Blocked by privacy policy"
