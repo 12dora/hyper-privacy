@@ -278,6 +278,9 @@ internal class MainViewModel(application: Application) :
             rules = snapshot.rules,
             enabledCount = snapshot.enabledCount,
             totalHits = snapshot.totalHits,
+            protectedHits = runCatching {
+                backend.store.totalHitsOf(TrackerProtection.protectedPackages(stored))
+            }.getOrDefault(0),
             attention = attentionOf(snapshot.rules, suspected.size),
             suspected = suspected,
             diagnosticMode = pendingWrites.resolve(stored, ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT),
