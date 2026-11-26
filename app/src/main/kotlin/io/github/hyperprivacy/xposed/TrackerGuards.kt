@@ -1,9 +1,10 @@
 package io.github.hyperprivacy.xposed
 
-import io.github.hyperprivacy.core.status.StatusRelay
+import io.github.hyperprivacy.core.status.RelayKeys
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.libxposed.api.XposedInterface
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Entry for an app outside the catalog that the user protects from tracker SDKs. The module app
@@ -14,8 +15,8 @@ import io.github.libxposed.api.XposedInterface
  * The rule set is fixed for the life of the process (a new scan result applies on next start);
  * per-SDK switches and turning protection off apply live.
  *
- * Status goes through system_server ([StatusRelay]): this app never resolves the module package,
- * which stays hidden from it.
+ * Status goes through system_server ([io.github.hyperprivacy.core.status.StatusRelay]) with this
+ * app's own [RelayKeys]: it never resolves the module package, which stays hidden from it.
  */
 internal object TrackerGuards {
     fun install(xposed: XposedInterface, log: HookLog, packageName: String, classLoader: ClassLoader) {
@@ -34,7 +35,17 @@ internal object TrackerGuards {
         )
         log.verbose = { switches.observe }
         log.info("tracker protection for $packageName: ${detected.size} SDKs detected, ${rules.size} rules")
-        val relay = { switches.secret?.let(StatusRelay::method) }
-        AppGuards(xposed, log, packageName, classLoader, rules, switches, relay).install()
+        AppGuards(xposed, log, packageName, classLoader, rules, switches, relayKeys(switches, packageName)).install()
+    }
+
+    /** This app's relay credentials for the current module secret, derived once per secret. */
+    private fun relayKeys(switches: RuleSwitches, packageName: String): () -> RelayKeys? {
+        val cached = AtomicReference<Pair<ByteArray, RelayKeys>?>()
+        return {
+            switches.secret?.let { secret ->
+                cached.get()?.takeIf { it.first === secret }?.second
+                    ?: RelayKeys.derive(secret, packageName).also { cached.set(secret to it) }
+            }
+        }
     }
 }

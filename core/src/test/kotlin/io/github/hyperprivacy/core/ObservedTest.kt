@@ -94,12 +94,15 @@ class ObservedTest {
     }
 
     @Test
-    fun `backoff doubles up to the cap and then stops`() {
-        val backoff = RetryBackoff(initialMillis = 5, maxMillis = 30, maxAttempts = 6)
+    fun `backoff doubles up to the cap, then slows down and never gives up`() {
+        val backoff = RetryBackoff(initialMillis = 5, maxMillis = 30, fastAttempts = 6, slowMillis = 100)
         assertEquals(listOf(5L, 10L, 20L, 30L, 30L, 30L), (1..6).map { backoff.delayAfter(it) })
-        assertNull(backoff.delayAfter(7))
-        assertNull(backoff.delayAfter(0))
-        assertEquals(RetryBackoff.DEFAULT_MAX_MILLIS, RetryBackoff().delayAfter(RetryBackoff.DEFAULT_MAX_ATTEMPTS))
+        assertEquals(100L, backoff.delayAfter(7))
+        assertEquals(100L, backoff.delayAfter(Int.MAX_VALUE))
+        assertEquals(5L, backoff.delayAfter(0))
+        assertEquals(RetryBackoff.DEFAULT_MAX_MILLIS, RetryBackoff().delayAfter(RetryBackoff.DEFAULT_FAST_ATTEMPTS))
+        val slow = RetryBackoff().delayAfter(RetryBackoff.DEFAULT_FAST_ATTEMPTS + 1)
+        assertEquals(RetryBackoff.DEFAULT_SLOW_MILLIS, slow)
     }
 
     private companion object {

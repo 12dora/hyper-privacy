@@ -4,6 +4,7 @@ import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.status.HookState
+import io.github.hyperprivacy.core.status.RelayKeys
 import io.github.hyperprivacy.xposed.drm.MediaDrmGuard
 import io.github.hyperprivacy.xposed.fp.HardwareFingerprintGuard
 import io.github.hyperprivacy.xposed.id.IdentifierGuard
@@ -12,7 +13,7 @@ import io.github.libxposed.api.XposedInterface
 /**
  * Installs the in-process guards (DOMAIN, URL, METHOD and IDENTIFIER rules) for one app process.
  * All work is proportional to [rules], the rules targeting this package. [customSwitches] defaults
- * to the catalog's; tracker-protected apps pass their own and a [relayMethod] (see [TrackerGuards]).
+ * to the catalog's; tracker-protected apps pass their own and [relayKeys] (see [TrackerGuards]).
  */
 internal class AppGuards(
     private val xposed: XposedInterface,
@@ -21,12 +22,12 @@ internal class AppGuards(
     private val classLoader: ClassLoader,
     private val rules: List<Rule>,
     private val customSwitches: RuleSwitches? = null,
-    private val relayMethod: (() -> String?)? = null,
+    private val relayKeys: (() -> RelayKeys?)? = null,
 ) {
     fun install() {
         val switches = customSwitches ?: RuleSwitches.open(xposed, log, rules)
         log.verbose = { switches.observe }
-        val reporter = StatusReporter(log, Reflection::currentApplication, relayMethod)
+        val reporter = StatusReporter(log, Reflection::currentApplication, relayKeys)
         val env = GuardEnv(xposed, log, packageName, classLoader, switches, reporter)
         log.guard("network guards") { NetworkGuards(env, rules).install() }
         installMethodRules(env)

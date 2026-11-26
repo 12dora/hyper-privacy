@@ -3,6 +3,7 @@ package io.github.hyperprivacy.status
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.core.status.ObservedEndpoint
+import io.github.hyperprivacy.core.status.saturatingAdd
 
 /**
  * Persistent diagnostics table of [ObservedEndpoint]s, keyed by (package, host, pathPrefix).
@@ -18,7 +19,7 @@ internal class ObservedTable(val prefs: SharedPreferences) {
             val previous = current[incoming.key()]
             current[incoming.key()] = previous?.let {
                 it.copy(
-                    count = it.count + incoming.count,
+                    count = saturatingAdd(it.count, incoming.count),
                     firstSeen = minOf(it.firstSeen, incoming.firstSeen),
                     lastSeen = maxOf(it.lastSeen, incoming.lastSeen),
                     blocked = it.blocked || incoming.blocked,

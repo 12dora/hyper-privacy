@@ -10,6 +10,7 @@ import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.SinkReport
+import io.github.hyperprivacy.core.status.saturatingAdd
 
 /**
  * Latest known status of one rule in one package.
@@ -49,6 +50,12 @@ internal class StatusStore(context: Context) {
     private val sinks = SinkTable(context.getSharedPreferences(SINKS_FILE_NAME, Context.MODE_PRIVATE))
     private val observed = ObservedTable(context.getSharedPreferences(OBSERVED_FILE_NAME, Context.MODE_PRIVATE))
 
+    /**
+     * Vendor-trusted signers as system_server last reported them. Not in [allPrefs]: no UI shows
+     * them, so they must not trigger UI rebuilds.
+     */
+    val trust = TrustTable(context.getSharedPreferences(TRUST_FILE_NAME, Context.MODE_PRIVATE))
+
     /** Process facts (version that ran, start and last-seen times) per package. */
     val meta = MetaTable(context.getSharedPreferences(META_FILE_NAME, Context.MODE_PRIVATE))
 
@@ -77,7 +84,7 @@ internal class StatusStore(context: Context) {
                 }
                 val stored = StoredStatus(
                     state = report.state,
-                    totalHits = (previous?.totalHits ?: 0) + report.hits,
+                    totalHits = saturatingAdd(previous?.totalHits ?: 0, report.hits),
                     reportedAt = now,
                     lastHitAt = if (report.hits > 0) now else previous?.lastHitAt,
                     activeSince = activeSince,
@@ -125,6 +132,7 @@ internal class StatusStore(context: Context) {
         const val SINKS_FILE_NAME = "status_sinks"
         const val OBSERVED_FILE_NAME = "status_observed"
         const val META_FILE_NAME = "status_meta"
+        const val TRUST_FILE_NAME = "status_trust"
         const val KEY_SEPARATOR = "|"
         const val SEPARATOR = ","
 
