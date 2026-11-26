@@ -1,9 +1,9 @@
 package io.github.hyperprivacy.xposed
 
-import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
-import java.lang.reflect.Method
+import java.lang.invoke.MethodHandle
+import java.lang.invoke.MethodHandles
 import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLHandshakeException
 
@@ -13,31 +13,29 @@ import javax.net.ssl.SSLHandshakeException
  * Complements [DnsGuard] for apps that resolve via HTTPDNS to hard-coded IPs and then connect to
  * the IP directly: DNS never sees the host, but the socket still carries the real host name for
  * SNI and certificate validation.
+ *
+ * The host name getter is called through a cached [MethodHandle] rather than `Method.invoke`, so
+ * the per-handshake path does not allocate a varargs array.
  */
-internal class TlsGuard(
-    private val xposed: XposedInterface,
-    private val log: HookLog,
-    private val packageName: String,
-    private val policy: DomainPolicy,
-    private val reporter: StatusReporter,
-) {
-    private val hostnameGetters = ConcurrentHashMap<Class<*>, Method>()
+internal class TlsGuard(private val sinks: SinkContext) {
+    private val hostnameGetters = ConcurrentHashMap<Class<*>, MethodHandle>()
 
     /** Returns whether at least one socket implementation was hooked. */
     fun install(): Boolean {
         val hooked = SOCKET_CLASSES.count { className ->
             val handshake = runCatching { Class.forName(className).getDeclaredMethod(HANDSHAKE_METHOD) }.getOrNull()
             if (handshake == null) {
-                log.warn("TLS sink $className#$HANDSHAKE_METHOD not found")
+                sinks.log.warn("TLS sink $className#$HANDSHAKE_METHOD not found")
                 return@count false
             }
             // PASSTHROUGH so the deliberate SSLHandshakeException reaches the caller.
-            xposed.hook(handshake)
+            sinks.xposed.hook(handshake)
                 .setExceptionMode(ExceptionMode.PASSTHROUGH)
-                .intercept(FailOpenHooker(log, "tls", ::decide))
+                .intercept(FailOpenHooker(sinks.log, Sinks.TLS, ::decide))
             true
         }
-        log.info("TLS guard hooked $hooked/${SOCKET_CLASSES.size} sinks in $packageName")
+        sinks.log.info("TLS guard hooked $hooked/${SOCKET_CLASSES.size} sinks in ${sinks.env.packageName}")
+        sinks.reportSink(Sinks.TLS, hooked > 0)
         return hooked > 0
     }
 
@@ -45,13 +43,14 @@ internal class TlsGuard(
         val socket = chain.thisObject ?: return Verdict.Proceed
         val getter = hostnameGetter(socket.javaClass) ?: return Verdict.Proceed
         val host = getter.invoke(socket) as? String
-        val ruleId = policy.blockingRule(host) ?: return Verdict.Proceed
-        reporter.hit(packageName, ruleId)
+        sinks.checkHost(host) ?: return Verdict.Proceed
         return Verdict.Throw(SSLHandshakeException("Connection to $host blocked by privacy policy"))
     }
 
-    private fun hostnameGetter(type: Class<*>): Method? =
-        hostnameGetters[type] ?: Reflection.findNoArgMethod(type, HOSTNAME_METHOD)?.also { hostnameGetters[type] = it }
+    private fun hostnameGetter(type: Class<*>): MethodHandle? = hostnameGetters[type]
+        ?: Reflection.findNoArgMethod(type, HOSTNAME_METHOD)
+            ?.let { MethodHandles.lookup().unreflect(it) }
+            ?.also { hostnameGetters[type] = it }
 
     private companion object {
         const val HANDSHAKE_METHOD = "startHandshake"

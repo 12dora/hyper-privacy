@@ -19,6 +19,15 @@ internal object Reflection {
         activityThread.getMethod("getSystemContext").invoke(current) as? Context
     }.getOrNull()
 
+    /** Loads [name] through [loader] without initialising it, or `null` if absent. */
+    fun loadClass(name: String, loader: ClassLoader?): Class<*>? = try {
+        Class.forName(name, false, loader)
+    } catch (_: ClassNotFoundException) {
+        null
+    } catch (_: LinkageError) {
+        null
+    }
+
     /** Finds a no-arg method by walking up from [type], made accessible. */
     fun findNoArgMethod(type: Class<*>, name: String): java.lang.reflect.Method? = generateSequence(
         type,
