@@ -346,13 +346,18 @@ internal val XIAOMI_ANALYTICS_APPS: Set<String> = setOf(
 internal val ONETRACK_WITHOUT_SDK_APPS: Set<String> = setOf(
     "com.android.updater",
     "com.mi.car.mobile",
+    "com.miui.cloudbackup",
     "com.miui.compass",
     "com.miui.passwords",
     "com.miui.screenrecorder",
     "com.miui.securitycore",
     "com.miui.touchassistant",
     "com.miui.uireporter",
+    "com.xiaomi.aiservice",
+    "com.xiaomi.bluetooth",
+    "com.xiaomi.metoknlp",
     "com.xiaomi.mis",
+    "com.xiaomi.phone",
 )
 
 /** OneTrack apps that do not embed the Xiaomi ad SDK. */
