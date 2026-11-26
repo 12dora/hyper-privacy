@@ -1,15 +1,20 @@
 package io.github.hyperprivacy.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -18,10 +23,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.ui.Dimens
@@ -98,6 +107,67 @@ internal fun MonoText(text: String, modifier: Modifier = Modifier) {
         fontFamily = FontFamily.Monospace,
         modifier = modifier,
     )
+}
+
+/**
+ * A navigation row: optional [leading] slot, title over a summary, chevron. The summary may be
+ * tinted (e.g. for a health warning) via [summaryColor].
+ */
+@Composable
+internal fun NavRow(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    summary: String? = null,
+    summaryColor: Color = Color.Unspecified,
+    leading: @Composable (() -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = if (leading != null) Dimens.TallRowMinHeight else Dimens.RowMinHeight)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(
+                start = Dimens.Gutter,
+                end = Dimens.Small + Dimens.Tiny,
+                top = Dimens.RowVertical,
+                bottom = Dimens.RowVertical,
+            ),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading?.invoke()
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (summary != null) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = summaryColor.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant },
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** A 40dp tonal circle holding a 22dp icon: the leading visual of status and category rows. */
+@Composable
+internal fun IconBadge(icon: ImageVector, container: Color, content: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(Dimens.ListIcon)
+            .background(container, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(Dimens.BadgeIcon))
+    }
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.ui
 
 import androidx.compose.runtime.Immutable
+import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.status.StatusStore
 
 /** A reporting endpoint seen while diagnostic mode was on. */
@@ -24,15 +25,16 @@ internal class StatusStoreEndpoints(private val store: StatusStore, private val 
     ObservedEndpointsSource {
     override fun observed(): List<ObservedEndpointUi> {
         val newestFirst = store.observedEndpoints().sortedByDescending { it.lastSeen }
-        return newestFirst.map { endpoint ->
-            ObservedEndpointUi(
-                appLabel = apps.labelOf(endpoint.packageName),
-                host = endpoint.host,
-                path = endpoint.pathPrefix,
-                count = endpoint.count,
-                lastSeenMillis = endpoint.lastSeen,
-                blocked = endpoint.blocked,
-            )
-        }
+        return newestFirst.map { it.toUi(apps) }
     }
 }
+
+/** Labels [ObservedEndpoint] with the owning app's display name. */
+internal fun ObservedEndpoint.toUi(apps: InstalledApps) = ObservedEndpointUi(
+    appLabel = apps.labelOf(packageName),
+    host = host,
+    path = pathPrefix,
+    count = count,
+    lastSeenMillis = lastSeen,
+    blocked = blocked,
+)

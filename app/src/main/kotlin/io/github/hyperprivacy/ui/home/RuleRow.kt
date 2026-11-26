@@ -27,13 +27,15 @@ import io.github.hyperprivacy.ui.LocalLanguageTag
 import io.github.hyperprivacy.ui.RowMeta
 import io.github.hyperprivacy.ui.RuleEntry
 import io.github.hyperprivacy.ui.components.appCountString
-import io.github.hyperprivacy.ui.components.compactCountString
 import io.github.hyperprivacy.ui.components.countString
+import io.github.hyperprivacy.ui.components.labelRes
+import io.github.hyperprivacy.ui.components.tint
 import io.github.hyperprivacy.ui.sampleEntries
 
 /**
  * One rule, 56dp minimum: tapping the text opens the details, the switch toggles the rule.
- * Between them sits at most one small label: the blocked count, or "not effective" when a hook failed.
+ * No numbers here: activity lives in the detail page. The summary line turns into a short tinted
+ * health note only when an enabled rule needs attention, so a healthy list stays quiet.
  */
 @Composable
 internal fun RuleRow(
@@ -46,6 +48,7 @@ internal fun RuleRow(
     val rule = entry.item.rule
     val tag = LocalLanguageTag.current
     val title = rule.title.resolve(tag)
+    val attention = entry.attention
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(
             modifier = Modifier
@@ -63,25 +66,24 @@ internal fun RuleRow(
             Text(
                 text = summaryLine(entry),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                // Copy is length-gated in CatalogTest to fit one line; two lines are only a safety net.
+                color = attention?.tint() ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                // Copy is length-gated in CatalogCopyTest to fit one line; two lines are only a safety net.
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (entry.item.enabled) StatusLabel(entry.status, entry.hits, Modifier.padding(start = Dimens.Small))
         Switch(
             checked = entry.item.enabled,
             onCheckedChange = onToggle,
             enabled = switchEnabled,
             modifier = Modifier
-                .padding(horizontal = Dimens.Small + Dimens.Tiny)
+                .padding(horizontal = Dimens.Gutter)
                 .semantics { contentDescription = title },
         )
     }
 }
 
-/** App scope, then the side effect when there is one, otherwise what the rule does. */
+/** Health note when one is due, else app scope then the side effect or what the rule does. */
 @Composable
 private fun summaryLine(entry: RuleEntry): String {
     val tag = LocalLanguageTag.current
@@ -92,32 +94,11 @@ private fun summaryLine(entry: RuleEntry): String {
         is RowMeta.App -> meta.label.takeUnless { it == rule.title.resolve(tag) }
         is RowMeta.Apps -> appCountString(meta.count)
     }
-    val text = rule.impact?.let { stringResource(R.string.rule_impact, it.resolve(tag)) } ?: rule.summary.resolve(tag)
-    return listOfNotNull(meta, text).joinToString(stringResource(R.string.common_separator))
-}
-
-/** Blocked count, or a quiet error tint for a hook that could not be installed. Nothing otherwise. */
-@Composable
-private fun StatusLabel(status: DisplayStatus, hits: Long, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    when {
-        status == DisplayStatus.MISSED -> Text(
-            text = stringResource(R.string.rule_missed),
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.error,
-            modifier = modifier,
-        )
-
-        hits > 0 -> {
-            val description = countString(R.plurals.rule_hits, hits)
-            Text(
-                text = compactCountString(R.plurals.rule_hits_short, hits),
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.onSurfaceVariant,
-                modifier = modifier.semantics { contentDescription = description },
-            )
-        }
-    }
+    val text = entry.attention?.let { stringResource(it.labelRes()) }
+        ?: rule.impact?.let { stringResource(R.string.rule_impact, it.resolve(tag)) }
+        ?: rule.summary.resolve(tag)
+    val parts = if (entry.attention != null) listOfNotNull(text, meta) else listOfNotNull(meta, text)
+    return parts.joinToString(stringResource(R.string.common_separator))
 }
 
 /** Long-form status for the detail page. */
