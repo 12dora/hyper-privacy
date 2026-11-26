@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.core
 
 import io.github.hyperprivacy.core.net.PlausibleErrors
+import io.github.hyperprivacy.core.net.PlausibleFrames
 import org.junit.jupiter.api.Test
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -45,15 +46,38 @@ class PlausibleErrorsTest {
 
     @Test
     fun `connect refusal matches IoBridge wording`() {
+        // libcore IoBridge.createMessageForException, as printed on device.
         assertEquals(
-            "failed to connect to /203.107.1.1 (port 443) after 10000ms: isConnected failed: " +
-                "ECONNREFUSED (Connection refused)",
-            PlausibleErrors.connectRefusedMessage("/203.107.1.1", 443, 10_000),
+            "failed to connect to /203.107.1.1 (port 443) from /198.51.100.5 (port 41234) after 10000ms: " +
+                "isConnected failed: ECONNREFUSED (Connection refused)",
+            PlausibleErrors.connectRefusedMessage("/203.107.1.1", 443, 10_000, "/198.51.100.5", 41_234),
         )
+        assertEquals(
+            "failed to connect to dns.example/203.107.1.1 (port 80) from /2001:db8::5 (port 50000): " +
+                "connect failed: ECONNREFUSED (Connection refused)",
+            PlausibleErrors.connectRefusedMessage("dns.example/203.107.1.1", 80, 0, "/2001:db8::5", 50_000),
+        )
+        assertEquals(
+            "failed to connect to /203.107.1.1 (port 443) from /:: (port 0) after 15000ms: " +
+                "isConnected failed: ECONNREFUSED (Connection refused)",
+            PlausibleErrors.connectRefusedMessage("/203.107.1.1", 443, 15_000, "/::", 0),
+        )
+        // getsockname failed: libcore leaves the clause out.
         assertEquals(
             "failed to connect to /203.107.1.1 (port 80): connect failed: ECONNREFUSED (Connection refused)",
             PlausibleErrors.connectRefusedMessage("/203.107.1.1", 80, 0),
         )
+    }
+
+    @Test
+    fun `source ports and frame lines look real`() {
+        listOf(0, 1, -1, Int.MIN_VALUE, Int.MAX_VALUE, 28_232, 123_456).forEach { seed ->
+            val port = PlausibleErrors.ephemeralPort(seed)
+            assertTrue(port in PlausibleErrors.FIRST_EPHEMERAL_PORT..PlausibleErrors.LAST_EPHEMERAL_PORT, "$port")
+        }
+        val line = PlausibleFrames.line("java.net.Inet6AddressImpl", "lookupHostByName")
+        assertTrue(line in 60..899, "$line")
+        assertEquals(line, PlausibleFrames.line("java.net.Inet6AddressImpl", "lookupHostByName"))
     }
 
     @Test
@@ -81,7 +105,7 @@ class PlausibleErrorsTest {
             PlausibleErrors.unresolvedHostMessage("a.example.com"),
             PlausibleErrors.tlsHandshakeMessage("a.example.com", 0),
             PlausibleErrors.tlsHandshakeMessage("b.example.com", 0),
-            PlausibleErrors.connectRefusedMessage("/1.2.3.4", 443, 1),
+            PlausibleErrors.connectRefusedMessage("/1.2.3.4", 443, 1, "/198.51.100.5", 40_000),
             PlausibleErrors.httpFailureMessage("a.example.com", null, 443),
             PlausibleErrors.httpFailureMessage("a.example.com", "1.2.3.4", 443),
             PlausibleErrors.GAI_CAUSE_MESSAGE,

@@ -18,7 +18,9 @@ import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Field
 
 /**
- * The `settings.identifiers` rule: hides [SettingsDenyList] keys from third-party apps.
+ * The `settings.identifiers` rule: hides [SettingsDenyList] keys from third-party apps, i.e. apps
+ * that are not vendor-trusted ([io.github.hyperprivacy.core.system.VendorTrust]: HyperOS data apps
+ * signed like the vendor's system apps keep reading the keys they own), SDK sandboxes included.
  *
  * Hooks `com.android.providers.settings.SettingsState#getSettingLocked(String)` in system_server
  * (SettingsProvider runs in the `system` process, from its own APK class loader). Single reads
@@ -121,13 +123,13 @@ internal class SettingsKeyGuard(
             val switches = state.switches ?: return Verdict.Proceed
             val observe = switches.observe
             if (!denied && !observe) return Verdict.Proceed
-            val appId = AppIndex.appIdOf(Binder.getCallingUid())
+            // SDK-sandbox callers count as third-party; other non-application uids proceed.
+            val appId = AppIndex.callerAppId(Binder.getCallingUid())
             if (appId < 0) return Verdict.Proceed
             val index = state.index
-            if (!index.isThirdParty(appId)) {
-                if (!index.isKnown(appId)) state.requestIndexRefresh()
-                return Verdict.Proceed
-            }
+            // An app id missing from the snapshot is third-party (installed since): fail closed, and rebuild.
+            if (!index.isKnown(appId) && !index.isEmpty) state.requestIndexRefresh(appId)
+            if (!index.isThirdParty(appId)) return Verdict.Proceed
             val hide = denied && switches.isEnabled(RULE_ID)
             if (observe) observe(chain.thisObject, index, appId, key, hide)
             if (!hide) return Verdict.Proceed

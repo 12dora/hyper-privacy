@@ -22,11 +22,21 @@ import java.util.concurrent.ConcurrentHashMap
  * - `java.lang.Runtime#load0` (`System.load`, absolute file) and `loadLibrary0` (`System.loadLibrary`,
  *   resolved through the loader's `findLibrary`). `nativeLoad` is native and not hooked.
  *
+ * Not recorded: in-memory dex whose parent loader is this module's class loader or one of its
+ * ancestors (the hooking framework's). LSPlant builds every hook trampoline that way, for this
+ * module's lazy hooks and for other modules loaded into the process alike; it is not app code.
+ *
  * Records go out on the observed-endpoint channel as [CodeLoads] entries (redacted path), bounded by
  * the reporter's endpoint limits plus a per-process de-duplication set.
  */
 internal class CodeLoadGuard(private val env: GuardEnv) {
     private val seen: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** The module's class loader and its ancestors, minus the boot class loader every app shares. */
+    private val frameworkLoaders: Set<ClassLoader> =
+        generateSequence(CodeLoadGuard::class.java.classLoader) { it.parent }
+            .filter { it !== Any::class.java.classLoader }
+            .toSet()
 
     /** Returns the number of hooked entry points. */
     fun install(): Int {
@@ -58,9 +68,19 @@ internal class CodeLoadGuard(private val env: GuardEnv) {
     private fun onClassLoader(chain: Chain) {
         when (val source = chain.args.firstOrNull()) {
             is String -> source.split(File.pathSeparatorChar).forEach { report(CodeLoads.DEX_HOST, it) }
-            is Array<*> -> if (source.isArrayOf<ByteBuffer>()) recordPath(CodeLoads.DEX_HOST, CodeLoads.MEMORY_PATH)
+
+            is Array<*> -> if (source.isArrayOf<ByteBuffer>() && !isFrameworkDex(chain)) {
+                recordPath(CodeLoads.DEX_HOST, CodeLoads.MEMORY_PATH)
+            }
+
             else -> Unit
         }
+    }
+
+    /** A hook trampoline: the constructor's parent `ClassLoader` argument is a framework loader. */
+    private fun isFrameworkDex(chain: Chain): Boolean {
+        val parent = chain.args.firstNotNullOfOrNull { it as? ClassLoader } ?: return false
+        return parent in frameworkLoaders
     }
 
     private fun onNativeLoad(chain: Chain) {

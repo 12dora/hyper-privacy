@@ -30,9 +30,12 @@ import java.util.concurrent.atomic.AtomicLong
  * proceeds untouched. This is a PackageManager hot path, so with no restricted app the cost is
  * a volatile read and a couple of [io.github.hyperprivacy.core.system.IntSet] probes; for callers
  * that may be denied something (restricted apps; any third-party app while the module hides
- * itself) one int field read of the target. Exempt: the caller itself, system apps, unknown app
- * ids, allowlisted partner apps (unless strict) and apps the caller has legitimately interacted
- * with (`isImplicitlyQueryable`, e.g. an app that shared content into it).
+ * itself) one int field read of the target. Exempt: the caller itself, vendor-trusted apps
+ * ([io.github.hyperprivacy.core.system.VendorTrust]), non-application uids, allowlisted partner apps
+ * (unless strict) and apps the caller has legitimately interacted with (`isImplicitlyQueryable`,
+ * e.g. an app that shared content into it). An app id missing from the snapshot counts as
+ * third-party and triggers a rebuild. SDK-sandbox callers need nothing here: AppsFilter already
+ * hides almost everything from them.
  */
 internal class AppListGuard(
     private val xposed: XposedInterface,
@@ -107,8 +110,10 @@ internal class AppListGuard(
             return Verdict.Proceed
         }
         hidden.incrementAndGet()
+        val index = state.index
+        if (!index.isKnown(caller)) state.requestIndexRefresh(caller)
+        if (!index.isKnown(target)) state.requestIndexRefresh(target)
         if (loggedCallers.size < MAX_LOGGED_CALLERS && loggedCallers.add(caller)) {
-            val index = state.index
             val pair = "${index.packageOf(target)} from ${index.packageOf(caller)}"
             log.info("app-list: hiding $pair (logged once per caller)")
         }

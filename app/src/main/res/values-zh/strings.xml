@@ -173,6 +173,9 @@
     <string name="palette_graphite">石墨</string>
     <string name="appearance_pure_black">纯黑背景</string>
     <string name="appearance_pure_black_summary">深色模式下使用纯黑，适合 OLED 屏幕</string>
+    <string name="settings_stealth">隐身</string>
+    <string name="settings_self_hide">对其他应用隐藏本模块</string>
+    <string name="settings_self_hide_summary">第三方应用检测不到本模块；安装器需要更新本模块时可关闭</string>
     <string name="settings_diagnostics">诊断</string>
     <string name="settings_health_summary">查看失效或待复核的规则</string>
     <string name="settings_diag_mode">诊断模式</string>

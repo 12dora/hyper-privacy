@@ -62,6 +62,7 @@ internal fun SettingsScreen(
     onOpenHealth: () -> Unit,
     onExport: () -> Unit,
     onDiagnosticChange: (Boolean) -> Unit,
+    onSelfHideChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
     onRefreshObserved: () -> Unit,
     onClearObserved: () -> Unit,
@@ -83,6 +84,7 @@ internal fun SettingsScreen(
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             appearanceSection(appearance, onAppearanceChange)
+            stealthSection(state, onSelfHideChange)
             diagnosticsSection(state, onOpenHealth, onExport, onDiagnosticChange)
             endpointsSection(state, onClearObserved)
             dataSection(state.module.canEdit) { confirmReset = true }
@@ -112,6 +114,21 @@ private fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
                 delay(OBSERVED_REFRESH_MS)
                 currentRefresh()
             }
+        }
+    }
+}
+
+private fun LazyListScope.stealthSection(state: UiState, onSelfHideChange: (Boolean) -> Unit) {
+    item(key = "stealth-title") { SectionHeader(stringResource(R.string.settings_stealth)) }
+    item(key = "stealth") {
+        SingleCard {
+            SwitchRow(
+                title = stringResource(R.string.settings_self_hide),
+                summary = stringResource(R.string.settings_self_hide_summary),
+                checked = state.selfHidden,
+                enabled = state.module.canEdit,
+                onCheckedChange = onSelfHideChange,
+            )
         }
     }
 }
@@ -204,5 +221,5 @@ private fun ResetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsPreview() {
-    HyperPrivacyTheme { SettingsScreen(sampleState(), Appearance(), {}, {}, {}, {}, {}, {}, {}, {}) }
+    HyperPrivacyTheme { SettingsScreen(sampleState(), Appearance(), {}, {}, {}, {}, {}, {}, {}, {}, {}) }
 }
