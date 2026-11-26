@@ -103,6 +103,7 @@
     <string name="health_idle">长期无拦截</string>
     <string name="health_ok">正常</string>
     <string name="health_not_run">未运行</string>
+    <string name="health_not_applicable">不适用</string>
     <string name="health_not_installed">未安装</string>
     <string name="health_broken_desc">应用接口已变化，规则未能生效</string>
     <string name="health_review_desc">应用已更新，规则可能需要复核</string>
