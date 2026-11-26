@@ -10,7 +10,8 @@ import io.github.libxposed.api.XposedInterface
 
 /**
  * Installs the in-process guards (DOMAIN, URL, METHOD and IDENTIFIER rules) for one app process.
- * All work is proportional to [rules], the rules targeting this package.
+ * All work is proportional to [rules], the rules targeting this package. [customSwitches] defaults
+ * to the catalog's; tracker-protected apps pass their own (see [TrackerGuards]).
  */
 internal class AppGuards(
     private val xposed: XposedInterface,
@@ -18,9 +19,10 @@ internal class AppGuards(
     private val packageName: String,
     private val classLoader: ClassLoader,
     private val rules: List<Rule>,
+    private val customSwitches: RuleSwitches? = null,
 ) {
     fun install() {
-        val switches = RuleSwitches.open(xposed, log, rules)
+        val switches = customSwitches ?: RuleSwitches.open(xposed, log, rules)
         log.verbose = { switches.observe }
         val reporter = StatusReporter(log, Reflection::currentApplication)
         val env = GuardEnv(xposed, log, packageName, classLoader, switches, reporter)

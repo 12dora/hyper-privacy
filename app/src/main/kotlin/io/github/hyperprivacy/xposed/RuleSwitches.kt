@@ -15,11 +15,15 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * Backed by libxposed remote preferences, whose change listener fires when the module app writes,
  * so toggles apply without restarting the target or hot-reloading the module.
+ *
+ * [decode] resolves the rule switches from the raw preferences (catalog rules: [ConfigCodec.decode];
+ * tracker-protected apps: `TrackerRules.resolve`), and [affects] says which keys it reads.
  */
 internal class RuleSwitches private constructor(
     private val prefs: SharedPreferences?,
     private val log: HookLog,
-    private val rules: List<Rule>,
+    private val decode: (Map<String, *>) -> Map<String, Boolean>,
+    private val affects: (String?) -> Boolean,
 ) {
     private class Snapshot(val enabled: Map<String, Boolean>, val observe: Boolean, val secret: ByteArray?)
 
@@ -28,7 +32,7 @@ internal class RuleSwitches private constructor(
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (ConfigCodec.affectsHooks(key)) refresh()
+        if (ConfigCodec.affectsHooks(key) || affects(key)) refresh()
     }
 
     init {
@@ -56,7 +60,7 @@ internal class RuleSwitches private constructor(
     private fun read(): Snapshot {
         val raw = log.guard("read switches") { prefs?.all }.orEmpty()
         return Snapshot(
-            ConfigCodec.decode(raw, rules),
+            decode(raw),
             ConfigCodec.isObserveEnabled(raw),
             ModuleSecret.parse(raw[ModuleSecret.KEY]),
         )
@@ -67,9 +71,18 @@ internal class RuleSwitches private constructor(
          * Opens the remote preferences for [rules]; falls back to rule defaults (and observe off)
          * if the framework refuses.
          */
-        fun open(xposed: XposedInterface, log: HookLog, rules: List<Rule>): RuleSwitches {
-            val prefs = log.guard("open remote preferences") { xposed.getRemotePreferences(ConfigCodec.PREFS_GROUP) }
-            return RuleSwitches(prefs, log, rules)
-        }
+        fun open(xposed: XposedInterface, log: HookLog, rules: List<Rule>): RuleSwitches =
+            RuleSwitches(openPrefs(xposed, log), log, { raw -> ConfigCodec.decode(raw, rules) }, { false })
+
+        /** Switches with a custom [decode] over keys matched by [affects] (besides the catalog's own). */
+        fun open(
+            prefs: SharedPreferences?,
+            log: HookLog,
+            decode: (Map<String, *>) -> Map<String, Boolean>,
+            affects: (String?) -> Boolean,
+        ): RuleSwitches = RuleSwitches(prefs, log, decode, affects)
+
+        fun openPrefs(xposed: XposedInterface, log: HookLog): SharedPreferences? =
+            log.guard("open remote preferences") { xposed.getRemotePreferences(ConfigCodec.PREFS_GROUP) }
     }
 }

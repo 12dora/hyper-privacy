@@ -22,17 +22,22 @@ import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.SinkCodec
 import io.github.hyperprivacy.core.status.StatusCodec
 import io.github.hyperprivacy.core.system.SettingsObservation
+import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.core.tracker.TrackerRules
+import io.github.hyperprivacy.trackers.TrackerStore
 
 /**
  * Receives status batches from hooked processes via [call] (see [StatusContract]).
  *
  * The provider is exported, so every call is authenticated by Binder uid: the caller must be
  * system_server (reporting FIREWALL rules, and rules, sinks and Settings reads under
- * `Catalog.SYSTEM_SCOPE`) or run as a package in the module scope, and may only report rules,
- * sinks, process facts and observed endpoints of its own package. Everything else is dropped.
+ * `Catalog.SYSTEM_SCOPE`) or run as a package in the module scope (catalog targets, or an app
+ * with tracker protection on), and may only report rules, sinks, process facts and observed
+ * endpoints of its own package. Everything else is dropped.
  */
 class StatusProvider : ContentProvider() {
     private val store by lazy { StatusStore(requireNotNull(context)) }
+    private val trackers by lazy { TrackerStore(requireNotNull(context)) }
 
     override fun onCreate(): Boolean = true
 
@@ -85,10 +90,16 @@ class StatusProvider : ContentProvider() {
 
     private fun callerScopePackages(uid: Int): Set<String> {
         val packages = context?.packageManager?.getPackagesForUid(uid).orEmpty()
-        return packages.filterTo(HashSet()) { it in Catalog.scope }
+        if (packages.isEmpty()) return emptySet()
+        val protected = trackers.protectedPackages()
+        return packages.filterTo(HashSet()) { it in Catalog.scope || it in protected }
     }
 
     private fun RuleReport.isAuthorized(callerPackages: Set<String>, isSystemServer: Boolean): Boolean {
+        // Tracker and app-level rules of a protected app: reported by that app only.
+        if (TrackerProtection.sdkIdOf(ruleId) != null || ruleId in TrackerRules.appRuleIds) {
+            return packageName in callerPackages && packageName in trackers.protectedPackages()
+        }
         val rule = Catalog.byId(ruleId) ?: return false
         if (packageName !in rule.packages) return false
         // FIREWALL and system_server-scoped rules are enforced (and reported) by system_server.

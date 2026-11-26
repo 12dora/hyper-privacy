@@ -15,6 +15,7 @@ import io.github.hyperprivacy.core.system.AppIndex
 import io.github.hyperprivacy.core.system.AppListConfig
 import io.github.hyperprivacy.core.system.AppListPolicy
 import io.github.hyperprivacy.core.system.InstalledApp
+import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.xposed.HookLog
 
 /**
@@ -42,7 +43,11 @@ internal class PackageIndexer(
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (AppListConfig.affects(key)) handler.post { log.guard("rebuild app-list policy") { rebuildPolicy() } }
+        // Protected apps are exempt from module self-hiding, so turning protection on or off rebuilds too.
+        val protection = key?.startsWith(TrackerProtection.PROTECT_PREFIX) == true
+        if (AppListConfig.affects(key) || protection) {
+            handler.post { log.guard("rebuild app-list policy") { rebuildPolicy() } }
+        }
     }
 
     fun start() {
@@ -89,7 +94,8 @@ internal class PackageIndexer(
     private fun rebuildPolicy(configChanged: Boolean = true) {
         val raw = log.guard("read app-list config") { prefs?.all }.orEmpty()
         val config = AppListConfig.decode(raw)
-        val exempt = homeApps + Catalog.scope
+        // Hooked apps report status to the module's provider, so they must keep seeing it.
+        val exempt = homeApps + Catalog.scope + TrackerProtection.protectedPackages(raw)
         val policy = AppListPolicy.resolve(config, state.index, BuildConfig.APPLICATION_ID, exempt)
         state.appList = policy
         // Apps cache PackageManager answers in-process; a config change must not wait for the next install.
