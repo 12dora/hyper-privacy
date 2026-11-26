@@ -36,11 +36,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.github.hyperprivacy"
+        // Must stay under a namespace we own (GitHub org "hyprivacy") for the LSPosed module repo.
+        applicationId = "io.github.hyprivacy"
         minSdk = 34
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -74,6 +75,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
