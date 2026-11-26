@@ -5,8 +5,8 @@ Usage: python3 -I scripts/gen-trackers.py [trackers.json]
 
 The JSON is the tracker SDK signature database (schema 1): code prefixes that identify an SDK in
 an app's dex, and the hosts / URL prefixes it reports to. Only what the app needs at runtime is
-kept (names, vendor, categories, defaultBlock, prefixes, hosts); evidence and notes stay in the
-JSON. Output is deterministic: trackers sorted by id, list fields in source order.
+kept (names, optional display names, vendor, categories, defaultBlock, prefixes, hosts); evidence
+and notes stay in the JSON. Output is deterministic: trackers sorted by id, list fields in source order.
 
 The generated file also records SHA-256 digests of the source JSON and of the emitted table, so
 TrackerDataTest notices a JSON change without a re-run, or a hand edit of the table, with no
@@ -40,9 +40,10 @@ package io.github.hyperprivacy.core.tracker
 
 /**
  * Raw [Trackers] table, one record per SDK. A record starts with `sdk <id> <defaultBlock 1|0>
- * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), `v` vendor, and the
- * space-separated, repeatable lists `p` code prefixes, `b` block hosts, `u` block URLs
- * (`host/path`) and `k` keep hosts.
+ * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
+ * display name (zh / en), `v` vendor, and the space-separated, repeatable lists `p` code
+ * prefixes, `b` block hosts, `u` block URLs (`host/path`) and `k` keep hosts. Unknown tags are
+ * ignored by the parser.
  */
 internal object TrackerData {
     const val VERSION: String = "{version}"
@@ -133,6 +134,12 @@ def record(tracker: dict) -> list:
         if len(line) > MAX_LINE:
             fail(f"{tid}: {field} longer than {MAX_LINE - 2} characters")
         lines.append(line)
+    for tag, field in (("dn", "displayName"), ("de", "displayNameEn")):
+        if field in tracker:
+            line = f"{tag} {text(tracker, field)}"
+            if len(line) > MAX_LINE:
+                fail(f"{tid}: {field} longer than {MAX_LINE - 3} characters")
+            lines.append(line)
     lines += wrapped("p", strings(tracker, "codePrefixes", PREFIX_PATTERN, required=True))
     lines += wrapped("b", strings(tracker, "blockHosts", HOST_PATTERN))
     lines += wrapped("u", urls(tracker))

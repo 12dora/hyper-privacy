@@ -47,7 +47,8 @@ private val HeaderIcon = 48.dp
 
 /**
  * One user-installed app: the protection switch, detected SDKs grouped by category with a switch
- * each (opt-in SDKs carry a one-line impact note), and app-list hiding.
+ * each (opt-in SDKs carry a one-line impact note), the app-level protections (DRM device ID, system
+ * DNS) with a switch each, and app-list hiding.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +84,7 @@ internal fun UserAppScreen(
             item(key = "header") { Header(app) }
             item(key = "protect") { ProtectionCard(app, canEdit, actions) }
             sdkSections(app, canEdit, actions.onSdk)
+            appRuleSection(app, canEdit, actions.onAppRule)
             appListSection(app, canEdit, actions)
         }
     }
@@ -146,6 +148,7 @@ private fun ProtectionCard(app: UserAppUi, canEdit: Boolean, actions: UserAppAct
             app.scan == ScanState.PENDING -> R.string.app_note_checking
             app.scan == ScanState.FAILED -> R.string.app_note_failed
             app.sdks.isEmpty() -> R.string.app_note_no_sdk
+            app.detectionOnly -> R.string.app_note_detect_only
             else -> R.string.app_note_protection
         },
     )
@@ -196,6 +199,26 @@ private fun SdkUi.impactNote(): Int = when (category) {
     TrackerCategory.IDENTIFICATION -> R.string.sdk_impact_verification
     TrackerCategory.CRASH -> R.string.sdk_impact_updates
     else -> R.string.sdk_impact_features
+}
+
+private fun LazyListScope.appRuleSection(app: UserAppUi, canEdit: Boolean, onToggle: (String, Boolean) -> Unit) {
+    if (app.appRules.isEmpty()) return
+    item(key = "rules-title") { SectionHeader(stringResource(R.string.app_protection_rules)) }
+    groupedItems(app.appRules, key = { "rule/${it.id}" }) { rule ->
+        val language = LocalConfiguration.current.locales[0].toLanguageTag()
+        val separator = stringResource(R.string.common_separator)
+        val summary = buildList {
+            add(rule.summary.resolve(language))
+            if (rule.hits > 0) add(countString(R.plurals.rule_hits, rule.hits))
+        }.joinToString(separator)
+        SwitchRow(
+            title = rule.title.resolve(language),
+            summary = summary,
+            checked = rule.enabled,
+            enabled = canEdit && app.protected,
+            onCheckedChange = { onToggle(rule.id, it) },
+        )
+    }
 }
 
 private enum class AppListRow { HIDE, STRICT }
@@ -250,6 +273,6 @@ private fun UserAppScreenPreview() {
                 hits = 0,
             ),
         )
-        UserAppScreen(app, canEdit = true, actions = UserAppActions({}, {}, { _, _ -> }, {}, {}, {}))
+        UserAppScreen(app, canEdit = true, actions = UserAppActions({}, {}, { _, _ -> }, { _, _ -> }, {}, {}, {}))
     }
 }

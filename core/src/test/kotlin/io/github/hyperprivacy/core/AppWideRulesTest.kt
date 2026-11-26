@@ -88,7 +88,19 @@ class AppWideRulesTest {
         val protectedRules = PackageRules(Catalog.protectedAppRules)
         assertEquals(Catalog.protectedAppRules, protectedRules.inProcess(Catalog.PROTECTED_APPS))
         Catalog.allPackages.forEach { assertEquals(emptyList(), protectedRules.inProcess(it), it) }
-        assertEquals(mapOf(MEDIA_DRM to true), ConfigCodec.decode(emptyMap<String, Any>(), Catalog.protectedAppRules))
+        assertEquals(
+            mapOf(MEDIA_DRM to true, PROTECTED_HTTPDNS to true),
+            ConfigCodec.decode(emptyMap<String, Any>(), Catalog.protectedAppRules),
+        )
+    }
+
+    @Test
+    fun `protected apps block the same resolvers as vendor packages`() {
+        val vendor = assertNotNull(Catalog.byId(HTTPDNS))
+        val protected = assertNotNull(Catalog.protectedAppRules.singleOrNull { it.id == PROTECTED_HTTPDNS })
+        assertEquals(vendor.payload, protected.payload)
+        assertEquals(setOf(Catalog.PROTECTED_APPS), protected.packages)
+        assertNull(Catalog.byId(PROTECTED_HTTPDNS))
     }
 
     @Test
@@ -104,5 +116,6 @@ class AppWideRulesTest {
     private companion object {
         const val HTTPDNS = "httpdns.resolvers"
         const val MEDIA_DRM = "mediadrm.device-id"
+        const val PROTECTED_HTTPDNS = "httpdns.protected-apps"
     }
 }

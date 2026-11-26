@@ -9,19 +9,27 @@ import io.github.libxposed.api.XposedInterface
  * In an app process the framework log also lands in that app's own logcat, which crash and log
  * SDKs read and upload. So once [verbose] is set (app processes: diagnostics mode), info messages
  * (hook inventories, blocked hosts, observed endpoints) are written only while it returns true;
- * warnings and errors always are.
+ * warnings and errors always are, unless [quiet] is set: then nothing is written outside
+ * diagnostics mode (protected third-party apps, whose SDKs must not learn about the module).
  */
 internal class HookLog(private val xposed: XposedInterface) {
     @Volatile
     var verbose: () -> Boolean = { true }
 
+    @Volatile
+    var quiet: Boolean = false
+
     fun info(message: String) {
         if (verbose()) xposed.log(Log.INFO, TAG, message)
     }
 
-    fun warn(message: String, error: Throwable? = null) = xposed.log(Log.WARN, TAG, message, error)
+    fun warn(message: String, error: Throwable? = null) {
+        if (!quiet || verbose()) xposed.log(Log.WARN, TAG, message, error)
+    }
 
-    fun error(message: String, error: Throwable) = xposed.log(Log.ERROR, TAG, message, error)
+    fun error(message: String, error: Throwable) {
+        if (!quiet || verbose()) xposed.log(Log.ERROR, TAG, message, error)
+    }
 
     /** Runs [block], logging instead of propagating any failure. Returns `null` on failure. */
     inline fun <T> guard(what: String, block: () -> T): T? = try {

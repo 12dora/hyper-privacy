@@ -9,13 +9,12 @@ import io.github.hyperprivacy.core.tracker.Trackers
 internal data class ScanKey(val versionCode: Long, val lastUpdateTime: Long)
 
 /**
- * App-private tracker state, never shared with hooked processes:
- * - scan results per package (`scan.<pkg>` → `versionCode,lastUpdateTime,dbVersion|id,id`), valid
- *   while the app build and the signature database version are unchanged;
- * - a mirror of the packages with protection on, so [io.github.hyperprivacy.status.StatusProvider]
- *   can authorize their reports without the framework binder.
+ * App-private tracker scan cache, never shared with hooked processes: scan results per package
+ * (`scan.<pkg>` → `versionCode,lastUpdateTime,dbVersion|id,id`), valid while the app build and the
+ * signature database version are unchanged.
  *
- * The remote preferences (`TrackerProtection` keys) stay the source of truth for hooks.
+ * Which apps are protected lives only in the remote preferences (`TrackerProtection` keys), the
+ * single source of truth for the UI, the hooks and system_server's status relay.
  */
 internal class TrackerStore(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
@@ -38,25 +37,11 @@ internal class TrackerStore(context: Context) {
         if (stale.isNotEmpty()) prefs.edit { stale.forEach(::remove) }
     }
 
-    fun protectedPackages(): Set<String> = prefs.getStringSet(PROTECTED_KEY, null).orEmpty()
-
-    fun setProtected(packageName: String, on: Boolean) {
-        val current = protectedPackages()
-        val next = if (on) current + packageName else current - packageName
-        if (next != current) prefs.edit { putStringSet(PROTECTED_KEY, next) }
-    }
-
-    /** Replaces the mirror, e.g. after reading the remote preferences. */
-    fun syncProtected(packages: Set<String>) {
-        if (packages != protectedPackages()) prefs.edit { putStringSet(PROTECTED_KEY, packages) }
-    }
-
     private fun header(key: ScanKey) = "${key.versionCode}$SEPARATOR${key.lastUpdateTime}$SEPARATOR${Trackers.version}"
 
     private companion object {
         const val FILE_NAME = "trackers"
         const val SCAN_PREFIX = "scan."
-        const val PROTECTED_KEY = "protected"
         const val SEPARATOR = ","
         const val ID_LIST = "|"
     }

@@ -13,8 +13,9 @@ package io.github.hyperprivacy.core.system
  *   partner apps that SDKs legitimately probe for share / login / pay, left visible to non-strict
  *   restricted apps. Absent: [DEFAULT_ALLOWLIST]; present (even empty): replaces the default.
  * - [SELF_HIDE_KEY] → Boolean, default `true`: hide this module's own package (and so its status
- *   provider) from every third-party app, except the default home app, LSPosed managers and hooked targets
- *   (see [AppListPolicy.resolve]). SDKs otherwise detect the module by package name.
+ *   provider) from every third-party app, except the default home app, LSPosed managers and the
+ *   catalog's hooked targets (see [AppListPolicy.resolve]); protected third-party apps are not
+ *   exempt. SDKs otherwise detect the module by package name.
  */
 public data class AppListConfig(
     val restricted: Set<String>,
@@ -92,7 +93,7 @@ public data class AppListConfig(
  * - **restricted caller**: the caller is restricted, the target is a third-party app, and the
  *   target is not allowlisted (unless the caller is strict);
  * - **module self-hiding**: the target is this module, the caller is a third-party app and not
- *   exempt (the default home app, module managers, hooked targets).
+ *   exempt (the default home app, module managers, catalog targets).
  *
  * "Third-party" is [AppIndex.isThirdParty]: vendor-trusted apps ([VendorTrust]) and
  * non-application uids are never hidden and never hidden from; an app id installed after the
@@ -118,7 +119,10 @@ public class AppListPolicy private constructor(
 
     public fun shouldHide(callerAppId: Int, targetAppId: Int): Boolean {
         if (callerAppId == targetAppId) return false
-        if (selfAppId >= 0 && targetAppId == selfAppId) return mayHideFrom(callerAppId)
+        // Self-hiding alone decides for the module: an exempt caller keeps seeing it even when restricted.
+        if (selfAppId >= 0 && targetAppId == selfAppId) {
+            return callerAppId !in selfVisibleTo && index.isThirdParty(callerAppId)
+        }
         return callerAppId in restricted && index.isThirdParty(targetAppId) &&
             (callerAppId in strict || targetAppId !in allowlisted)
     }
@@ -132,8 +136,9 @@ public class AppListPolicy private constructor(
         /**
          * @param selfPackage this module's package name.
          * @param selfExempt packages that keep seeing the module besides [AppListConfig.MODULE_MANAGERS]:
-         *   the current default home app and the module's hooked targets (they deliver status to
-         *   its provider).
+         *   the current default home app and the catalog's hooked targets (they deliver status to
+         *   its provider). Protected third-party apps are never exempt: they report through
+         *   system_server ([io.github.hyperprivacy.core.status.StatusRelay]).
          *
          * Restricted packages that are not installed are skipped; they are resolved again on the next rebuild.
          */

@@ -9,8 +9,8 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 
 /**
- * Calls [onChange] on every resume and, while resumed, whenever a package is added or removed, so
- * apps installed (or removed) while HyperPrivacy is open show up without a restart. Package
+ * Calls [onChange] on every resume and, while resumed, whenever a package is added, updated or
+ * removed, so such changes while HyperPrivacy is open show up without a restart. Package
  * broadcasts only arrive for packages this app can see, which the generated `<queries>` covers.
  */
 internal class PackageWatcher(private val context: Context, private val onChange: () -> Unit) :
@@ -24,6 +24,7 @@ internal class PackageWatcher(private val context: Context, private val onChange
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
             addDataScheme(PACKAGE_SCHEME)
         }
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)

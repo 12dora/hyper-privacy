@@ -1,6 +1,12 @@
 package io.github.hyperprivacy.status
 
+import android.os.Bundle
 import io.github.hyperprivacy.BuildConfig
+import io.github.hyperprivacy.core.status.MetaCodec
+import io.github.hyperprivacy.core.status.ObservedCodec
+import io.github.hyperprivacy.core.status.SinkCodec
+import io.github.hyperprivacy.core.status.StatusBatch
+import io.github.hyperprivacy.core.status.StatusCodec
 
 /**
  * Wire contract between hooked processes and [StatusProvider].
@@ -14,6 +20,9 @@ import io.github.hyperprivacy.BuildConfig
  *   ([io.github.hyperprivacy.core.status.MetaCodec]). Added later; receivers must not require it.
  *
  * A non-null reply means accepted; `null` means the caller was rejected (retrying cannot help).
+ *
+ * Protected third-party apps send the same extras to system_server instead
+ * ([io.github.hyperprivacy.core.status.StatusRelay]), which forwards them with its own batches.
  */
 internal object StatusContract {
     /** Matches `${applicationId}.status` in the manifest; derived so the two can never drift. */
@@ -31,4 +40,19 @@ internal object StatusContract {
 
     /** Bundle key holding a [io.github.hyperprivacy.core.status.MetaCodec] payload. */
     const val KEY_META = "meta"
+
+    fun encode(batch: StatusBatch): Bundle = Bundle().apply {
+        if (batch.reports.isNotEmpty()) putString(KEY_PAYLOAD, StatusCodec.encode(batch.reports))
+        if (batch.sinks.isNotEmpty()) putString(KEY_SINKS, SinkCodec.encode(batch.sinks))
+        if (batch.observed.isNotEmpty()) putString(KEY_OBSERVED, ObservedCodec.encode(batch.observed))
+        if (batch.meta.isNotEmpty()) putString(KEY_META, MetaCodec.encode(batch.meta))
+    }
+
+    /** Decodes [extras]; malformed rows and tables are dropped, never thrown. */
+    fun decode(extras: Bundle?): StatusBatch = StatusBatch(
+        reports = StatusCodec.decode(extras?.getString(KEY_PAYLOAD)),
+        sinks = SinkCodec.decode(extras?.getString(KEY_SINKS)),
+        observed = ObservedCodec.decode(extras?.getString(KEY_OBSERVED)),
+        meta = MetaCodec.decode(extras?.getString(KEY_META)),
+    )
 }

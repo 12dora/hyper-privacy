@@ -137,6 +137,10 @@
     <string name="health_export">Export diagnostic report</string>
     <string name="health_export_summary">No personal data; helps fix rules</string>
     <string name="health_export_failed">Could not create the report</string>
+    <string name="health_export_apps_title">Include your apps?</string>
+    <string name="health_export_apps_body">The report can list your protected apps and the servers they contacted. Leave them out unless you want to share this.</string>
+    <string name="health_export_apps_omit">Leave out</string>
+    <string name="health_export_apps_include">Include</string>
     <string name="health_report_subject">HyperPrivacy diagnostic report</string>
 
     <!-- App -->
@@ -257,20 +261,22 @@
     <string name="apps_awaiting_scope">Waiting for LSPosed</string>
     <string name="apps_empty">No apps to show</string>
     <string name="apps_empty_filtered">No apps with tracker SDKs</string>
-    <string name="apps_protect_description">Turn on tracker protection for %1$s</string>
+    <string name="apps_protect_description">Tracker protection for %1$s</string>
     <string name="app_protection">Tracker protection</string>
     <string name="app_protection_summary">Applies after the app restarts</string>
     <string name="app_scope_pending">Confirm in the LSPosed notification</string>
     <string name="app_scope_retry">Ask again</string>
     <string name="app_section_privacy">App list</string>
+    <string name="app_protection_rules">App protections</string>
     <string name="app_hide_apps">Hide installed apps</string>
     <string name="app_hide_apps_summary">This app can\'t see your other apps</string>
     <string name="app_strict">Strict mode</string>
     <string name="app_strict_summary">Also hides common share, sign-in and pay apps</string>
     <string name="app_note_checking">Checking this app…</string>
     <string name="app_note_failed">Couldn\'t read this app\'s package.</string>
-    <string name="app_note_no_sdk">No tracker SDKs found in this app. Some packed apps can\'t be analyzed; protection still isolates the DRM device ID and enforces system DNS.</string>
-    <string name="app_note_protection">Blocks reporting by the SDKs below, isolates the DRM device ID and enforces system DNS.</string>
+    <string name="app_note_no_sdk">No tracker SDKs found in this app. Some packed apps can\'t be analyzed; the app protections below still apply.</string>
+    <string name="app_note_detect_only">The SDKs found here can be detected but not blocked; the app protections below still apply.</string>
+    <string name="app_note_protection">Blocks reporting by the SDKs below; the app protections below apply as well.</string>
     <string name="sdk_detect_only">Detected only, not blocked</string>
     <string name="sdk_impact_verification">Sign-in or payment may need extra checks</string>
     <string name="sdk_impact_updates">In-app updates may stop working</string>

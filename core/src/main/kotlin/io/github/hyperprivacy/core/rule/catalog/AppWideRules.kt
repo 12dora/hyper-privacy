@@ -13,7 +13,7 @@ import io.github.hyperprivacy.core.rule.Text
  * - [httpDnsRule] targets every package the module is injected into anyway (the packages of all
  *   other in-process catalog rules) except [HTTPDNS_EXCLUDED_APPS], so it never widens the LSPosed
  *   scope;
- * - [mediaDrmRule] targets only [Catalog.PROTECTED_APPS]:
+ * - [mediaDrmRule] and [protectedHttpDnsRule] target only [Catalog.PROTECTED_APPS]:
  *   user-installed third-party apps the user chose to protect, never a vendor package.
  *
  * Both are `preventive`: a target that never trips them is the normal case.
@@ -41,9 +41,17 @@ internal fun mediaDrmRule(): Rule = Rule(
     preventive = true,
 )
 
-/** Third-party HTTPDNS / DoH resolvers; listed with the personal-data rules. */
-internal fun httpDnsRule(targets: Set<String>): Rule = Rule(
-    id = "httpdns.resolvers",
+/** Third-party HTTPDNS / DoH resolvers in vendor packages; listed with the personal-data rules. */
+internal fun httpDnsRule(targets: Set<String>): Rule = httpDnsRule("httpdns.resolvers", targets)
+
+/**
+ * The same resolver block for protected third-party apps ([Catalog.protectedAppRules]); a separate
+ * id so its switch and health never mix with the vendor rule's.
+ */
+internal fun protectedHttpDnsRule(): Rule = httpDnsRule("httpdns.protected-apps", setOf(Catalog.PROTECTED_APPS))
+
+private fun httpDnsRule(id: String, targets: Set<String>): Rule = Rule(
+    id = id,
     packages = targets,
     title = Text("强制系统 DNS", "Force system DNS"),
     summary = Text("阻止应用绕过系统 DNS 解析", "Stop apps bypassing system DNS"),

@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.status.StatusStore
 import io.github.hyperprivacy.status.diagnosticReport
+import io.github.hyperprivacy.status.reportMentionsUserApps
 import io.github.hyperprivacy.status.ruleHealth
 import io.github.hyperprivacy.status.suspectedEndpoints
 
@@ -16,8 +17,11 @@ internal interface RuleHealthSource {
     /** Endpoints seen in diagnostic mode that look like reporting no rule covers. */
     fun suspected(): List<ObservedEndpoint>
 
-    /** The shareable Markdown diagnostic report. */
-    fun report(moduleVersion: String, isEnabled: (Rule) -> Boolean): String
+    /** The shareable Markdown diagnostic report; user-installed apps only if [includeUserApps]. */
+    fun report(moduleVersion: String, includeUserApps: Boolean, isEnabled: (Rule) -> Boolean): String
+
+    /** Whether [report] has rows about user-installed apps to leave out or include. */
+    fun reportMentionsUserApps(): Boolean
 }
 
 /** Health backed by the status reports in [StatusStore]. */
@@ -26,6 +30,8 @@ internal class StoreHealthSource(private val store: StatusStore) : RuleHealthSou
 
     override fun suspected(): List<ObservedEndpoint> = store.suspectedEndpoints()
 
-    override fun report(moduleVersion: String, isEnabled: (Rule) -> Boolean): String =
-        store.diagnosticReport(moduleVersion, isEnabled)
+    override fun report(moduleVersion: String, includeUserApps: Boolean, isEnabled: (Rule) -> Boolean): String =
+        store.diagnosticReport(moduleVersion, includeUserApps, isEnabled)
+
+    override fun reportMentionsUserApps(): Boolean = store.reportMentionsUserApps()
 }
