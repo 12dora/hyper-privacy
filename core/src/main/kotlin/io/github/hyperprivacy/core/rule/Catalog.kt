@@ -11,8 +11,10 @@ import io.github.hyperprivacy.core.rule.catalog.personalDataRules
  * The built-in rule set. Adding a rule is a data-only change: append an entry to the list of its
  * category in the `catalog` package (shared target-package sets live in `PackageSets`).
  *
- * Scope policy: only privacy reporting channels. A rule must never affect a vendor service
- * (app store, security scan, push, cloud sync, find device, weather, updates …).
+ * Scope policy: only privacy reporting channels. A rule that affects a vendor service
+ * (app store, security scan, push, cloud sync, find device, weather, updates …) declares an `impact`
+ * and ships disabled, unless it blocks a high-risk leak (`highRisk`): then it ships enabled and the
+ * side effect is still shown.
  *
  * Invariants (enforced by tests): ids are unique, every rule cites evidence, DOMAIN rules name
  * specific telemetry hosts rather than vendor apexes, and FIREWALL targets own a dedicated uid.
