@@ -21,9 +21,12 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
         return ruleId
     }
 
+    /** Whether [checkUrl] can return anything or record; lets hot sinks skip reading the URL at all. */
+    val urlChecksActive: Boolean get() = policy.hasUrlRules || env.switches.observe
+
     /** Rule id blocking a request to [host] with percent-*encoded* [rawPath], or `null`. */
     fun checkUrl(host: String?, rawPath: String?): String? {
-        if (!policy.hasUrlRules && !env.switches.observe) return null
+        if (!urlChecksActive) return null
         val path = rawPath?.let(UrlParts::decodePath)
         val ruleId = policy.blockingUrl(host, path)
         observe(host, path, ruleId)
@@ -33,7 +36,7 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
 
     /** As [checkUrl] for a full URL string; unparsable URLs are let through. */
     fun checkUrl(url: String?): String? {
-        if (!policy.hasUrlRules && !env.switches.observe) return null
+        if (!urlChecksActive) return null
         val parts = UrlParts.parse(url) ?: return null
         val ruleId = policy.blockingUrl(parts.host, parts.path)
         observe(parts.host, parts.path, ruleId)

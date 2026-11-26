@@ -12,7 +12,8 @@ internal class UrlGuard(private val sinks: SinkContext) {
         val java = sinks.log.guard("java.net.URL sink") { JavaUrlSink(sinks).install() } ?: false
         val okhttp = sinks.log.guard("OkHttp sink") { OkHttpSink(sinks).install() } ?: false
         val cronet = sinks.log.guard("Cronet sinks") { CronetSink(sinks).install() } ?: false
-        return java || okhttp || cronet
+        val webView = sinks.log.guard("WebView sink") { WebViewSink(sinks).install() } ?: false
+        return java || okhttp || cronet || webView
     }
 }
 
