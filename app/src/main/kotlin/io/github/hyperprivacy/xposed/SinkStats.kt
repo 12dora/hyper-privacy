@@ -48,12 +48,18 @@ internal object SinkStats {
             while (nanos > seen && !maxNs.compareAndSet(seen, nanos)) seen = maxNs.get()
         }
 
-        /** Counts since the last drain; the maximum is per drain interval. */
+        /**
+         * Counts since the last drain; the maximum is per drain interval. A sample racing the drain
+         * may land its time without its count: that time is kept for the next drain, not dropped.
+         */
         fun drain(sink: String): SinkPerf? {
             val count = calls.sumThenReset()
             val total = totalNs.sumThenReset()
             val max = maxNs.getAndSet(0)
-            return SinkPerf(sink, count, total, max).takeIf { count > 0 }
+            if (count > 0) return SinkPerf(sink, count, total, max)
+            if (total > 0) totalNs.add(total)
+            if (max > 0) raiseMax(max)
+            return null
         }
     }
 

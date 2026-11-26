@@ -2,6 +2,7 @@ package io.github.hyperprivacy.xposed.fp
 
 import android.system.Os
 import android.system.StructStatVfs
+import io.github.hyperprivacy.core.fingerprint.HardwareTraits
 import io.github.hyperprivacy.xposed.GuardEnv
 import java.io.FileDescriptor
 
@@ -23,20 +24,23 @@ internal class FsIdHooks(private val env: GuardEnv, private val state: Fingerpri
             env.declared(Os::class.java, "statvfs", String::class.java),
             env.declared(Os::class.java, "fstatvfs", FileDescriptor::class.java),
         )
-        return env.hookAll(methods, ResultHook(state, ::mask))
+        return env.hookAll(methods, ResultHook(state, HardwareFingerprintGuard.FS_SINK, ::mask))
     }
 
     private fun mask(real: Any?): Any? {
         val stat = real as? StructStatVfs ?: return null
-        return state.replace(GROUP, stat) { traits, value -> withFsid(value, traits.fsid(value.f_fsid)) }
+        return state.replace(GROUP, stat, MASKED)
     }
-
-    private fun withFsid(stat: StructStatVfs, fsid: Long) = StructStatVfs(
-        stat.f_bsize, stat.f_frsize, stat.f_blocks, stat.f_bfree, stat.f_bavail,
-        stat.f_files, stat.f_ffree, stat.f_favail, fsid, stat.f_flag, stat.f_namemax,
-    )
 
     companion object {
         val GROUP = TraitGroup("fsid")
+
+        /** Created once: a lambda capturing nothing, so no closure is allocated per call. */
+        private val MASKED: (HardwareTraits, StructStatVfs) -> StructStatVfs = { traits, stat -> withFsid(stat, traits.fsid(stat.f_fsid)) }
+
+        private fun withFsid(stat: StructStatVfs, fsid: Long) = StructStatVfs(
+            stat.f_bsize, stat.f_frsize, stat.f_blocks, stat.f_bfree, stat.f_bavail,
+            stat.f_files, stat.f_ffree, stat.f_favail, fsid, stat.f_flag, stat.f_namemax,
+        )
     }
 }
