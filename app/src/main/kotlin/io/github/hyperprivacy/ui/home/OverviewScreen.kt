@@ -112,7 +112,7 @@ private fun CoverageItem(row: CoverageRow, state: UiState, actions: OverviewActi
         )
 
         CoverageRow.BLOCKED -> CoverageNavRow(
-            icon = AppIcons.Shield,
+            icon = AppIcons.Block,
             title = stringResource(R.string.overview_blocked),
             summary = countString(R.plurals.summary_blocked, state.totalHits),
             onClick = actions.onOpenSystem,

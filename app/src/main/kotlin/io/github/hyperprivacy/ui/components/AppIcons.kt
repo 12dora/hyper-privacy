@@ -95,13 +95,26 @@ internal object AppIcons {
             "M11 18 H13",
         )
     }
+
+    /** A checklist: the app-list rules (distinct from the Apps tab's grid). */
     val AppList: ImageVector by lazy {
         outline(
             "AppList",
-            "M5 4.5 H9 A0.5 0.5 0 0 1 9.5 5 V9 A0.5 0.5 0 0 1 9 9.5 H5 A0.5 0.5 0 0 1 4.5 9 V5 Z",
-            "M15 4.5 H19 A0.5 0.5 0 0 1 19.5 5 V9 A0.5 0.5 0 0 1 19 9.5 H15 A0.5 0.5 0 0 1 14.5 9 V5 Z",
-            "M5 14.5 H9 A0.5 0.5 0 0 1 9.5 15 V19 A0.5 0.5 0 0 1 9 19.5 H5 A0.5 0.5 0 0 1 4.5 19 V15 Z",
-            "M15 14.5 H19 A0.5 0.5 0 0 1 19.5 15 V19 A0.5 0.5 0 0 1 19 19.5 H15 A0.5 0.5 0 0 1 14.5 19 V15 Z",
+            "M4 6.5 L5.5 8 L8 5",
+            "M11 6.5 H20",
+            "M4 12 L5.5 13.5 L8 10.5",
+            "M11 12 H20",
+            "M4 17.5 L5.5 19 L8 16",
+            "M11 17.5 H20",
+        )
+    }
+
+    /** A circle with a slash: what was blocked. */
+    val Block: ImageVector by lazy {
+        outline(
+            "Block",
+            "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 Z",
+            "M6.3 6.3 L17.7 17.7",
         )
     }
     val PersonalData: ImageVector by lazy {

@@ -70,6 +70,20 @@ class NavigationCopyTest {
     }
 
     @Test
+    fun `self-hide summary names the audience, not a procedure`() {
+        assertEquals("第三方应用无法检测本模块", zh["settings_self_hide_summary"])
+        assertEquals("Hidden from third-party apps", en["settings_self_hide_summary"])
+    }
+
+    @Test
+    fun `about footer names what is blocked and what is spared, within two lines`() {
+        assertEquals("拦截隐私上报与广告，不影响系统服务", zh["xposed_description"])
+        assertEquals("Blocks privacy reporting and ads without breaking system services", en["xposed_description"])
+        assertTrue(CopyWidth.zh(zh.getValue("xposed_description")) <= ZH_LINE_MAX)
+        assertTrue(en.getValue("xposed_description").length <= EN_LINE_MAX * 2)
+    }
+
+    @Test
     fun `copy names no third-party product and describes no fraud role`() {
         val offenders = (zh + en.mapKeys { "en:${it.key}" })
             .filterKeys { it.removePrefix("en:").let(::isNavKey) }

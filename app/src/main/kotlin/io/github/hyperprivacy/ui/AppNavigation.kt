@@ -97,11 +97,18 @@ internal class Shell(
         scope.launch { scroll.reset() }
     }
 
-    /** Back: a deeper page first, then from another tab to Overview; on Overview the system takes it (exit). */
+    /**
+     * Back: a deeper page first, then an open search of the Apps tab, then from another tab to
+     * Overview; on Overview the system takes it (exit).
+     */
     val canGoBack: Boolean get() = nav.stack.size > 1 || tab != Tab.OVERVIEW
 
     fun back() {
-        if (nav.stack.size > 1) nav.pop() else tab = Tab.OVERVIEW
+        when {
+            nav.stack.size > 1 -> nav.pop()
+            tab == Tab.APPS && apps.searching -> apps.closeSearch()
+            else -> tab = Tab.OVERVIEW
+        }
     }
 }
 

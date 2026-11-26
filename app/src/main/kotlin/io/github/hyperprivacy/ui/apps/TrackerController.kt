@@ -334,7 +334,6 @@ private class AppsUiBuilder(
             SdkUi(
                 id = sdk.id,
                 name = sdk.displayName,
-                vendor = sdk.vendor,
                 category = sdk.category,
                 blockable = sdk.switchable,
                 defaultBlock = sdk.defaultBlock,

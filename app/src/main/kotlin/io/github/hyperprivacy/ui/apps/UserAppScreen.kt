@@ -168,9 +168,11 @@ private fun LazyListScope.appRuleSection(app: UserAppUi, canEdit: Boolean, onTog
 
 private enum class AppListRow { HIDE, STRICT }
 
+/** Strict mode refines app-list hiding, so its row exists only while hiding is on. */
 private fun LazyListScope.appListSection(app: UserAppUi, canEdit: Boolean, actions: UserAppActions) {
     item(key = "applist-title") { SectionHeader(stringResource(R.string.app_section_privacy)) }
-    groupedItems(AppListRow.entries, key = { "applist/$it" }) { row ->
+    val rows = AppListRow.entries.filter { it == AppListRow.HIDE || app.hideApps }
+    groupedItems(rows, key = { "applist/$it" }) { row ->
         when (row) {
             AppListRow.HIDE -> SwitchRow(
                 title = stringResource(R.string.app_hide_apps),
@@ -183,8 +185,8 @@ private fun LazyListScope.appListSection(app: UserAppUi, canEdit: Boolean, actio
             AppListRow.STRICT -> SwitchRow(
                 title = stringResource(R.string.app_strict),
                 summary = stringResource(R.string.app_strict_summary),
-                checked = app.strict && app.hideApps,
-                enabled = canEdit && app.hideApps,
+                checked = app.strict,
+                enabled = canEdit,
                 onCheckedChange = actions.onStrict,
             )
         }

@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
  * Copy gate for the Apps page strings (app module resources), with the same width measure as
  * [CatalogCopyTest]: titles and one-line summaries must fit a phone row without truncation, and
  * both languages must define the same strings. Section notes (`app_note_*`) are one short line
- * too; only the page intro (`apps_intro`) wraps and is exempt from width limits.
+ * too, and so is the page intro (`apps_intro`), which must fit one line of a 360dp-wide phone.
  */
 class AppsCopyTest {
     private val res: File = requireNotNull(
@@ -33,7 +33,7 @@ class AppsCopyTest {
 
     @Test
     fun `titles and summaries fit one line`() {
-        val tooLong = zh.filterKeys(::isAppsKey).filterKeys { !isNote(it) }.mapNotNull { (key, text) ->
+        val tooLong = zh.filterKeys(::isAppsKey).mapNotNull { (key, text) ->
             val (zhMax, enMax) = if (isTitle(key)) ZH_TITLE_MAX to EN_TITLE_MAX else ZH_LINE_MAX to EN_LINE_MAX
             val english = en[key]
             assertNotNull(english, key)
@@ -44,6 +44,33 @@ class AppsCopyTest {
             }
         }
         assertTrue(tooLong.isEmpty(), "Copy too long:\n" + tooLong.joinToString("\n"))
+    }
+
+    @Test
+    fun `intro fits one line of a narrow phone`() {
+        assertEquals("识别应用内置的追踪 SDK 并拦截其上报", zh["apps_intro"])
+        assertTrue(CopyWidth.zh(zh.getValue("apps_intro")) <= ZH_INTRO_MAX)
+        assertTrue(en.getValue("apps_intro").length <= EN_INTRO_MAX)
+    }
+
+    @Test
+    fun `detection-only label is short and states what the SDK is`() {
+        assertEquals("仅识别", zh["sdk_detect_only"])
+        assertEquals("Detect only", en["sdk_detect_only"])
+    }
+
+    @Test
+    fun `suspected components carry one note about themselves`() {
+        assertEquals("不属于已知 SDK，默认不拦截", zh["sdk_suspect_summary"])
+        assertTrue(en.getValue("sdk_suspect_summary").length <= EN_LINE_MAX)
+    }
+
+    @Test
+    fun `apps search has a hint and an empty text in both languages`() {
+        listOf("apps_search_hint", "apps_search_empty").forEach { key ->
+            assertTrue(zh[key].orEmpty().isNotBlank(), "zh $key")
+            assertTrue(en[key].orEmpty().isNotBlank(), "en $key")
+        }
     }
 
     @Test
@@ -65,8 +92,6 @@ class AppsCopyTest {
     private fun banned(text: String) = BANNED_WORDS.any { text.contains(it, ignoreCase = true) }
 
     private fun isAppsKey(key: String) = PREFIXES.any { key.startsWith(it) }
-
-    private fun isNote(key: String) = key == "apps_intro"
 
     private fun isTitle(key: String) = key in TITLES || key.startsWith("tracker_cat_")
 
@@ -112,6 +137,8 @@ class AppsCopyTest {
         const val EN_TITLE_MAX = 28
         const val ZH_LINE_MAX = 20.0
         const val EN_LINE_MAX = 48
+        const val ZH_INTRO_MAX = 22.0
+        const val EN_INTRO_MAX = 46
 
         /** Public copy names functions and data channels, never anti-fraud / anti-cheat roles. */
         val BANNED_WORDS = listOf("反诈", "涉诈", "诈骗", "欺诈", "作弊", "fraud", "cheat")

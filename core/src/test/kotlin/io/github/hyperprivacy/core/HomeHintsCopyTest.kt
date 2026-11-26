@@ -47,6 +47,15 @@ class HomeHintsCopyTest {
     }
 
     @Test
+    fun `chinese overlap summaries run on from the label without a space`() {
+        listOf("conflict_summary_applist", "conflict_summary_ads", "conflict_summary_privacy").forEach { key ->
+            // The placeholder reads as "0" here; the label's own trailing gap is added in code.
+            assertTrue(zh.getValue(key).startsWith("0也在"), key)
+            assertTrue(en.getValue(key).startsWith("0 also"), key)
+        }
+    }
+
+    @Test
     fun `copy names no third-party product and describes no fraud role`() {
         val offenders = (zh + en.mapKeys { "en:${it.key}" }).filterKeys { it.removePrefix("en:").let(::isHintKey) }
             .filter { (_, text) -> (PRODUCTS + FRAUD).any { text.contains(it, ignoreCase = true) } }

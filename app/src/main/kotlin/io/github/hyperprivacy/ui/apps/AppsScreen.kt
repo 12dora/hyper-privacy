@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,24 +15,29 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -48,6 +54,8 @@ import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.components.AppIcon
+import io.github.hyperprivacy.ui.components.BackButton
+import io.github.hyperprivacy.ui.components.SearchField
 import io.github.hyperprivacy.ui.components.TabTopBar
 import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
@@ -55,7 +63,7 @@ import io.github.hyperprivacy.ui.components.listPadding
 /**
  * The Apps tab: user-installed apps outside the catalog: icon, name, one line on what the offline scan found,
  * and the protection switch. The list fills in while apps are checked; [onlyTrackers] narrows it to
- * apps with at least one detected SDK.
+ * apps with at least one detected SDK, and [search] to apps whose label or package matches.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +71,7 @@ internal fun AppsScreen(
     state: AppsUi,
     canEdit: Boolean,
     onlyTrackers: Boolean,
+    search: AppsSearch,
     actions: AppsActions,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
@@ -70,22 +79,44 @@ internal fun AppsScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
-    val shown = remember(state.apps, onlyTrackers) {
-        if (onlyTrackers) state.apps.filter { it.sdkCount > 0 } else state.apps
+    val shown = remember(state.apps, onlyTrackers, search) {
+        state.apps.filter { (!onlyTrackers || it.sdkCount > 0) && search.matches(it) }
     }
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = { TabTopBar(stringResource(R.string.apps_title), scrollBehavior) },
+        topBar = {
+            if (search.active) {
+                AppsSearchBar(search.query, actions.onQueryChange) {
+                    actions.onQueryChange("")
+                    actions.onSearchChange(false)
+                }
+            } else {
+                TabTopBar(stringResource(R.string.apps_title), scrollBehavior) {
+                    IconButton(onClick = { actions.onSearchChange(true) }) {
+                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
+                    }
+                }
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { inner ->
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(inner)) {
-            item(key = "intro") { Intro() }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().imePadding(),
+            state = listState,
+            contentPadding = listPadding(inner),
+        ) {
+            if (!search.active) item(key = "intro") { Intro() }
             item(key = "filter") { FilterRow(state, onlyTrackers, actions.onFilterChange) }
             when {
                 !state.loaded -> item(key = "loading") { Loading() }
 
                 shown.isEmpty() && !state.scanning -> item(key = "empty") {
-                    EmptyText(stringResource(if (onlyTrackers) R.string.apps_empty_filtered else R.string.apps_empty))
+                    val empty = when {
+                        search.filtering -> R.string.apps_search_empty
+                        onlyTrackers -> R.string.apps_empty_filtered
+                        else -> R.string.apps_empty
+                    }
+                    EmptyText(stringResource(empty))
                 }
 
                 else -> groupedItems(shown, key = { "app/${it.packageName}" }) { app ->
@@ -99,6 +130,19 @@ internal fun AppsScreen(
             }
         }
     }
+}
+
+/** The title bar while searching: back closes the search, the field filters by label or package. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppsSearchBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+    TopAppBar(
+        navigationIcon = { BackButton(onClose) },
+        title = { SearchField(query, onQueryChange, focus, R.string.apps_search_hint) },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+    )
 }
 
 @Composable
@@ -228,7 +272,6 @@ internal fun sampleApps(): AppsUi {
     val sdk = SdkUi(
         id = "umeng-analytics",
         name = Text("友盟统计", "Umeng Analytics"),
-        vendor = "友盟+",
         category = TrackerCategory.ANALYTICS,
         blockable = true,
         defaultBlock = true,
@@ -258,6 +301,12 @@ internal fun sampleApps(): AppsUi {
 @Composable
 private fun AppsScreenPreview() {
     HyperPrivacyTheme {
-        AppsScreen(sampleApps(), canEdit = true, onlyTrackers = false, actions = AppsActions({}, { _, _ -> }, {}))
+        AppsScreen(
+            sampleApps(),
+            canEdit = true,
+            onlyTrackers = false,
+            search = AppsSearch(),
+            actions = AppsActions({}, {}, {}, { _, _ -> }, {}),
+        )
     }
 }

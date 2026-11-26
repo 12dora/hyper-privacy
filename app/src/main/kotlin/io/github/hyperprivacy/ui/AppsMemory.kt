@@ -16,20 +16,35 @@ import kotlinx.coroutines.launch
 
 /**
  * Apps tab state that must outlive the tab while another tab or an app's page is shown (pages are
- * swapped by the navigation's `AnimatedContent`): the filter, the list and title bar positions, and
+ * swapped by the navigation's `AnimatedContent`): the filter, the search, the list and title bar positions, and
  * the one snackbar host that scope request outcomes are collected into.
  */
 @Stable
-internal class AppsMemory(onlyTrackers: MutableState<Boolean>, val scroll: TabScroll) {
+internal class AppsMemory(
+    onlyTrackers: MutableState<Boolean>,
+    searching: MutableState<Boolean>,
+    query: MutableState<String>,
+    val scroll: TabScroll,
+) {
     var onlyTrackers by onlyTrackers
+    var searching by searching
+    var query by query
     val snackbar = SnackbarHostState()
+
+    /** Leaves search mode and forgets the query. */
+    fun closeSearch() {
+        searching = false
+        query = ""
+    }
 }
 
 @Composable
 internal fun rememberAppsMemory(model: AppsModel): AppsMemory {
     val onlyTrackers = rememberSaveable { mutableStateOf(false) }
+    val searching = rememberSaveable { mutableStateOf(false) }
+    val query = rememberSaveable { mutableStateOf("") }
     val scroll = rememberTabScroll()
-    val memory = remember(onlyTrackers, scroll) { AppsMemory(onlyTrackers, scroll) }
+    val memory = remember(onlyTrackers, searching, query, scroll) { AppsMemory(onlyTrackers, searching, query, scroll) }
     TrackerMessages(model, memory.snackbar)
     return memory
 }
