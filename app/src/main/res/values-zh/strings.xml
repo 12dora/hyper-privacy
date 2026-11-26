@@ -20,7 +20,7 @@
         <item quantity="other">%1$d 个应用已开启防护</item>
     </plurals>
     <string name="overview_apps_none">尚未为应用开启防护</string>
-    <string name="overview_blocked">拦截记录</string>
+    <string name="overview_blocked">已拦截</string>
 
     <!-- 模块状态 -->
     <string name="module_checking">正在检查状态</string>
@@ -33,7 +33,7 @@
     <string name="module_reboot_hint">重启设备后规则生效</string>
     <string name="module_no_rules">未开启任何规则</string>
     <plurals name="summary_blocked">
-        <item quantity="other">累计拦截 %1$s 次</item>
+        <item quantity="other">累计 %1$s 次</item>
     </plurals>
 
     <!-- 需要关注 -->

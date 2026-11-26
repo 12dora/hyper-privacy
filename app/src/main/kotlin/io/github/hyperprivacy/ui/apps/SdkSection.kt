@@ -50,14 +50,30 @@ internal fun Note(@StringRes text: Int) {
     )
 }
 
-internal fun LazyListScope.sdkSection(app: UserAppUi, canEdit: Boolean, onSdk: (String, Boolean) -> Unit) {
+/** The SDKs by category (enum order); within a category, blockable ones first, then by name. */
+internal fun List<SdkUi>.byCategory(): List<Pair<TrackerCategory, List<SdkUi>>> =
+    groupBy { it.category }.toSortedMap().map { (category, sdks) ->
+        category to sdks.sortedWith(compareBy<SdkUi> { !it.blockable }.thenBy { it.name.en.lowercase() })
+    }
+
+private const val SDK_SWITCH = "sdk-switch"
+private const val SDK_DETECT_ONLY = "sdk-detect-only"
+
+internal fun LazyListScope.sdkSection(
+    app: UserAppUi,
+    groups: List<Pair<TrackerCategory, List<SdkUi>>>,
+    canEdit: Boolean,
+    onSdk: (String, Boolean) -> Unit,
+) {
     item(key = "sdk-title") { SectionHeader(stringResource(R.string.app_section_sdk)) }
     app.sdkNote()?.let { note -> item(key = "sdk-note") { Note(note) } }
-    // Category order follows the enum; within a category, blockable SDKs first, then by name.
-    app.sdks.groupBy { it.category }.toSortedMap().forEach { (category, sdks) ->
+    groups.forEach { (category, sdks) ->
         item(key = "cat/${category.name}") { Caption(stringResource(category.label())) }
-        val ordered = sdks.sortedWith(compareBy<SdkUi> { !it.blockable }.thenBy { it.name.en.lowercase() })
-        groupedItems(ordered, key = { "sdk/${it.id}" }) { sdk ->
+        groupedItems(
+            sdks,
+            key = { "sdk/${it.id}" },
+            contentType = { if (it.blockable) SDK_SWITCH else SDK_DETECT_ONLY },
+        ) { sdk ->
             SdkRow(sdk, enabled = canEdit && app.protected, onToggle = { onSdk(sdk.id, it) })
         }
     }
@@ -108,6 +124,7 @@ private fun DetectOnlyRow(title: String, summary: String?) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.RowMinHeight)
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,

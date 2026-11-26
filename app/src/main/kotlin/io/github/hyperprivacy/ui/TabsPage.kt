@@ -21,12 +21,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.home.OverviewActions
@@ -74,7 +77,9 @@ internal fun TabsPage(state: UiState, shell: Shell) {
                         onClick = { shell.select(tab, scope) },
                         // The label names the destination; the icon would only repeat it.
                         icon = { Icon(tab.icon(), contentDescription = null) },
-                        label = { Text(stringResource(tab.labelRes())) },
+                        label = {
+                            Text(stringResource(tab.labelRes()), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
                     )
                 }
             }
@@ -117,9 +122,12 @@ private fun OverviewTab(state: UiState, shell: Shell) {
             onOpenApps = { shell.tab = Tab.APPS },
         )
     }
+    // Protected apps' hits are what the Apps tab already holds; the Overview never lists apps itself.
+    val apps by shell.model.trackers.state.collectAsStateWithLifecycle()
     OverviewScreen(
         state = state,
         actions = actions,
+        blockedTotal = state.totalHits + apps.protectedHits,
         listState = shell.overview.list,
         barState = shell.overview.bar,
         snackbarHostState = shell.snackbar,
@@ -148,7 +156,7 @@ private fun SystemTab(state: UiState, shell: Shell) {
     SystemScreen(
         state = state,
         view = system.view,
-        expanded = system.expanded.orEmpty().toSet(),
+        expanded = remember(system.expanded) { system.expanded.orEmpty().toSet() },
         actions = actions,
         listState = system.scroll.list,
         barState = system.scroll.bar,

@@ -53,7 +53,8 @@ private enum class CoverageRow { SYSTEM, APPS, BLOCKED }
 /**
  * The Overview tab: the status card (state, pause, and the hints that need a tap), then what is
  * covered: rules on for system apps, protected installed apps, and the blocked total once there is
- * one. Each row opens its tab.
+ * one. The first two rows open their tab; the total spans both, so it has no single destination.
+ * [blockedTotal] is what both system rules and protected apps have blocked.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,13 +62,14 @@ internal fun OverviewScreen(
     state: UiState,
     actions: OverviewActions,
     modifier: Modifier = Modifier,
+    blockedTotal: Long = state.totalHits,
     listState: LazyListState = rememberLazyListState(),
     barState: TopAppBarState = rememberTopAppBarState(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
-    val rows = remember(state.totalHits > 0) {
-        CoverageRow.entries.filter { it != CoverageRow.BLOCKED || state.totalHits > 0 }
+    val rows = remember(blockedTotal > 0) {
+        CoverageRow.entries.filter { it != CoverageRow.BLOCKED || blockedTotal > 0 }
     }
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -84,14 +86,14 @@ internal fun OverviewScreen(
             item(key = STATUS_KEY, contentType = STATUS_KEY) { StatusCard(state, actions.status) }
             if (state.loaded) {
                 item(key = COVERAGE_KEY) { SectionHeader(stringResource(R.string.overview_coverage)) }
-                groupedItems(rows, key = { "coverage/$it" }) { row -> CoverageItem(row, state, actions) }
+                groupedItems(rows, key = { "coverage/$it" }) { row -> CoverageItem(row, state, blockedTotal, actions) }
             }
         }
     }
 }
 
 @Composable
-private fun CoverageItem(row: CoverageRow, state: UiState, actions: OverviewActions) {
+private fun CoverageItem(row: CoverageRow, state: UiState, blockedTotal: Long, actions: OverviewActions) {
     when (row) {
         CoverageRow.SYSTEM -> CoverageNavRow(
             icon = AppIcons.System,
@@ -114,14 +116,14 @@ private fun CoverageItem(row: CoverageRow, state: UiState, actions: OverviewActi
         CoverageRow.BLOCKED -> CoverageNavRow(
             icon = AppIcons.Block,
             title = stringResource(R.string.overview_blocked),
-            summary = countString(R.plurals.summary_blocked, state.totalHits),
-            onClick = actions.onOpenSystem,
+            summary = countString(R.plurals.summary_blocked, blockedTotal),
+            onClick = null,
         )
     }
 }
 
 @Composable
-private fun CoverageNavRow(icon: ImageVector, title: String, summary: String, onClick: () -> Unit) {
+private fun CoverageNavRow(icon: ImageVector, title: String, summary: String, onClick: (() -> Unit)?) {
     val colors = MaterialTheme.colorScheme
     NavRow(
         title = title,

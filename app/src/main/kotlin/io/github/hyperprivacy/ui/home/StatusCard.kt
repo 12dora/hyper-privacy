@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -104,7 +104,7 @@ internal fun StatusCard(state: UiState, actions: StatusActions, modifier: Modifi
     val module = state.module
     val now = rememberNow(active = state.pauseCountdown)
     val paused = module.canEdit && ProtectionPause.isPaused(state.pausedUntil, now)
-    var choosing by remember { mutableStateOf(false) }
+    var choosing by rememberSaveable { mutableStateOf(false) }
     val rows = buildList {
         add(CardRow.STATUS)
         if (!state.scope.isEmpty) add(CardRow.SCOPE)

@@ -3,6 +3,7 @@ package io.github.hyperprivacy.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.ui.apps.AppSwitch
@@ -18,18 +19,22 @@ import io.github.hyperprivacy.ui.apps.UserAppScreen
 internal fun AppsPage(state: UiState, trackers: AppsModel, nav: Navigator, memory: AppsMemory) {
     val apps by trackers.state.collectAsStateWithLifecycle()
     LaunchedEffect(trackers) { trackers.start() }
-    AppsScreen(
-        state = apps,
-        canEdit = state.module.canEdit,
-        onlyTrackers = memory.onlyTrackers,
-        search = AppsSearch(memory.searching, memory.query),
-        actions = AppsActions(
+    val actions = remember(memory, trackers, nav) {
+        AppsActions(
             onFilterChange = { memory.onlyTrackers = it },
             onSearchChange = { memory.searching = it },
             onQueryChange = { memory.query = it },
             onToggle = trackers::setProtected,
             onOpen = { nav.push(Route.UserApp(it)) },
-        ),
+        )
+    }
+    val search = remember(memory.searching, memory.query) { AppsSearch(memory.searching, memory.query) }
+    AppsScreen(
+        state = apps,
+        canEdit = state.module.canEdit,
+        onlyTrackers = memory.onlyTrackers,
+        search = search,
+        actions = actions,
         listState = memory.scroll.list,
         barState = memory.scroll.bar,
         snackbarHostState = memory.snackbar,
@@ -47,12 +52,8 @@ internal fun UserAppPage(
 ) {
     val apps by trackers.state.collectAsStateWithLifecycle()
     LaunchedEffect(trackers) { trackers.start() }
-    // Until the first list arrives there is nothing to show, and "not found" would flash.
-    if (!apps.loaded) return
-    UserAppScreen(
-        app = apps.app(packageName),
-        canEdit = state.module.canEdit,
-        actions = UserAppActions(
+    val actions = remember(packageName, trackers, nav) {
+        UserAppActions(
             onProtect = { trackers.setProtected(packageName, it) },
             onRetryScope = { trackers.retryScope(packageName) },
             onSdk = { sdk, on -> trackers.set(AppSwitch.Sdk(packageName, sdk), on) },
@@ -61,7 +62,14 @@ internal fun UserAppPage(
             onHideApps = { trackers.set(AppSwitch.HideApps(packageName), it) },
             onStrict = { trackers.set(AppSwitch.Strict(packageName), it) },
             onBack = nav::pop,
-        ),
+        )
+    }
+    // Until the first list arrives there is nothing to show, and "not found" would flash.
+    if (!apps.loaded) return
+    UserAppScreen(
+        app = apps.app(packageName),
+        canEdit = state.module.canEdit,
+        actions = actions,
         modifier = modifier,
         snackbarHostState = memory.snackbar,
     )
