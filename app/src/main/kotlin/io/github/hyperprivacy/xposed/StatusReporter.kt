@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Process
 import android.os.SystemClock
 import io.github.hyperprivacy.BuildConfig
-import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.ObservedEndpoint
@@ -44,11 +43,15 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * @param context supplies a Context once one exists (returns `null` early in process start).
  * @param relayMethod for a protected third-party app: the relay method name, `null` while unknown.
+ * @param systemServer set only by the guards started from `onSystemServerStarting`: this reporter
+ *   then speaks for system_server ([ProcessMeta.MODULE]). Never derived from the uid, which vendor
+ *   apps sharing `android.uid.system` also run as.
  */
 internal class StatusReporter(
     private val log: HookLog,
     private val context: () -> Context?,
     relayMethod: (() -> String?)? = null,
+    private val systemServer: Boolean = false,
 ) {
     private data class RuleKey(val packageName: String, val ruleId: String)
 
@@ -216,7 +219,7 @@ internal class StatusReporter(
     private fun readProcessMeta(): ProcessMeta? {
         if (processMetaRead) return processMeta
         val started = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime())
-        if (Process.myUid() % UidPolicy.PER_USER_RANGE == Process.SYSTEM_UID) {
+        if (systemServer) {
             processMetaRead = true
             processMeta = ProcessMeta(ProcessMeta.MODULE, BuildConfig.VERSION_CODE.toLong(), started)
             return processMeta

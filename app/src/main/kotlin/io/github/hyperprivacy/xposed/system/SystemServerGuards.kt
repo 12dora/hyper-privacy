@@ -78,7 +78,7 @@ internal class SystemServerGuards(private val xposed: XposedInterface, private v
             log.warn("system guards: system context unavailable")
             return
         }
-        val reporter = StatusReporter(log, context = { context })
+        val reporter = StatusReporter(log, context = { context }, systemServer = true)
         state.reporter = reporter
         state.switches = RuleSwitches.open(xposed, log, RULES)
         val prefs = log.guard("open app-list preferences") { xposed.getRemotePreferences(ConfigCodec.PREFS_GROUP) }
