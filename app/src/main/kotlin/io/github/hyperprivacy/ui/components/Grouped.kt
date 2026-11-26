@@ -1,11 +1,14 @@
 package io.github.hyperprivacy.ui.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
@@ -14,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.heading
@@ -63,22 +67,27 @@ internal fun <T> LazyListScope.groupedItems(
 internal fun SingleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
     GroupedSurface(index = 0, count = 1, modifier = modifier, content = content)
 
+/** A 36dp group label above a card; [leading] is an optional 20dp icon. */
 @Composable
-internal fun SectionHeader(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
+internal fun SectionHeader(text: String, modifier: Modifier = Modifier, leading: @Composable (() -> Unit)? = null) {
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = Dimens.Gutter, top = Dimens.Section, end = Dimens.Gutter, bottom = Dimens.Small)
-            .semantics { heading() },
-    )
+            .padding(top = Dimens.GroupGap)
+            .heightIn(min = Dimens.HeaderHeight)
+            .padding(horizontal = Dimens.Gutter)
+            .semantics(mergeDescendants = true) { heading() },
+        horizontalArrangement = Arrangement.spacedBy(Dimens.Small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading?.invoke()
+        Text(text = text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
 }
 
 /** Content padding that keeps the list inside the system bars and cutouts, plus the 16dp gutter. */
 @Composable
-internal fun listPadding(inner: PaddingValues, bottomExtra: Dp = Dimens.Section): PaddingValues {
+internal fun listPadding(inner: PaddingValues, bottomExtra: Dp = Dimens.Gutter): PaddingValues {
     val direction = LocalLayoutDirection.current
     return PaddingValues(
         start = inner.calculateStartPadding(direction) + Dimens.Gutter,

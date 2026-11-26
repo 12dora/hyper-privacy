@@ -42,7 +42,7 @@ internal fun SwitchRow(
             .fillMaxWidth()
             .heightIn(min = Dimens.RowMinHeight)
             .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -59,7 +59,7 @@ internal fun TitleSummary(title: String, summary: String?, modifier: Modifier = 
         if (summary != null) {
             Text(
                 text = summary,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -74,7 +74,7 @@ internal fun ValueRow(title: String, value: String, modifier: Modifier = Modifie
             .fillMaxWidth()
             .heightIn(min = Dimens.RowMinHeight)
             .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -94,7 +94,7 @@ internal fun ValueRow(title: String, value: String, modifier: Modifier = Modifie
 internal fun MonoText(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodySmall,
         fontFamily = FontFamily.Monospace,
         modifier = modifier,
     )

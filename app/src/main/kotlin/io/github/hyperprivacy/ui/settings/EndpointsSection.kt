@@ -54,7 +54,7 @@ private fun EmptyEndpoints(diagnosticMode: Boolean) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Dimens.Gutter),
+                .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny),
         )
     }
 }
@@ -74,7 +74,7 @@ private fun EndpointRow(endpoint: ObservedEndpointUi) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.RowMinHeight)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
