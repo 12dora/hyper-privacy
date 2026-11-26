@@ -7,8 +7,6 @@ import io.github.hyperprivacy.core.config.ProtectionPause
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.libxposed.api.XposedInterface
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Live, read-only view of the user's switches inside a hooked process: the [rules] that apply
@@ -20,13 +18,18 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * While protection is paused ([ProtectionPause]) the effective switches are simply empty: every
  * check, in every guard, already reads them through [isEnabled], so pausing adds nothing to any hot
- * path. The snapshot is rebuilt when the deadline preference changes and by a timer when a timed
- * pause ends ([scheduleResume]), which also notifies the listeners (network lists, the firewall).
+ * path. Nothing here runs a timer: the paused state is derived with one clock read whenever the
+ * preferences change, and the module app ends a timed pause by removing the deadline (one alarm),
+ * which is such a change. A process started after the deadline therefore starts unpaused.
  *
  * [decode] resolves the rule switches from the raw preferences (catalog rules: [ConfigCodec.decode];
  * tracker-protected apps: `TrackerRules.resolve`), and [affects] says which keys it reads, so
  * edits for other processes' rules or apps do not rebuild anything here. The observe switch and
  * the module secret are always watched.
+ *
+ * Single writer: [refresh] reads the preferences and publishes the snapshot under one lock, with a
+ * version that only grows, so a slow reader can never publish an older view over a newer one.
+ * Listeners run after the lock is released and read whatever is current.
  */
 internal class RuleSwitches private constructor(
     private val prefs: SharedPreferences?,
@@ -39,13 +42,14 @@ internal class RuleSwitches private constructor(
         val observe: Boolean,
         val secret: ByteArray?,
         val paused: Boolean,
+        val version: Long,
     )
 
-    /** The pending end-of-pause check; guarded by `this`. */
-    private var resumeCheck: ScheduledFuture<*>? = null
-
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
-    private val snapshot = AtomicReference(read())
+
+    /** Published under `this`; read lock-free (one volatile read) by every check. */
+    @Volatile
+    private var snapshot = Snapshot(emptyMap(), observe = false, secret = null, paused = false, version = 0)
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -53,20 +57,20 @@ internal class RuleSwitches private constructor(
     }
 
     init {
-        SinkStats.setEnabled(snapshot.get().observe)
+        publish()
         prefs?.registerOnSharedPreferenceChangeListener(prefsListener)
     }
 
-    fun isEnabled(ruleId: String): Boolean = snapshot.get().enabled[ruleId] ?: false
+    fun isEnabled(ruleId: String): Boolean = snapshot.enabled[ruleId] ?: false
 
     /** Diagnostics mode; a single volatile read, cheap enough for every network call. */
-    val observe: Boolean get() = snapshot.get().observe
+    val observe: Boolean get() = snapshot.observe
 
     /** Whether all protection is paused right now ([ProtectionPause]); every switch then reads as off. */
-    val paused: Boolean get() = snapshot.get().paused
+    val paused: Boolean get() = snapshot.paused
 
     /** The module secret ([ModuleSecret]), or `null` while the module app has not written it. */
-    val secret: ByteArray? get() = snapshot.get().secret
+    val secret: ByteArray? get() = snapshot.secret
 
     /** Registers [listener] to run (on an arbitrary thread) after switches change. */
     fun addListener(listener: () -> Unit) {
@@ -74,33 +78,25 @@ internal class RuleSwitches private constructor(
     }
 
     private fun refresh() {
-        val next = read()
-        snapshot.set(next)
-        SinkStats.setEnabled(next.observe)
+        publish()
         listeners.forEach { listener -> log.guard("switch listener") { listener() } }
     }
 
+    /** Reads and publishes atomically; the diagnostics flag follows inside the lock, so it cannot go stale either. */
     @Synchronized
-    private fun read(): Snapshot {
+    private fun publish() {
         val raw = log.guard("read switches") { prefs?.all }.orEmpty()
-        val until = ProtectionPause.untilOf(raw)
-        // The only clock read: once per preference change or timer tick, never per check.
-        val now = System.currentTimeMillis()
-        val paused = ProtectionPause.isPaused(until, now)
-        scheduleResume(until, now)
-        return Snapshot(
+        // The only clock read: once per preference change, never per check and never from a timer.
+        val paused = ProtectionPause.isPaused(ProtectionPause.untilOf(raw), System.currentTimeMillis())
+        val next = Snapshot(
             enabled = if (paused) emptyMap() else decode(raw),
             observe = ConfigCodec.isObserveEnabled(raw),
             secret = ModuleSecret.parse(raw[ModuleSecret.KEY]),
             paused = paused,
+            version = snapshot.version + 1,
         )
-    }
-
-    /** Looks again at the end of a timed pause (re-armed each time, so a device that slept is caught up). */
-    private fun scheduleResume(until: Long, now: Long) {
-        resumeCheck?.cancel(false)
-        val delay = ProtectionPause.nextCheckDelayMs(until, now)
-        resumeCheck = if (delay == null) null else ResumeTimer.schedule(delay, ::refresh)
+        snapshot = next
+        SinkStats.setEnabled(next.observe)
     }
 
     companion object {
