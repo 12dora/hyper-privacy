@@ -56,25 +56,28 @@ public class NetworkMatchers private constructor(
         /**
          * Builds matchers from the [rules] for which [isEnabled] holds; other payloads are ignored.
          *
-         * [keepHosts] (exact or dot-suffix, like DOMAIN patterns) are never blocked at host level:
-         * the most specific pattern wins, so a block suffix above a kept host leaves the kept host
-         * alone, while a URL rule with a path on a kept host (or a block pattern below it) still applies.
+         * [keepHosts] (exact or dot-suffix, like DOMAIN patterns) are never blocked at host level
+         * by a rule [keepOverrides] accepts: the most specific pattern wins, so a block suffix
+         * above a kept host leaves the kept host alone, while a URL rule with a path on a kept host
+         * (or a block pattern below it) still applies. A keep host that an enabled DOMAIN rule
+         * outside [keepOverrides] covers is dropped, so such a rule (e.g. the HTTPDNS block of a
+         * protected app) is never weakened by an SDK's keep list.
          */
         public fun of(
             rules: List<Rule>,
             keepHosts: Collection<String> = emptyList(),
+            keepOverrides: (String) -> Boolean = { true },
             isEnabled: (String) -> Boolean,
         ): NetworkMatchers {
+            val enabled = rules.filter { isEnabled(it.id) }
+            val strong = enabled.filter { !keepOverrides(it.id) }
+                .flatMap { (it.payload as? RulePayload.Domains)?.suffixes.orEmpty() }
+            val strongHosts = if (strong.isEmpty()) HostMatcher.empty() else HostMatcher.of(strong.map { it to it })
+            val keep = keepHosts.filter { !strongHosts.matches(it) }
             val hostEntries = ArrayList<Pair<String, String>>()
             val urlEntries = ArrayList<Pair<UrlPattern, String>>()
             val addresses = HashMap<InetAddress, String>()
-            // First value wins on duplicate patterns, so keep markers go in before any rule.
-            keepHosts.forEach { host ->
-                hostEntries += host to KEEP
-                urlEntries += UrlPattern(host) to KEEP
-            }
-            for (rule in rules) {
-                if (!isEnabled(rule.id)) continue
+            for (rule in enabled) {
                 when (val payload = rule.payload) {
                     is RulePayload.Domains -> payload.suffixes.forEach { suffix ->
                         hostEntries += suffix to rule.id
@@ -89,8 +92,15 @@ public class NetworkMatchers private constructor(
                     else -> Unit
                 }
             }
-            if (hostEntries.size == keepHosts.size && urlEntries.size == keepHosts.size) return EMPTY
-            return NetworkMatchers(HostMatcher.of(hostEntries), UrlMatcher.of(urlEntries), addresses)
+            if (hostEntries.isEmpty() && urlEntries.isEmpty()) return EMPTY
+            // Keep markers only matter next to a block pattern; first value wins on duplicates, so they go first.
+            val keepUrlEntries = keep.map { UrlPattern(it) to KEEP }
+            val hosts = if (hostEntries.isEmpty()) {
+                HostMatcher.empty()
+            } else {
+                HostMatcher.of(keep.map { it to KEEP } + hostEntries)
+            }
+            return NetworkMatchers(hosts, UrlMatcher.of(keepUrlEntries + urlEntries), addresses)
         }
     }
 }

@@ -17,7 +17,9 @@ import java.util.concurrent.atomic.AtomicReference
  * so toggles apply without restarting the target or hot-reloading the module.
  *
  * [decode] resolves the rule switches from the raw preferences (catalog rules: [ConfigCodec.decode];
- * tracker-protected apps: `TrackerRules.resolve`), and [affects] says which keys it reads.
+ * tracker-protected apps: `TrackerRules.resolve`), and [affects] says which keys it reads, so
+ * edits for other processes' rules or apps do not rebuild anything here. The observe switch and
+ * the module secret are always watched.
  */
 internal class RuleSwitches private constructor(
     private val prefs: SharedPreferences?,
@@ -32,7 +34,7 @@ internal class RuleSwitches private constructor(
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (ConfigCodec.affectsHooks(key) || affects(key)) refresh()
+        if (key == null || key in ALWAYS_WATCHED || affects(key)) refresh()
     }
 
     init {
@@ -67,14 +69,24 @@ internal class RuleSwitches private constructor(
     }
 
     companion object {
+        /** Keys every process reads, whatever its rules. */
+        private val ALWAYS_WATCHED = setOf(ConfigCodec.OBSERVE_KEY, ModuleSecret.KEY)
+
         /**
          * Opens the remote preferences for [rules]; falls back to rule defaults (and observe off)
          * if the framework refuses.
          */
-        fun open(xposed: XposedInterface, log: HookLog, rules: List<Rule>): RuleSwitches =
-            RuleSwitches(openPrefs(xposed, log), log, { raw -> ConfigCodec.decode(raw, rules) }, { false })
+        fun open(xposed: XposedInterface, log: HookLog, rules: List<Rule>): RuleSwitches {
+            val ids = rules.mapTo(HashSet()) { it.id }
+            return RuleSwitches(
+                openPrefs(xposed, log),
+                log,
+                { raw -> ConfigCodec.decode(raw, rules) },
+                { key -> ConfigCodec.ruleIdOf(key) in ids },
+            )
+        }
 
-        /** Switches with a custom [decode] over keys matched by [affects] (besides the catalog's own). */
+        /** Switches with a custom [decode] over keys matched by [affects]. */
         fun open(
             prefs: SharedPreferences?,
             log: HookLog,
