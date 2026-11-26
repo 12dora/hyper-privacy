@@ -250,6 +250,7 @@
     <string name="app_note_checking">正在检查此应用…</string>
     <string name="app_note_failed">无法读取此应用的安装包。</string>
     <string name="app_note_no_sdk">未在此应用中发现追踪 SDK。部分加固应用无法识别；下方的应用防护仍会生效。</string>
+    <string name="app_note_suspects_only">未发现已知追踪 SDK。下方列出疑似广告组件，默认不拦截，可手动开启；应用防护仍会生效。</string>
     <string name="app_note_detect_only">此应用中的 SDK 只能识别、无法拦截；下方的应用防护仍会生效。</string>
     <string name="app_note_protection">开启后拦截下列 SDK 的上报，下方的应用防护同时生效。</string>
     <string name="sdk_detect_only">仅识别，不拦截</string>

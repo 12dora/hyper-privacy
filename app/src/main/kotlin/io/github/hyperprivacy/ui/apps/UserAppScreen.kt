@@ -148,6 +148,7 @@ private fun ProtectionCard(app: UserAppUi, canEdit: Boolean, actions: UserAppAct
         when {
             app.scan == ScanState.PENDING -> R.string.app_note_checking
             app.scan == ScanState.FAILED -> R.string.app_note_failed
+            app.sdks.isEmpty() && app.suspects.isNotEmpty() -> R.string.app_note_suspects_only
             app.sdks.isEmpty() -> R.string.app_note_no_sdk
             app.detectionOnly -> R.string.app_note_detect_only
             else -> R.string.app_note_protection

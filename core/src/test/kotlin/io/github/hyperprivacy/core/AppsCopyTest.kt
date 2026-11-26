@@ -103,6 +103,7 @@ class AppsCopyTest {
             "app_section_privacy",
             "app_hide_apps",
             "app_strict",
+            "sdk_suspect_title",
         )
         val PLACEHOLDER = Regex("%[0-9]+\\$[sd]")
         const val ZH_TITLE_MAX = 10.0
