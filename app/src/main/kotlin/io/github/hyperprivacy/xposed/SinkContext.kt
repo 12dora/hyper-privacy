@@ -1,7 +1,10 @@
 package io.github.hyperprivacy.xposed
 
 import io.github.hyperprivacy.core.match.UrlParts
+import io.github.hyperprivacy.core.net.PlausibleErrors
 import io.github.hyperprivacy.core.status.HookState
+import java.io.IOException
+import java.net.SocketTimeoutException
 
 /**
  * What every network sink needs: the policy to consult, plus the bookkeeping done on each
@@ -44,9 +47,34 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
         return ruleId
     }
 
+    /**
+     * The error a URL sink throws for a blocked request to [host] ([scheme] and [port] as in
+     * `java.net.URL`, `-1` for the default port): see [NetErrors.httpFailure].
+     */
+    fun urlFailure(host: String, scheme: String?, port: Int): IOException =
+        NetErrors.httpFailure(host, policy.blockingHost(host) != null, null, PlausibleErrors.portOf(scheme, port))
+
+    /** [urlFailure] for a full URL string, as checked by [checkUrl]. */
+    fun urlFailure(url: String?): IOException {
+        val host = UrlParts.parse(url)?.host ?: return SocketTimeoutException(PlausibleErrors.TIMEOUT)
+        val scheme = url?.substringBefore(':')
+        return urlFailure(host, scheme, portOf(url))
+    }
+
     fun reportSink(sink: String, hooked: Boolean) {
         env.reporter.sink(env.packageName, sink, if (hooked) HookState.ACTIVE else HookState.MISSED)
         if (!hooked) log.info("sink $sink not available in ${env.packageName}")
+    }
+
+    /** Explicit port of an absolute [url] (`scheme://host:port/…`), or `-1`. */
+    private fun portOf(url: String?): Int {
+        val authority = url?.substringAfter("://", "")?.substringBefore('/')?.substringAfterLast('@') ?: return -1
+        val portText = if (authority.startsWith('[')) {
+            authority.substringAfter("]:", "")
+        } else {
+            authority.substringAfter(':', "")
+        }
+        return portText.toIntOrNull() ?: -1
     }
 
     /** Diagnostics: records the endpoint and logs it once (`OBS` prefix) when first seen. */

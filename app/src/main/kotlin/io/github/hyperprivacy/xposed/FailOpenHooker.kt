@@ -10,7 +10,10 @@ internal sealed interface Verdict {
 
     data class Return(val value: Any?) : Verdict
 
-    /** Deliberately surface [error] to the caller, e.g. a blocked DNS lookup. */
+    /**
+     * Deliberately surface [error] to the caller, e.g. a blocked DNS lookup. Its stack trace is
+     * rewritten by [StackScrub] so it reads as thrown by the hooked method itself.
+     */
     data class Throw(val error: Throwable) : Verdict
 
     /** Run the original with [args] substituted, e.g. a request URL rewritten to a black hole. */
@@ -40,7 +43,7 @@ internal class FailOpenHooker(
         return when (verdict) {
             Verdict.Proceed -> chain.proceed()
             is Verdict.Return -> verdict.value
-            is Verdict.Throw -> throw verdict.error
+            is Verdict.Throw -> throw StackScrub.scrub(verdict.error, chain.executable)
             is Verdict.ProceedWith -> chain.proceed(verdict.args)
         }
     }

@@ -19,6 +19,7 @@ internal class AppGuards(
 ) {
     fun install() {
         val switches = RuleSwitches.open(xposed, log, rules)
+        log.verbose = { switches.observe }
         val reporter = StatusReporter(log, Reflection::currentApplication)
         val env = GuardEnv(xposed, log, packageName, classLoader, switches, reporter)
         log.guard("network guards") { NetworkGuards(env, rules).install() }

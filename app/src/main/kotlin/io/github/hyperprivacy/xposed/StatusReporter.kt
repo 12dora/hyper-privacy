@@ -75,7 +75,8 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
 
     private val executor: ScheduledExecutorService by lazy {
         Executors.newSingleThreadScheduledExecutor { runnable ->
-            Thread(runnable, THREAD_NAME).apply { isDaemon = true }
+            // Unnamed (`Thread-N`): thread names are visible to the host app and its crash SDKs.
+            Thread(runnable).apply { isDaemon = true }
         }
     }
 
@@ -190,7 +191,6 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
     }
 
     private companion object {
-        const val THREAD_NAME = "HyperPrivacyStatus"
         const val INITIAL_DELAY_MS = 5_000L
         const val FLUSH_INTERVAL_MS = 30_000L
         const val HEARTBEAT_HOURS = 6L

@@ -7,15 +7,15 @@ import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
-import java.io.IOException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
 /**
  * OkHttp 3/4/5 (only when the `RealCall` class name survived obfuscation). Hooks the single
  * call-execution entry `getResponseWithInterceptorChain` of `RealCall`, which both `execute()` and
- * the async path go through, and throws [IOException]: `execute()` rethrows it and `enqueue()`
- * delivers it to `Callback.onFailure`, exactly like a network error.
+ * the async path go through, and throws an `IOException` subtype worded like a network failure
+ * ([SinkContext.urlFailure]): `execute()` rethrows it and `enqueue()` delivers it to
+ * `Callback.onFailure`, exactly like a network error.
  *
  * The entry is found by name (OkHttp 4 mangles internal names to
  * `getResponseWithInterceptorChain$okhttp`); when R8 renamed it, by shape: the declared no-arg
@@ -67,8 +67,9 @@ internal class OkHttpSink(private val sinks: SinkContext) {
     private fun decide(chain: Chain, reader: OkHttpUrlReader): Verdict {
         val call = chain.thisObject ?: return Verdict.Proceed
         if (!sinks.urlChecksActive) return Verdict.Proceed
-        sinks.checkUrl(reader.read(call)) ?: return Verdict.Proceed
-        return Verdict.Throw(IOException(BLOCKED_MESSAGE))
+        val url = reader.read(call)
+        sinks.checkUrl(url) ?: return Verdict.Proceed
+        return Verdict.Throw(sinks.urlFailure(url))
     }
 
     private companion object {

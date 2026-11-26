@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Method
-import java.net.UnknownHostException
 
 /**
  * Blocks name resolution at libcore's single Java DNS sink. Every `InetAddress` lookup (and so
@@ -32,8 +31,9 @@ internal class DnsGuard(private val sinks: SinkContext) {
 
     private fun decide(chain: Chain): Verdict {
         val host = chain.getArg(0) as? String
+        if (host == null) return Verdict.Proceed
         sinks.checkHost(host) ?: return Verdict.Proceed
-        return Verdict.Throw(UnknownHostException(host))
+        return Verdict.Throw(NetErrors.unresolvedHost(host))
     }
 
     // Hidden API: reachable from module code only where the framework exempts it. The lookup is
