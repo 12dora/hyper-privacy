@@ -101,14 +101,17 @@ internal object OkHttpCalls {
     fun isPresent(loader: ClassLoader): Boolean =
         (CALL_CLASSES + MARKER_CLASSES).any { Reflection.loadClass(it, loader) != null }
 
-    /** The call-execution entries of call class [type] (see [OkHttpSink]). */
-    fun entries(type: Class<*>, reader: OkHttpUrlReader): List<Method> {
+    /**
+     * The call-execution entries of call class [type] (see [OkHttpSink]): by name, else by shape,
+     * which needs the [reader]'s `Request` type (without one only named entries are found).
+     */
+    fun entries(type: Class<*>, reader: OkHttpUrlReader?): List<Method> {
         val candidates = type.declaredMethods.filter {
             it.parameterCount == 0 && !Modifier.isStatic(it.modifiers) && !Modifier.isAbstract(it.modifiers) &&
                 !it.isBridge && !it.isSynthetic
         }
         val named = candidates.filter { it.name == ENTRY || it.name.startsWith("$ENTRY$") }
-        if (named.isNotEmpty()) return named
+        if (named.isNotEmpty() || reader == null) return named
         val shapes = ShapeCache()
         val structural = candidates.filter { shapes.isResponse(it.returnType, reader.requestType) && it.throwsIo() }
         return structural.filter { it.name != EXECUTE }.ifEmpty { structural }

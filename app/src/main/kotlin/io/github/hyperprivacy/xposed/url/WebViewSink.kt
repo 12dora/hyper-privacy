@@ -3,7 +3,6 @@ package io.github.hyperprivacy.xposed.url
 import android.webkit.WebResourceRequest
 import io.github.hyperprivacy.core.match.UrlParts
 import io.github.hyperprivacy.core.net.BlockedWebResponse
-import io.github.hyperprivacy.xposed.FailOpenHooker
 import io.github.hyperprivacy.xposed.SinkContext
 import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
@@ -19,8 +18,7 @@ import io.github.libxposed.api.XposedInterface.Chain
  */
 internal class WebViewSink(private val sinks: SinkContext) {
     fun install(): Boolean {
-        val hooker = FailOpenHooker(sinks.log, Sinks.URL_WEBVIEW, ::decide)
-        val hooked = WebClientHooks(sinks.xposed, sinks.log, hooker).install() > 0
+        val hooked = WebClientHooks.register(sinks.xposed, sinks.log, Sinks.URL_WEBVIEW, ::decide) > 0
         sinks.reportSink(Sinks.URL_WEBVIEW, hooked)
         return hooked
     }

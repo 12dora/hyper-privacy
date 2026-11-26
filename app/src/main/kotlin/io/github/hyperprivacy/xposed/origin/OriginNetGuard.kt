@@ -15,27 +15,45 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
 import java.net.SocketAddress
+import java.net.SocketImpl
 import java.net.URL
 import java.nio.channels.SocketChannel
 import java.nio.channels.spi.SelectorProvider
-import java.util.concurrent.ConcurrentHashMap
+import java.util.WeakHashMap
+import javax.net.ssl.SSLSocket
 
 /**
  * Network creation points of [AdOrigin] and the sinks that fail what was tagged, with the regular
- * neutral network errors. Each one is optional; a missing one is skipped.
+ * neutral network errors. Each one is optional; a missing one is skipped. A request to a keep host
+ * ([AdOrigin.isKept]) is never failed.
  *
  * - OkHttp call construction (`RealCall`, public names), or `OkHttpClient.newCall` when the call
  *   class was renamed; a tagged call fails in its execution entry like a network error, for
- *   `execute()` and `enqueue()` alike, so async dispatch keeps the origin;
+ *   `execute()` and `enqueue()` alike, so async dispatch keeps the origin. Entries are found by
+ *   name even when the request URL cannot be read in this build;
  * - `URL.openConnection`, which decides and fails at once;
- * - `Socket` and `SocketChannel` construction, failed in `Socket.connect` / the channel's connect;
- * - Volley `Request` construction (public names), failed in `BasicNetwork.performRequest`.
+ * - `Socket` and `SocketChannel` construction, failed in `Socket.connect` / the channel's connect.
+ *   Sockets the platform makes for itself are not attributed: accepted sockets (`Socket(SocketImpl)`)
+ *   and TLS sockets layered over an existing one (`SSLSocket()`, never connected themselves);
+ * - Volley `Request` construction (public names), failed in `BasicNetwork.performRequest`;
+ * - Cronet request builders ([OriginCronetGuard]).
+ *
+ * Per-class state (call classes seen at runtime) lives in a [ClassValue], so it never keeps a
+ * plugin's class loader alive; a class is hooked under a lock before any thread can see it as done.
  */
 internal class OriginNetGuard(private val hooks: OriginHooks) {
     private val origin get() = hooks.origin
     private val loader get() = hooks.env.classLoader
-    private val readers = ConcurrentHashMap<Class<*>, OkHttpUrlReader>()
-    private val hookedCallClasses: MutableSet<Class<*>> = ConcurrentHashMap.newKeySet()
+
+    /** One OkHttp call class: its URL reader (if resolvable) and how many entries were hooked. */
+    private class CallClass(val reader: OkHttpUrlReader?, val hooked: Int)
+
+    /** Call classes whose entries are hooked; weak keys, guarded by itself (first sight of a class only). */
+    private val hookedCallClasses = WeakHashMap<Class<*>, Boolean>()
+
+    private val callClasses = object : ClassValue<CallClass>() {
+        override fun computeValue(type: Class<*>): CallClass = hookCallEntries(type)
+    }
 
     /** Returns the number of hooked entry points. */
     fun install(): Int = listOf(
@@ -43,13 +61,14 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         "URL" to ::installUrl,
         "sockets" to ::installSockets,
         "Volley" to ::installVolley,
+        "Cronet" to { OriginCronetGuard(hooks).install() },
     ).sumOf { (name, install) -> hooks.log.guard("origin: $name") { install() } ?: 0 }
 
     private fun installOkHttp(): Int {
         var count = 0
         OkHttpCalls.callClasses(loader).forEach { type ->
-            if (hookCallEntries(type) == 0) return@forEach
-            type.declaredConstructors.forEach { count += hooks.creation(it, "okhttp call", hooks::tagSdk) }
+            if (callClasses.get(type).hooked == 0) return@forEach
+            count += hooks.creation(type.declaredConstructors.toList(), "okhttp call", hooks::tagSdk)
         }
         if (count > 0) return count
         // Renamed call class: tag what newCall returns, and hook that class's entries on first sight.
@@ -61,9 +80,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
                 val call = chain.proceed()
                 if (call != null && rule != null) {
                     origin.tag(call, rule)
-                    if (call.javaClass !in hookedCallClasses) {
-                        hooks.safely("call class") { hookCallEntries(call.javaClass) }
-                    }
+                    hooks.safely("call class") { callClasses.get(call.javaClass) }
                 }
                 call
             }
@@ -71,19 +88,20 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         return newCall.size
     }
 
-    private fun hookCallEntries(type: Class<*>): Int {
-        if (!hookedCallClasses.add(type)) return 0
-        val reader = OkHttpUrlReader.resolve(type) ?: return 0
-        readers[type] = reader
+    /** Hooks the execution entries of call class [type], once per class whichever thread sees it first. */
+    private fun hookCallEntries(type: Class<*>): CallClass = synchronized(hookedCallClasses) {
+        val reader = hooks.safely("okhttp reader") { OkHttpUrlReader.resolve(type) }
+        if (hookedCallClasses.put(type, true) != null) return CallClass(reader, 0)
         val entries = OkHttpCalls.entries(type, reader)
         entries.forEach { hooks.sink(it, Sinks.ORIGIN_OKHTTP, ::failCall) }
-        return entries.size
+        CallClass(reader, entries.size)
     }
 
     private fun failCall(chain: Chain): Verdict {
         val call = chain.thisObject ?: return Verdict.Proceed
         val rule = origin.ruleOf(call) ?: return Verdict.Proceed
-        val url = readers[call.javaClass]?.let { runCatching { it.read(call) }.getOrNull() }
+        val url = callClasses.get(call.javaClass).reader?.let { runCatching { it.read(call) }.getOrNull() }
+        if (AdOrigin.isKept(hooks.hostOf(url))) return Verdict.Proceed
         origin.hit(rule, "okhttp")
         return Verdict.Throw(hooks.httpFailure(url))
     }
@@ -101,6 +119,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         if (!origin.active) return Verdict.Proceed
         val url = chain.thisObject as? URL ?: return Verdict.Proceed
         if (url.protocol != HTTP && url.protocol != HTTPS) return Verdict.Proceed
+        if (AdOrigin.isKept(url.host)) return Verdict.Proceed
         val rule = hooks.sdkRule() ?: return Verdict.Proceed
         origin.hit(rule, "url")
         return Verdict.Throw(hooks.httpFailure(url.host, url.protocol, url.port))
@@ -109,8 +128,15 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
     // sun.nio.ch is core-platform API reachable from module code; a miss only skips the NIO sink.
     @SuppressLint("PrivateApi")
     private fun installSockets(): Int {
-        var count = 0
-        Socket::class.java.declaredConstructors.forEach { count += hooks.creation(it, "socket", hooks::tagSdk) }
+        // Accepted sockets are built around a SocketImpl by ServerSocket: inbound, never attributed.
+        val constructors = Socket::class.java.declaredConstructors.filterNot {
+            it.parameterCount == 1 && it.parameterTypes[0] == SocketImpl::class.java
+        }
+        // A TLS socket built with no address is layered over a connected one (every HTTPS connection
+        // of OkHttp and HttpsURLConnection) and never connects itself: not worth a stack walk.
+        var count = hooks.creation(constructors, "socket") { chain ->
+            if (chain.thisObject !is SSLSocket || chain.args.isNotEmpty()) hooks.tagSdk(chain)
+        }
         runCatching {
             Socket::class.java.getDeclaredMethod(CONNECT, SocketAddress::class.java, Int::class.javaPrimitiveType)
         }.getOrNull()?.let {
@@ -118,7 +144,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
             count++
         }
         runCatching { SocketChannel::class.java.getDeclaredConstructor(SelectorProvider::class.java) }
-            .getOrNull()?.let { count += hooks.creation(it, "socket channel", hooks::tagSdk) }
+            .getOrNull()?.let { count += hooks.creation(listOf(it), "socket channel", hooks::tagSdk) }
         val channelImpl = runCatching { Class.forName(SOCKET_CHANNEL_IMPL) }.getOrNull()
         channelImpl?.declaredMethods?.filter {
             it.name == CONNECT && it.parameterTypes.contentEquals(arrayOf(SocketAddress::class.java))
@@ -131,8 +157,9 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
 
     private fun failSocket(chain: Chain): Verdict {
         val rule = origin.ruleOf(chain.thisObject) ?: return Verdict.Proceed
-        origin.hit(rule, "socket")
         val target = chain.getArg(0) as? InetSocketAddress
+        if (AdOrigin.isKept(target?.hostString)) return Verdict.Proceed
+        origin.hit(rule, "socket")
         val address = target?.address ?: return Verdict.Throw(NetErrors.nioConnectRefused())
         val timeout = chain.getArg(1) as? Int ?: 0
         return Verdict.Throw(NetErrors.connectRefused(address, target.port, timeout, null, 0))
@@ -140,6 +167,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
 
     private fun failChannel(chain: Chain): Verdict {
         val rule = origin.ruleOf(chain.thisObject) ?: return Verdict.Proceed
+        if (AdOrigin.isKept((chain.getArg(0) as? InetSocketAddress)?.hostString)) return Verdict.Proceed
         origin.hit(rule, "socket")
         return Verdict.Throw(NetErrors.nioConnectRefused())
     }
@@ -154,8 +182,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         }
         if (perform.isEmpty()) return 0
         val getUrl = runCatching { request.getMethod(GET_URL) }.getOrNull()
-        var count = 0
-        request.declaredConstructors.forEach { count += hooks.creation(it, "volley request", hooks::tagSdk) }
+        var count = hooks.creation(request.declaredConstructors.toList(), "volley request", hooks::tagSdk)
         perform.forEach { method ->
             hooks.sink(method, Sinks.ORIGIN_VOLLEY) { chain -> failVolley(chain, error, getUrl) }
             count++
@@ -167,6 +194,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         val request = chain.getArg(0) ?: return Verdict.Proceed
         val rule = origin.ruleOf(request) ?: return Verdict.Proceed
         val url = getUrl?.let { runCatching { it.invoke(request) as? String }.getOrNull() }
+        if (AdOrigin.isKept(hooks.hostOf(url))) return Verdict.Proceed
         val failure = error.newInstance(hooks.httpFailure(url)) as? Throwable ?: return Verdict.Proceed
         origin.hit(rule, "volley")
         return Verdict.Throw(failure)
