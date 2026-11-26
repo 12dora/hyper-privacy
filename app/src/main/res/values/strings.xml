@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">HyperPrivacy</string>
-    <string name="xposed_description">Blocks privacy reporting only; system services are unaffected</string>
+    <string name="xposed_description">Blocks privacy reporting and ads without breaking system services</string>
 
     <string name="action_back">Back</string>
     <string name="action_settings">Settings</string>
@@ -209,7 +209,7 @@
     <string name="appearance_pure_black_summary">Use a black background in dark mode, for OLED screens</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_self_hide">Hide this module</string>
-    <string name="settings_self_hide_summary">Hidden from other apps; turn off before updating</string>
+    <string name="settings_self_hide_summary">Hidden from third-party apps</string>
     <string name="settings_diagnostics">Diagnostics</string>
     <string name="settings_health_summary">See rules that stopped working or need review</string>
     <string name="settings_diag_mode">Diagnostic mode</string>
@@ -260,7 +260,7 @@
 
     <!-- Apps (tracker protection for installed apps) -->
     <string name="apps_title">Installed apps</string>
-    <string name="apps_intro">Finds tracker SDKs in your installed apps. Turn on protection to block what they report.</string>
+    <string name="apps_intro">Detects tracker SDKs and blocks their reports</string>
     <string name="apps_filter_trackers">With trackers</string>
     <string name="apps_scanning">Checking %1$d of %2$d</string>
     <plurals name="apps_sdk_count">
@@ -274,6 +274,8 @@
     <string name="apps_awaiting_scope">Waiting for LSPosed</string>
     <string name="apps_empty">No apps to show</string>
     <string name="apps_empty_filtered">No apps with tracker SDKs</string>
+    <string name="apps_search_hint">Search app name or package</string>
+    <string name="apps_search_empty">No matching apps</string>
     <string name="apps_protect_description">Protection for %1$s</string>
     <string name="app_protection">Protect this app</string>
     <string name="app_protection_summary">Applies after the app restarts</string>
@@ -290,7 +292,7 @@
     <string name="app_note_failed">Couldn\'t read this app\'s package</string>
     <string name="app_note_no_sdk">No known tracker SDKs found</string>
     <string name="app_note_detect_only">These SDKs can be detected, not blocked</string>
-    <string name="sdk_detect_only">Detected only, not blocked</string>
+    <string name="sdk_detect_only">Detect only</string>
     <string name="sdk_impact_verification">Sign-in or payment may need extra checks</string>
     <string name="sdk_impact_updates">In-app updates may stop working</string>
     <string name="sdk_impact_features">Some features may be affected</string>

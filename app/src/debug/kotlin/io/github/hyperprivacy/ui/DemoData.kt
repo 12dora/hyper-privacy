@@ -43,6 +43,8 @@ private class DemoUserApp(
     val protected: Boolean,
     val suspects: List<SuspectUi> = emptyList(),
     val suspectHits: Long = 0,
+    /** Starts with app-list hiding on, so the strict-mode row below it shows. */
+    val hideApps: Boolean = false,
 )
 
 /**
@@ -118,7 +120,6 @@ internal class DemoData(private val language: String) {
             SdkUi(
                 id = sdk.id,
                 name = sdk.displayName,
-                vendor = sdk.vendor,
                 category = sdk.category,
                 blockable = sdk.switchable,
                 defaultBlock = sdk.defaultBlock,
@@ -142,7 +143,7 @@ internal class DemoData(private val language: String) {
             protected = switches.protected[pkg] ?: app.protected,
             scoped = true,
             requesting = false,
-            hideApps = switches.appSwitches[AppListConfig.hideKey(pkg)] ?: false,
+            hideApps = switches.appSwitches[AppListConfig.hideKey(pkg)] ?: app.hideApps,
             strict = switches.appSwitches[AppListConfig.strictKey(pkg)] ?: false,
             suspects = suspects,
             suspectHits = app.suspectHits,
@@ -257,6 +258,7 @@ internal class DemoData(private val language: String) {
                 label = Text("阅读", "Reader"),
                 sdks = listOf(TrackerCategory.ADS to 2, TrackerCategory.ANALYTICS to 1, TrackerCategory.IDENTIFICATION to 1),
                 protected = true,
+                hideApps = true,
                 suspects = listOf(
                     SuspectUi(
                         root = "com.example.reader.adkit.",

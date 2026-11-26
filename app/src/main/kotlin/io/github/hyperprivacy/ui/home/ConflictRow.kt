@@ -20,10 +20,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.conflict.LabelGap
 import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.ui.ConflictUi
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
+import io.github.hyperprivacy.ui.LocalLanguageTag
 import io.github.hyperprivacy.ui.components.IconBadge
 
 private fun OverlapArea.summaryRes(): Int = when (this) {
@@ -34,7 +36,9 @@ private fun OverlapArea.summaryRes(): Int = when (this) {
 
 @Composable
 private fun conflictSummary(conflict: ConflictUi): String {
-    val first = stringResource(conflict.area.summaryRes(), conflict.label)
+    // Chinese text runs on from the label without a space, unless the label ends in a Latin letter or digit.
+    val label = if (LocalLanguageTag.current.startsWith("zh")) LabelGap.beforeCjk(conflict.label) else conflict.label
+    val first = stringResource(conflict.area.summaryRes(), label)
     if (conflict.others == 0) return first
     return first + stringResource(R.string.common_separator) +
         pluralStringResource(R.plurals.conflict_more, conflict.others, conflict.others)

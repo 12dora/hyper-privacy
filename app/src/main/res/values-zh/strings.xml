@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="xposed_description">仅拦截隐私上报，不影响系统服务</string>
+    <string name="xposed_description">拦截隐私上报与广告，不影响系统服务</string>
 
     <string name="action_back">返回</string>
     <string name="action_settings">设置</string>
@@ -190,7 +190,7 @@
     <string name="appearance_pure_black_summary">深色模式下使用纯黑，适合 OLED 屏幕</string>
     <string name="settings_privacy">隐私</string>
     <string name="settings_self_hide">对其他应用隐藏本模块</string>
-    <string name="settings_self_hide_summary">第三方应用无法检测本模块，更新前请关闭</string>
+    <string name="settings_self_hide_summary">第三方应用无法检测本模块</string>
     <string name="settings_diagnostics">诊断</string>
     <string name="settings_health_summary">查看失效或待复核的规则</string>
     <string name="settings_diag_mode">诊断模式</string>
@@ -235,7 +235,7 @@
 
     <!-- 应用（第三方应用追踪防护） -->
     <string name="apps_title">已安装应用</string>
-    <string name="apps_intro">识别已安装应用中的追踪 SDK，开启防护后拦截其上报。</string>
+    <string name="apps_intro">识别应用内置的追踪 SDK 并拦截其上报</string>
     <string name="apps_filter_trackers">含追踪 SDK</string>
     <string name="apps_scanning">正在检查 %1$d/%2$d</string>
     <plurals name="apps_sdk_count">
@@ -248,6 +248,8 @@
     <string name="apps_awaiting_scope">待 LSPosed 确认</string>
     <string name="apps_empty">没有可显示的应用</string>
     <string name="apps_empty_filtered">未发现含追踪 SDK 的应用</string>
+    <string name="apps_search_hint">搜索应用名称或包名</string>
+    <string name="apps_search_empty">没有找到匹配的应用</string>
     <string name="apps_protect_description">%1$s 的防护</string>
     <string name="app_protection">开启防护</string>
     <string name="app_protection_summary">应用重新启动后生效</string>
@@ -264,7 +266,7 @@
     <string name="app_note_failed">无法读取此应用的安装包</string>
     <string name="app_note_no_sdk">未发现已知追踪 SDK</string>
     <string name="app_note_detect_only">以下 SDK 仅能识别，无法拦截</string>
-    <string name="sdk_detect_only">仅识别，不拦截</string>
+    <string name="sdk_detect_only">仅识别</string>
     <string name="sdk_impact_verification">拦截后登录或支付可能需要额外验证</string>
     <string name="sdk_impact_updates">拦截后应用内更新可能失效</string>
     <string name="sdk_impact_features">拦截后部分功能可能受影响</string>
@@ -295,9 +297,9 @@
     <string name="pause_1h">1 小时</string>
     <string name="pause_manual">直到手动恢复</string>
     <string name="conflict_title">发现功能重叠的模块</string>
-    <string name="conflict_summary_applist">%1$s 也在隐藏应用列表</string>
-    <string name="conflict_summary_ads">%1$s 也在拦截广告</string>
-    <string name="conflict_summary_privacy">%1$s 也在拦截隐私上报</string>
+    <string name="conflict_summary_applist">%1$s也在隐藏应用列表</string>
+    <string name="conflict_summary_ads">%1$s也在拦截广告</string>
+    <string name="conflict_summary_privacy">%1$s也在拦截隐私上报</string>
     <plurals name="conflict_more">
         <item quantity="other">另有 %1$d 个模块</item>
     </plurals>

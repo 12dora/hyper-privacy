@@ -1,11 +1,16 @@
 package io.github.hyperprivacy.ui.apps
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -16,6 +21,7 @@ import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.components.SectionHeader
 import io.github.hyperprivacy.ui.components.SwitchRow
+import io.github.hyperprivacy.ui.components.TitleSummary
 import io.github.hyperprivacy.ui.components.countString
 import io.github.hyperprivacy.ui.components.groupedItems
 
@@ -35,7 +41,7 @@ private fun UserAppUi.sdkNote(): Int? = when {
 }
 
 @Composable
-private fun Note(@StringRes text: Int) {
+internal fun Note(@StringRes text: Int) {
     Text(
         text = stringResource(text),
         style = MaterialTheme.typography.bodySmall,
@@ -70,23 +76,49 @@ private fun Caption(text: String) {
     )
 }
 
+/**
+ * One detected SDK. The subtitle is the hit count, then the impact note of an SDK that is off by
+ * default; the vendor is not repeated (the title already names it). A detection-only SDK has no
+ * switch, just a trailing label.
+ */
 @Composable
 private fun SdkRow(sdk: SdkUi, enabled: Boolean, onToggle: (Boolean) -> Unit) {
     val language = LocalConfiguration.current.locales[0].toLanguageTag()
-    val separator = stringResource(R.string.common_separator)
-    val details = buildList {
-        add(sdk.vendor)
-        if (!sdk.blockable) add(stringResource(R.string.sdk_detect_only))
-        if (sdk.hits > 0) add(countString(R.plurals.rule_hits, sdk.hits))
-    }.joinToString(separator)
-    val impact = if (sdk.blockable && !sdk.defaultBlock) stringResource(sdk.impactNote()) else null
-    SwitchRow(
-        title = sdk.name.resolve(language),
-        summary = listOfNotNull(details, impact).joinToString("\n"),
-        checked = sdk.blocked,
-        enabled = enabled && sdk.blockable,
-        onCheckedChange = onToggle,
-    )
+    val summary = listOfNotNull(
+        if (sdk.hits > 0) countString(R.plurals.rule_hits, sdk.hits) else null,
+        if (sdk.blockable && !sdk.defaultBlock) stringResource(sdk.impactNote()) else null,
+    ).joinToString("\n").ifEmpty { null }
+    val title = sdk.name.resolve(language)
+    if (sdk.blockable) {
+        SwitchRow(
+            title = title,
+            summary = summary,
+            checked = sdk.blocked,
+            enabled = enabled,
+            onCheckedChange = onToggle,
+        )
+    } else {
+        DetectOnlyRow(title, summary)
+    }
+}
+
+@Composable
+private fun DetectOnlyRow(title: String, summary: String?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = Dimens.RowMinHeight)
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TitleSummary(title, summary, Modifier.weight(1f))
+        Text(
+            text = stringResource(R.string.sdk_detect_only),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @StringRes

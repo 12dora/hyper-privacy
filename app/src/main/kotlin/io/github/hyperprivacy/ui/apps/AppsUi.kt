@@ -12,7 +12,6 @@ internal enum class ScanState { PENDING, DONE, FAILED }
 internal data class SdkUi(
     val id: String,
     val name: Text,
-    val vendor: String,
     val category: TrackerCategory,
     /**
      * False for detection-only SDKs (push delivery, unverified endpoints): nothing to switch. Ad SDKs
@@ -75,9 +74,24 @@ internal data class AppsUi(
     fun app(packageName: String): UserAppUi? = apps.firstOrNull { it.packageName == packageName }
 }
 
+/** The search of the Apps page: whether the search bar is open, and what is typed in it. */
+@Immutable
+internal data class AppsSearch(val active: Boolean = false, val query: String = "") {
+    private val needle: String get() = query.trim().lowercase()
+
+    /** Whether the typed text narrows the list. */
+    val filtering: Boolean get() = active && needle.isNotEmpty()
+
+    /** True when [app]'s label or package name contains the typed text (case-insensitive). */
+    fun matches(app: UserAppUi): Boolean =
+        !filtering || app.label.lowercase().contains(needle) || app.packageName.lowercase().contains(needle)
+}
+
 /** Callbacks of the Apps page. */
 internal class AppsActions(
     val onFilterChange: (Boolean) -> Unit,
+    val onSearchChange: (Boolean) -> Unit,
+    val onQueryChange: (String) -> Unit,
     val onToggle: (String, Boolean) -> Unit,
     val onOpen: (String) -> Unit,
 )

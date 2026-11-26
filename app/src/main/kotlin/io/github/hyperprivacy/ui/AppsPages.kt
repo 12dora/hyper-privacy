@@ -8,6 +8,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.ui.apps.AppSwitch
 import io.github.hyperprivacy.ui.apps.AppsActions
 import io.github.hyperprivacy.ui.apps.AppsScreen
+import io.github.hyperprivacy.ui.apps.AppsSearch
 import io.github.hyperprivacy.ui.apps.UserAppActions
 import io.github.hyperprivacy.ui.apps.UserAppScreen
 
@@ -21,8 +22,11 @@ internal fun AppsPage(state: UiState, trackers: AppsModel, nav: Navigator, memor
         state = apps,
         canEdit = state.module.canEdit,
         onlyTrackers = memory.onlyTrackers,
+        search = AppsSearch(memory.searching, memory.query),
         actions = AppsActions(
             onFilterChange = { memory.onlyTrackers = it },
+            onSearchChange = { memory.searching = it },
+            onQueryChange = { memory.query = it },
             onToggle = trackers::setProtected,
             onOpen = { nav.push(Route.UserApp(it)) },
         ),
