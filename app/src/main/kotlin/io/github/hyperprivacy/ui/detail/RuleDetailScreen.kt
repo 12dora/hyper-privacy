@@ -120,14 +120,22 @@ private fun LazyListScope.detailItems(
         item(key = "impact-title") { SectionHeader(stringResource(R.string.detail_section_impact)) }
         item(key = "impact") {
             SingleCard {
-                Text(
-                    text = impact.resolve(LocalLanguageTag.current),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(
-                        horizontal = Dimens.Gutter,
-                        vertical = Dimens.RowVertical + Dimens.Tiny,
-                    ),
-                )
+                Column(
+                    Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.Tiny),
+                ) {
+                    Text(
+                        text = impact.resolve(LocalLanguageTag.current),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (rule.highRisk) {
+                        Text(
+                            text = stringResource(R.string.detail_high_risk),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                }
             }
         }
     }
