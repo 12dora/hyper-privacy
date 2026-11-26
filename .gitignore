@@ -17,3 +17,6 @@ captures/
 # Signing material never lives in the repo
 *.keystore
 *.jks
+
+# Local agent worktrees
+.claude/
