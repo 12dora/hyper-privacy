@@ -49,3 +49,15 @@ scripts/privacy-scan.sh        # 检查已跟踪文件中是否含本机路径�
 ## 许可证
 
 独立实现，未使用任何第三方模块的代码。
+
+## 贡献者
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/contributors/opus.svg" width="72" height="72" alt="Opus 5.5"><br><b>Opus 5.5</b></td>
+    <td align="center"><img src="docs/images/contributors/gemini.svg" width="72" height="72" alt="Gemini 4 Neon"><br><b>Gemini 4 Neon</b></td>
+    <td align="center"><img src="docs/images/contributors/grok.svg" width="72" height="72" alt="Grok 4.6"><br><b>Grok 4.6</b></td>
+  </tr>
+</table>
+
+<sub>头像图标来自 LobeHub Icons（MIT），商标归各自所有者。</sub>
