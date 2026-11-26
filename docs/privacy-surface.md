@@ -61,8 +61,8 @@
 | `securitycenter.traffic-sms` | 流量纠错时上传运营商短信原文、Android ID 与归属地 | 无法提交流量纠错 |
 | `sogou-ime.contacts` | 搜狗输入法上传通讯录 | 无法生成云端通讯录词库 |
 | `assistant.app-sync` | 负一屏 `store.assistant.miui.com/component/store/syncAppInfo` 全量应用列表 | 新装应用的小部件推荐可能缺失 |
-| `guard.app-detect` | `flash.sec.miui.com/detect/app` 已装应用列表 | 无法识别涉诈应用 |
-| `securitycenter.url-detect` | `url-detect.engine.mi.com/url/detect` 短信与网页中的链接（可能带个人令牌） | 无法识别诈骗链接 |
+| `guard.app-detect` | `flash.sec.miui.com/detect/app` 应用云检测上传的已装应用列表 | 云端应用风险识别不可用 |
+| `securitycenter.url-detect` | `url-detect.engine.mi.com/url/detect` 链接云检测上传的短信与网页链接（可能带个人令牌） | 云端链接检测不可用 |
 | `securitycenter.promo-cards` | 安全中心 `/info/layout` 运营卡片（省电建议请求会附带已安装包名） | 扫描结果页推荐卡片与省电建议不再显示 |
 | `vipaccount.usage-upload` | 社区 `/user/batchuploadappdata` 使用记录 | 依赖使用记录的成长任务无法完成 |
 | `sofire.domains` | `sofire.baidu.com` 设备指纹 | 输入法内百度账号登录的风控校验可能失败 |
@@ -77,7 +77,7 @@
 | 应用列表 / 应用活动 | OneTrack `/track/appUpload`（20+ 应用）、应用商店激活统计、服务框架激活统计、负一屏 `syncAppInfo`、MQS `appLifeUpload` / `killProcessUpload`、搜狗 `appinfo.gif` / `mpkg.gif` | 见左 | `onetrack.domains`、`onetrack.pubsub`、`market.app-active`、`xmsf.app-active`、`assistant.app-sync`、`mqs.domains`、`sogou-ime.pingback`、`vipaccount.usage-upload`、`securitycenter.promo-cards`、`securitycenter.cloud-scan`*、`guard.apk-collect`、`guard.app-detect` | 服务请求中夹带的包名，例如应用商店更新检查需要上传已安装应用版本，属于服务 |
 | 使用行为事件 | OneTrack（98 个应用）、小米分析、MiStat、小爱埋点、神策、灯塔、字节 AppLog、各应用自有埋点 | 见各规则 | 37 条 ANALYTICS 规则，外加 `onetrack.method` 在进程内拦截 `track*` 调用 | 推送长连接内的通知点击 / 到达统计与推送数据走同一条连接，无法单独拦截；桌面、相册中原生 Rust 实现的 OneTrack 上传器可能绕过进程内钩子（见残余风险） |
 | 位置 / Wi-Fi / 基站 | 系统分析服务（AppOps 显示近一小时内读取精确位置与 Wi-Fi 扫描）、metoknlp、百度定位助手、高德 / 腾讯 / 百度定位 SDK | `cgicol.amap.com` 众包采集、`rttgpsreport.map.qq.com`、`itsdata.map.baidu.com` 轨迹长连接、`/statloc` 等统计 | `analytics.firewall`、`location.collection`、`location.sdk-stats`，以及默认关闭的 `location.uplink`（`itsdata.map.baidu.com/long-conn-gps/`、热点网格） | 定位查询请求本身会携带 Wi-Fi / 基站信息（网络定位的原理所在），属于服务，未拦截 |
-| 通讯录 / 短信 / 通话记录 | 搜狗通讯录词库；流量纠错短信；安全中心反诈的短信链接检测；短信 `mixin.xiaomi.net/report/v2/postsms` | 见左 | `sogou-ime.contacts`、`securitycenter.traffic-sms`、`securitycenter.url-detect` | `mixin` 上传短信的触发条件未能确认（待确认 3） |
+| 通讯录 / 短信 / 通话记录 | 搜狗通讯录词库；流量纠错短信；安全中心链接云检测上传的短信链接；短信 `mixin.xiaomi.net/report/v2/postsms` | 见左 | `sogou-ime.contacts`、`securitycenter.traffic-sms`、`securitycenter.url-detect` | `mixin` 上传短信的触发条件未能确认（待确认 3） |
 | 剪贴板 | 小爱、负一屏扩展、服务框架、AI 识屏等 9 个应用持有后台读剪贴板权限 | 未发现专门上报端点 | 无专门规则；内容若经埋点上报，由埋点规则覆盖 | 无法静态证明剪贴板内容不会夹带在服务请求中 |
 | 输入内容（输入法） | 百度、搜狗、讯飞输入法 | 输入行为统计、pingback、统计 SDK；云输入 / 语音属于服务 | `baidu-ime.stats`、`baidu.mobstat`、`baidu-ime.ubc`、`baidu.ads`、`sogou-ime.pingback`、`sogou-ime.alive`、`iflytek-ime.stats`、`ime.promo`、`carrier-auth.sdk-logs`、`gdt.domains`、`qimei.domains`、`rmonitor.domains`、`bugly.domains`、`tencent.rdelivery-report` | 云输入请求本身包含正在输入的文字，属于服务；关闭云输入只能在输入法设置中操作 |
 | 屏幕内容 | 内容识别（`contentcatcher`，uid 1000）、传送门（`contentextension`）、AI 识屏（`aicr`） | 用户触发时的识别请求属于服务；AI 识屏运行时出现 `log-sdk.clickwifi.net` | `aicr.runtime-log`、OneTrack | 识别请求本身会上传屏幕文字，属于服务 |
@@ -112,7 +112,7 @@
 | 云服务 | `*.micloud.xiaomi.net`（含 `galleryfaceapi`、`noteapi`、`find.api`、`deviceapi`） | 云同步、查找设备 |
 | 更新与商店 | `update.miui.com`、`app.market.xiaomi.com`（`/apm/statistics/` 除外）、`updateinfo.market.xiaomi.com`、`api.developer.xiaomi.com/autoupdate` | 系统更新、商店浏览 / 下载 / 更新检查 |
 | 云配置 | `mcc.inf.miui.com`、`jupiter.sys.miui.com`、`cdn.exp.xiaomi.com`、`abtest.mistat.*`、`*.rconfig.qq.com`、`rdelivery.qq.com/v{1,3}/config/pull`、`planconfig` / `abtest.openspeech.cn` | 拉取配置，不是上报 |
-| 安全 | `virus-engine.sec.miui.com`（仅默认关闭规则）、`update.avlyun.sec.miui.com`、`check.engine.miui.com`、`fraud-detection.engine.miui.com`、`srv.sec.miui.com/earthquake/warning/*`、`car-srv.sec.miui.com/car/SOS/*`、`eps.caict.ac.cn` 与 `gateway-papa.cloud.weizhi.com`（一键报警） | 病毒库、反诈、地震预警、紧急求助 |
+| 安全检测与应急 | 病毒库更新 `update.avlyun.sec.miui.com`；云查杀与云端检测主机 `check.engine.miui.com` 与 `*-detection.engine.miui.com` 云端检测子域；`virus-engine.sec.miui.com` 的云查杀（仅由默认关闭的 `securitycenter.cloud-scan` 管辖，默认放行）；AI 检测、NFC 名单；`srv.sec.miui.com/earthquake/warning/*`、`car-srv.sec.miui.com/car/SOS/*`、`eps.caict.ac.cn` 与 `gateway-papa.cloud.weizhi.com`（一键报警） | 这些是安全功能本身所需的服务端点：病毒库、云查杀、AI 检测、NFC 名单、地震预警、紧急求助。**默认阻止的安全类上传通道只有以下几条，均为高风险或已写明影响：** 应用云检测上传已装应用列表（`guard.app-detect`）、链接云检测上传短信与网页链接（`securitycenter.url-detect`）、本地查杀结果上报（`guard.scan-result-report`）、完整 APK 上传（`guard.apk-collect`）；详见第 9 节 |
 | 隐私同意 | `data.sec.miui.com/privacy/*`、`privacy.api.intl.miui.com/collect/privacy/*`、`ads.privacy.qq.com/optout` | 同意与撤回本身就是隐私控制，拦截反而会让撤回失效 |
 | 定位 / 天气 / 地图 | `apilocate.amap.com`、`lbs.map.qq.com`、`loc.map.baidu.com`（`/statloc` 除外）、`weatherapi.market.xiaomi.com` | 网络定位与天气 |
 | 输入 / 语音 | `ws-keyboard.shouji.sogou.com`、`imeclient.openspeech.cn`、`*.xfyun.cn`、`speech.xiaomixiaoai.com` | 云输入与语音识别 |
@@ -140,7 +140,7 @@
 
 ## 7. 待确认事项
 
-1. 4 条仍默认关闭的「有风险」规则（`weather.ads`、`payment.checkout-track`、`payment-sdk.logs`、`location.uplink`）需要在真机上逐一验证：天气生活指数、小米支付与第三方支付下单、查找设备与网络定位。验证通过的可改为默认开启。另有 `sofire.domains`、`baidu-ime.ubc`、`assistant.app-sync` 按高风险策略默认开启，仍需在真机上确认实际影响范围：百度账号登录、百度输入法云功能、小部件推荐。
+1. 4 条仍默认关闭的「有风险」规则（`weather.ads`、`payment.checkout-track`、`payment-sdk.logs`、`location.uplink`）需要在真机上逐一验证：天气生活指数、小米支付与第三方支付下单、查找设备与网络定位。验证通过的可改为默认开启。另有 `sofire.domains`、`baidu-ime.ubc`、`assistant.app-sync` 按高风险策略默认开启，仍需在真机上确认实际影响范围：百度账号登录、百度输入法云功能、小部件推荐。`simactivate.tee-report` 同样待验证：`tz.sec.xiaomi.com/session` 是否在 TEE 不可用时充当 Passport 回退（即拦截后小米账号登录是否受影响），验证前保持默认关闭。
 2. 高德定位 SDK 的 `adiu.amap.com`（设备 ID）与 `apiinit.amap.com/v3/log/init`（含鉴权初始化）未拦截。拦截后网络定位是否仍正常，需要在真机上验证。
 3. 短信 `mixin.xiaomi.net/report/v2/postsms`（携带 SIM 服务令牌上传短信）的触发条件与用途未能确认。
 4. `com.xiaomi.aireco`、`com.miui.miservice` 的 dex 中没有任何上报证据（可能是拆分包或加固），需要补充反编译。
@@ -165,9 +165,9 @@
   - 13：`idprovider.identifiers` 保持默认开启。它只对非系统调用方返回 MSA 标准的全零退出值，小米系统应用仍拿到真实值。
   - 16 其余部分：方法钩子只置空返回 void 或基本类型的方法，并返回对应类型的默认值，不会对基本类型返回 null，因此无需把 `track*` 改为显式列表。
 
-## 9. 运营商与反诈组件
+## 9. 运营商与安全检测组件
 
-运营商终端管理、SIM 激活与反诈组件各自有独立的上报通道，也各自混有必须保留的服务，按下面的口径处理。
+运营商终端管理、SIM 激活与安全检测组件各自有独立的上报通道，也各自混有必须保留的服务，按下面的口径处理。
 
 | 组件 | 上报内容与触发 | 处理 |
 |---|---|---|
@@ -175,8 +175,8 @@
 | 电信自注册（`com.xiaomi.registration`） | 中国电信终端自注册：开机、换卡、每 15 天向 `zzhc.vnet.cn` POST IMEI / MEID / IMSI / ICCID 等；仅 Wi-Fi 版本走 `typdm.tydevice.com`；另向 10659401 发送数据短信（型号、双 IMEI、IMSI、软件版本）。共用 `android.uid.phone`，无法断网 | `ct-autoreg.http` 按域名、`ct-autoreg.sms` 在该进程内置空 `SmsManager.send*`，均默认关闭（入网登记会失败）；该进程独立，不影响用户自己的短信 |
 | 中国移动 DM | 本机未内置 | 无需处理 |
 | SIM 激活服务（`com.xiaomi.simactivate.service`） | 绝大部分是小米账号与 SIM 绑定（`/pass/activation/activate`、`activationReport` 等）；另有 TEE 校验失败时向 `tz.sec.xiaomi.com/session` 上报 OAID、设备 ID 与 CPU ID，以及激活后向 `/pass/activation/report` 回传哈希后的 SIM / 设备标识、手机号与加密短信 | 保留绑定；`simactivate.tee-report` 默认关闭（`/session` 可能是 TEE 不可用时的 Passport 回退，未证实，可能影响小米账号登录）；`simactivate.activation-receipt` 默认关闭；前缀 `/pass/activation/report` 不会命中 `/pass/activation/activationReport` |
-| 手机管家病毒引擎（`com.miui.guardprovider`） | 保留：病毒库更新、云查杀、AI 反诈、推送。拦截：本地查杀结果上报 `virus-engine.sec.miui.com/virus/localResult/`（`guard.scan-result-report`）；服务端下发 `collect_package` 后上传完整 APK 的 `CollectPackagesAction`（`guard.apk-collect`，主机由服务端指定，只能在方法层拦截，返回 null，分发器会捕获并上报错误） | 默认开启 |
-| 同上，反诈应用检测 | `flash.sec.miui.com/detect/app` 上传全部非系统应用的包名、版本、签名 MD5 与应用名 | `guard.app-detect`，高风险，默认开启（涉诈应用无法识别） |
-| 安全中心反诈 | 保留：NFC 名单及其余反诈检测端点。反诈检测会把短信与网页里的每个链接（url、时间戳、`c=2`、`sign`）POST 到 `url-detect.engine.mi.com/url/detect` 做诈骗识别，链接可能带个人令牌。其 OneTrack 统计已由既有规则覆盖 | `securitycenter.url-detect`，高风险，默认开启（诈骗链接无法识别） |
+| 手机管家病毒引擎（`com.miui.guardprovider`） | 保留：病毒库更新、云查杀、AI 检测、推送。拦截：本地查杀结果上报 `virus-engine.sec.miui.com/virus/localResult/`（`guard.scan-result-report`）；服务端下发 `collect_package` 后上传完整 APK 的 `CollectPackagesAction`（`guard.apk-collect`，主机由服务端指定，只能在方法层拦截，返回 null，分发器会捕获并上报错误） | 默认开启 |
+| 同上，应用云检测 | `flash.sec.miui.com/detect/app` 上传全部非系统应用的包名、版本、签名 MD5 与应用名 | `guard.app-detect`，高风险，默认开启（云端应用风险识别不可用） |
+| 安全中心的云端检测 | 保留：NFC 名单及其余云端检测端点。链接云检测会把短信与网页里的每个链接（url、时间戳、`c=2`、`sign`）POST 到 `url-detect.engine.mi.com/url/detect`，链接可能带个人令牌。其 OneTrack 统计已由既有规则覆盖 | `securitycenter.url-detect`，高风险，默认开启（云端链接检测不可用） |
 
 本节共 9 条规则：默认开启 5 条（`systemhelper.firewall`、`guard.scan-result-report`、`guard.apk-collect`、`guard.app-detect`、`securitycenter.url-detect`，其中第 1、4、5 条为高风险），默认关闭 4 条（`ct-autoreg.http`、`ct-autoreg.sms`、`simactivate.activation-receipt`、`simactivate.tee-report`）。`securitycenter.cloud-scan` 已整域拦截 `virus-engine.sec.miui.com`，与 `guard.scan-result-report` 重叠；前者关闭时，后者仍只拦本地结果上报。
