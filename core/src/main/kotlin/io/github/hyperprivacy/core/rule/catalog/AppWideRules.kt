@@ -13,7 +13,7 @@ import io.github.hyperprivacy.core.rule.Text
  * - [httpDnsRule] targets every package the module is injected into anyway (the packages of all
  *   other in-process catalog rules) except [HTTPDNS_EXCLUDED_APPS], so it never widens the LSPosed
  *   scope;
- * - [mediaDrmRule] and [protectedHttpDnsRule] target only [Catalog.PROTECTED_APPS]:
+ * - [mediaDrmRule], [hardwareFingerprintRule] and [protectedHttpDnsRule] target only [Catalog.PROTECTED_APPS]:
  *   user-installed third-party apps the user chose to protect, never a vendor package.
  *
  * Both are `preventive`: a target that never trips them is the normal case.
@@ -38,6 +38,26 @@ internal fun mediaDrmRule(): Rule = Rule(
         "the device and survives reinstall and ANDROID_ID resets, so SDKs (qimei, Bugly, risk SDKs) use it to join " +
         "apps; replaced per app with HMAC-SHA256(secret, real || package) at the Java API; the DRM HAL " +
         "keeps the real id, so licences and playback are unaffected",
+    preventive = true,
+)
+
+/**
+ * Per-app hardware traits, for protected third-party apps only ([Catalog.protectedAppRules]) and
+ * off until the user enables it for an app. Changes only values no app needs for its function:
+ * `core.fingerprint.HardwareTraits` lists what is perturbed and what is deliberately left alone.
+ */
+internal fun hardwareFingerprintRule(): Rule = Rule(
+    id = "fingerprint.hardware",
+    packages = setOf(Catalog.PROTECTED_APPS),
+    title = Text("随机化硬件指纹", "Randomize hardware fingerprint"),
+    summary = Text("各应用读到的硬件特征互不相同", "Each app sees different hardware traits"),
+    payload = RulePayload.Identifiers(IdentifierSource.HARDWARE_TRAITS),
+    category = Category.DEVICE_ID,
+    evidence = "docs/collection-techniques.md section 1 (device identifiers): SDKs hash permission-free hardware " +
+        "readings (Sensor resolution/power/version list, statvfs f_fsid, battery EXTRA_CYCLE_COUNT) into a device " +
+        "id that survives resets and links apps; replaced per app with values derived by HMAC-SHA256(secret, " +
+        "label || package) at the Java API, sensor events, ranges, rates, names, model, SDK, ABI and paths untouched",
+    defaultOn = false,
     preventive = true,
 )
 
