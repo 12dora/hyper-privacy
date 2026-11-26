@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.tracker.ManifestInfo
 import io.github.hyperprivacy.core.tracker.ManifestInfo.Kind
 import io.github.hyperprivacy.core.tracker.ManifestScanner
 import io.github.hyperprivacy.core.tracker.OriginHints
+import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
@@ -105,12 +106,12 @@ class ManifestScannerTest {
         )
         assertEquals(hints, OriginHints.decode(hints.encode()))
         assertEquals(OriginHints.EMPTY, OriginHints.decode("junk,r:only,s:bad"))
-        assertTrue(TrackerProtection.affects(TrackerProtection.originKey(PKG), PKG))
-        assertTrue(TrackerProtection.affects(TrackerProtection.suspectKey(PKG, "x.y.ads."), PKG))
-        assertFalse(TrackerProtection.affects(TrackerProtection.originKey("other.app"), PKG))
-        val raw = mapOf(TrackerProtection.suspectKey(PKG, "x.y.ads.") to true)
-        assertTrue(TrackerProtection.isSuspectBlocked(raw, PKG, "x.y.ads."))
-        assertFalse(TrackerProtection.isSuspectBlocked(raw, PKG, "z.ads."))
+        assertTrue(TrackerProtection.affects(TrackerOrigin.originKey(PKG), PKG))
+        assertTrue(TrackerProtection.affects(TrackerOrigin.suspectKey(PKG, "x.y.ads."), PKG))
+        assertFalse(TrackerProtection.affects(TrackerOrigin.originKey("other.app"), PKG))
+        val raw = mapOf(TrackerOrigin.suspectKey(PKG, "x.y.ads.") to true)
+        assertTrue(TrackerOrigin.isSuspectBlocked(raw, PKG, "x.y.ads."))
+        assertFalse(TrackerOrigin.isSuspectBlocked(raw, PKG, "z.ads."))
     }
 
     /** Minimal AXML writer: UTF-16 string pool, resource map for `name` / `targetActivity`, elements. */

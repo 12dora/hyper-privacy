@@ -1,7 +1,6 @@
 package io.github.hyperprivacy.core.tracker
 
 import java.io.File
-import java.io.IOException
 import java.util.zip.ZipFile
 
 /** The parts of an app manifest the tracker scanner uses. */
@@ -40,30 +39,25 @@ public object ManifestScanner {
 
     private const val ENTRY = "AndroidManifest.xml"
 
-    // Offsets in one attribute record (`ResXMLTree_attribute`) read outside the chunk reader.
-    private const val ATTR_NS = 0
-    private const val ATTR_NAME = 4
-
-    /** Parses the manifest of [apk]; throws [IOException] when the APK or its manifest cannot be read. */
-    public fun scan(apk: File): ManifestInfo {
+    /** The parsed manifest of [apk], or `null` when the APK or its manifest cannot be read. */
+    // ZipFile reports bad archives through unchecked exceptions too (see DexScanner); any failure
+    // to read the entry means "no manifest findings", never a crash of the scanner.
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    public fun scan(apk: File): ManifestInfo? {
         val bytes = try {
             ZipFile(apk).use { zip ->
-                val entry = zip.getEntry(ENTRY) ?: throw IOException("No manifest in $apk")
-                if (entry.size > MAX_MANIFEST_BYTES) throw IOException("Manifest too large in $apk")
+                val entry = zip.getEntry(ENTRY)?.takeIf { it.size <= MAX_MANIFEST_BYTES } ?: return null
                 zip.getInputStream(entry).use { input -> input.readNBytes(MAX_MANIFEST_BYTES + 1) }
             }
-        } catch (e: IOException) {
-            throw e
-        } catch (e: RuntimeException) {
-            throw IOException("Cannot read the manifest of $apk", e)
+        } catch (_: Exception) {
+            return null
         }
-        if (bytes.size > MAX_MANIFEST_BYTES) throw IOException("Manifest too large in $apk")
-        return parse(bytes) ?: throw IOException("Unreadable manifest in $apk")
+        return if (bytes.size > MAX_MANIFEST_BYTES) null else parse(bytes)
     }
 
     /** Parses binary manifest [bytes]; `null` when it is not AXML or names no package. */
     public fun parse(bytes: ByteArray): ManifestInfo? {
-        val doc = Axml(bytes)
+        val doc = Axml(Bytes(bytes))
         if (!doc.readHeader()) return null
         val walk = Walk()
         doc.walk(walk)
@@ -97,7 +91,8 @@ public object ManifestScanner {
         var application: String? = null
         val components = ArrayList<Triple<ManifestInfo.Kind, String, Boolean>>()
 
-        // The innermost open activity (index into components) and its intent filter state.
+        // The open element names, and the innermost open activity (index into components) with
+        // the state of the intent filter being read inside it.
         private val stack = ArrayList<String>()
         private var activity = -1
         private var activityDepth = -1
@@ -107,19 +102,25 @@ public object ManifestScanner {
         fun start(name: String, attrs: Attributes) {
             if (stack.size >= MAX_DEPTH) return
             stack += name
-            val depth = stack.size
-            when {
-                depth == 1 && name == "manifest" -> packageName = attrs.plain("package")
-                depth == 2 && name != "application" -> Unit
-                depth == 2 -> application = attrs.androidName()
-                depth == COMPONENT_DEPTH -> component(name, attrs, depth)
-                name == "intent-filter" && activity >= 0 -> {
+            when (val depth = stack.size) {
+                1 -> if (name == "manifest") packageName = attrs.plain("package")
+                2 -> if (name == "application") application = attrs.androidName()
+                COMPONENT_DEPTH -> component(name, attrs, depth)
+                else -> if (activity >= 0) filter(name, attrs)
+            }
+        }
+
+        private fun filter(name: String, attrs: Attributes) {
+            when (name) {
+                "intent-filter" -> {
                     filterMain = false
                     filterLauncher = false
                 }
-                name == "action" && activity >= 0 -> filterMain = filterMain || attrs.androidName() == MAIN
-                name == "category" && activity >= 0 ->
-                    filterLauncher = filterLauncher || attrs.androidName() == LAUNCHER
+
+                "action" -> filterMain = filterMain || attrs.androidName() == MAIN
+
+                "category" -> filterLauncher = filterLauncher || attrs.androidName() == LAUNCHER
+
                 else -> Unit
             }
         }
@@ -140,7 +141,8 @@ public object ManifestScanner {
             if (stack.isEmpty()) return
             val name = stack.removeAt(stack.size - 1)
             val depth = stack.size + 1
-            if (name == "intent-filter" && activity >= 0 && filterMain && filterLauncher) {
+            val launcherFilter = filterMain && filterLauncher
+            if (name == "intent-filter" && activity >= 0 && launcherFilter) {
                 components[activity] = components[activity].copy(third = true)
             }
             if (depth == activityDepth) {
@@ -163,7 +165,7 @@ public object ManifestScanner {
         }
     }
 
-    /** The attributes of one start element, read lazily from the document. */
+    /** The attributes of one start element (`ResXMLTree_attribute` records), read lazily. */
     private class Attributes(private val doc: Axml, private val start: Int, private val count: Int, val size: Int) {
         fun plain(name: String): String? = find { ns, attrName, _ -> ns == null && attrName == name }
 
@@ -178,15 +180,16 @@ public object ManifestScanner {
         private inline fun find(match: (String?, String?, Int) -> Boolean): String? {
             for (i in 0 until count) {
                 val at = start + i * size
-                val nameIndex = doc.int(at + ATTR_NAME)
-                if (match(doc.string(doc.int(at + ATTR_NS)), doc.string(nameIndex), doc.resourceId(nameIndex))) {
-                    return doc.attrValue(at)
-                }
+                val nameIndex = doc.bytes.int(at + ATTR_NAME)
+                val ns = doc.string(doc.bytes.int(at + ATTR_NS))
+                if (match(ns, doc.string(nameIndex), doc.resourceId(nameIndex))) return doc.attrValue(at)
             }
             return null
         }
 
         private companion object {
+            const val ATTR_NS = 0
+            const val ATTR_NAME = 4
             const val NAME = "name"
             const val TARGET_ACTIVITY = "targetActivity"
             const val NAME_ID = 0x01010003
@@ -195,31 +198,90 @@ public object ManifestScanner {
         }
     }
 
-    /** Little-endian chunk reader over the whole manifest; every read is bounds-checked. */
-    private class Axml(private val bytes: ByteArray) {
-        private var stringOffsets = IntArray(0)
-        private var stringsStart = 0
-        private var utf8 = false
-        private var resourceIds = IntArray(0)
-        private val cache = HashMap<Int, String?>()
-        private var bodyStart = 0
+    /** Bounds-checked little-endian reads; out-of-range bytes read as 0. */
+    private class Bytes(val data: ByteArray) {
         /** Reads stop here: the whole input until the document header says how long it is. */
-        private var end = bytes.size
+        var end = data.size
+
+        fun u8(at: Int): Int = if (at in 0 until end) data[at].toInt() and BYTE else 0
+
+        fun u16(at: Int): Int = u8(at) or (u8(at + 1) shl BYTE_BITS)
+
+        fun int(at: Int): Int = u16(at) or (u16(at + 2) shl SHORT_BITS)
+
+        fun u32(at: Int): Long = int(at).toLong() and UINT
+    }
+
+    /** One `ResStringPool`: strings decoded on first use (UTF-8 or UTF-16), then cached. */
+    private class StringPool(
+        private val bytes: Bytes,
+        private val start: Int,
+        private val offsets: IntArray,
+        private val utf8: Boolean,
+    ) {
+        private val cache = HashMap<Int, String?>()
+
+        fun get(index: Int): String? {
+            if (index < 0 || index >= offsets.size) return null
+            return cache.getOrPut(index) { decode(start + offsets[index]) }
+        }
+
+        private fun decode(at: Int): String? = when {
+            at < 0 || at >= bytes.end -> null
+            utf8 -> decodeUtf8(at)
+            else -> decodeUtf16(at)
+        }
+
+        private fun decodeUtf8(at: Int): String? {
+            // UTF-16 length, then UTF-8 byte length; each one or two bytes.
+            var p = at + lengthBytes(at)
+            if (p >= bytes.end) return null
+            val length = if (lengthBytes(p) == 2) {
+                ((bytes.u8(p) and LOW_7) shl BYTE_BITS) or bytes.u8(p + 1)
+            } else {
+                bytes.u8(p)
+            }
+            p += lengthBytes(p)
+            if (p + length > bytes.end) return null
+            return String(bytes.data, p, length, Charsets.UTF_8)
+        }
+
+        private fun lengthBytes(at: Int): Int = if (bytes.u8(at) and HIGH_BIT_8 != 0) 2 else 1
+
+        private fun decodeUtf16(at: Int): String? {
+            var p = at
+            var length = bytes.u16(p)
+            p += 2
+            if (length and HIGH_BIT_16 != 0) {
+                length = ((length and LOW_15) shl SHORT_BITS) or bytes.u16(p)
+                p += 2
+            }
+            if (length < 0 || p + length.toLong() * 2 > bytes.end) return null
+            val chars = CharArray(length) { i -> bytes.u16(p + i * 2).toChar() }
+            return String(chars)
+        }
+    }
+
+    /** The chunk walk over one binary XML document. */
+    private class Axml(val bytes: Bytes) {
+        private var pool: StringPool? = null
+        private var resourceIds = IntArray(0)
+        private var bodyStart = 0
 
         fun readHeader(): Boolean {
-            if (bytes.size < CHUNK_HEADER || u16(0) != RES_XML_TYPE) return false
-            end = minOf(bytes.size.toLong(), u32(SIZE_FIELD)).toInt()
-            bodyStart = u16(HEADER_SIZE_FIELD)
-            return bodyStart in CHUNK_HEADER..end
+            if (bytes.data.size < CHUNK_HEADER || bytes.u16(0) != RES_XML_TYPE) return false
+            bytes.end = minOf(bytes.data.size.toLong(), bytes.u32(SIZE_FIELD)).toInt()
+            bodyStart = bytes.u16(HEADER_SIZE_FIELD)
+            return bodyStart in CHUNK_HEADER..bytes.end
         }
 
         fun walk(walk: Walk) {
             var at = bodyStart
-            while (at + CHUNK_HEADER <= end) {
-                val type = u16(at)
-                val headerSize = u16(at + HEADER_SIZE_FIELD)
-                val size = u32(at + SIZE_FIELD)
-                if (headerSize < CHUNK_HEADER || size < headerSize || at + size > end) return
+            while (at + CHUNK_HEADER <= bytes.end) {
+                val type = bytes.u16(at)
+                val headerSize = bytes.u16(at + HEADER_SIZE_FIELD)
+                val size = bytes.u32(at + SIZE_FIELD)
+                if (headerSize < CHUNK_HEADER || size < headerSize || at + size > bytes.end) return
                 when (type) {
                     RES_STRING_POOL_TYPE -> if (!readStringPool(at, size.toInt())) return
                     RES_XML_RESOURCE_MAP_TYPE -> readResourceMap(at, headerSize, size.toInt())
@@ -233,89 +295,42 @@ public object ManifestScanner {
 
         private fun startElement(at: Int, headerSize: Int, walk: Walk) {
             val ext = at + headerSize
-            if (ext + ELEMENT_EXT > end) return
-            val name = string(int(ext + ELEMENT_NAME)) ?: return
-            val attrStart = u16(ext + ATTR_START)
-            val attrSize = u16(ext + ATTR_SIZE)
-            val attrCount = u16(ext + ATTR_COUNT)
-            if (attrSize < ATTR_MIN_SIZE) {
-                walk.start(name, Attributes(this, 0, 0, ATTR_MIN_SIZE))
-                return
-            }
-            val first = ext + attrStart
-            val fits = first.toLong() + attrCount.toLong() * attrSize <= end
-            walk.start(name, Attributes(this, first, if (fits) attrCount else 0, attrSize))
+            if (ext + ELEMENT_EXT > bytes.end) return
+            val name = string(bytes.int(ext + ELEMENT_NAME)) ?: return
+            val attrSize = bytes.u16(ext + ATTR_SIZE)
+            val attrCount = bytes.u16(ext + ATTR_COUNT)
+            val first = ext + bytes.u16(ext + ATTR_START)
+            val fits = attrSize >= ATTR_MIN_SIZE && first.toLong() + attrCount.toLong() * attrSize <= bytes.end
+            walk.start(name, Attributes(this, first, if (fits) attrCount else 0, maxOf(attrSize, ATTR_MIN_SIZE)))
         }
 
         private fun readStringPool(at: Int, size: Int): Boolean {
-            if (stringOffsets.isNotEmpty() || size < POOL_HEADER) return true
-            val count = u32(at + POOL_COUNT)
-            if (count > MAX_STRINGS) return false
-            val flags = u32(at + POOL_FLAGS)
-            utf8 = flags and UTF8_FLAG != 0L
-            stringsStart = at + u32(at + POOL_STRINGS_START).toInt()
-            val offsets = at + u16(at + HEADER_SIZE_FIELD)
-            if (offsets + count * INT_BYTES > at + size) return false
-            stringOffsets = IntArray(count.toInt()) { i -> int(offsets + i * INT_BYTES) }
+            if (pool != null || size < POOL_HEADER) return true
+            val count = bytes.u32(at + POOL_COUNT)
+            val offsets = at + bytes.u16(at + HEADER_SIZE_FIELD)
+            if (count > MAX_STRINGS || offsets + count * INT_BYTES > at + size) return false
+            val utf8 = bytes.u32(at + POOL_FLAGS) and UTF8_FLAG != 0L
+            val start = at + bytes.u32(at + POOL_STRINGS_START).toInt()
+            pool = StringPool(bytes, start, IntArray(count.toInt()) { i -> bytes.int(offsets + i * INT_BYTES) }, utf8)
             return true
         }
 
         private fun readResourceMap(at: Int, headerSize: Int, size: Int) {
             val count = (size - headerSize) / INT_BYTES
             if (count <= 0 || count > MAX_STRINGS) return
-            resourceIds = IntArray(count) { i -> int(at + headerSize + i * INT_BYTES) }
+            resourceIds = IntArray(count) { i -> bytes.int(at + headerSize + i * INT_BYTES) }
         }
 
         fun resourceId(stringIndex: Int): Int = if (stringIndex in resourceIds.indices) resourceIds[stringIndex] else 0
 
+        fun string(index: Int): String? = pool?.get(index)
+
         /** The value of the attribute at [at]: its raw string, else a string-typed value. */
         fun attrValue(at: Int): String? {
-            string(int(at + ATTR_RAW))?.let { return it }
-            if (u8(at + ATTR_TYPE) != TYPE_STRING) return null
-            return string(int(at + ATTR_DATA))
+            string(bytes.int(at + ATTR_RAW))?.let { return it }
+            if (bytes.u8(at + ATTR_TYPE) != TYPE_STRING) return null
+            return string(bytes.int(at + ATTR_DATA))
         }
-
-        fun string(index: Int): String? {
-            if (index < 0 || index >= stringOffsets.size) return null
-            return cache.getOrPut(index) { decode(stringsStart + stringOffsets[index]) }
-        }
-
-        private fun decode(at: Int): String? {
-            if (at < 0 || at >= end) return null
-            return if (utf8) decodeUtf8(at) else decodeUtf16(at)
-        }
-
-        private fun decodeUtf8(at: Int): String? {
-            var p = at
-            // UTF-16 length, then UTF-8 byte length; each one or two bytes.
-            p += if (u8(p) and HIGH_BIT_8 != 0) 2 else 1
-            if (p >= end) return null
-            val length = if (u8(p) and HIGH_BIT_8 != 0) ((u8(p) and LOW_7) shl BYTE_BITS) or u8(p + 1) else u8(p)
-            p += if (u8(p) and HIGH_BIT_8 != 0) 2 else 1
-            if (p + length > end) return null
-            return String(bytes, p, length, Charsets.UTF_8)
-        }
-
-        private fun decodeUtf16(at: Int): String? {
-            var p = at
-            var length = u16(p)
-            p += 2
-            if (length and HIGH_BIT_16 != 0) {
-                length = ((length and LOW_15) shl SHORT_BITS) or u16(p)
-                p += 2
-            }
-            if (length < 0 || p + length.toLong() * 2 > end) return null
-            val chars = CharArray(length) { i -> u16(p + i * 2).toChar() }
-            return String(chars)
-        }
-
-        fun u8(at: Int): Int = if (at in 0 until end) bytes[at].toInt() and BYTE else 0
-
-        fun u16(at: Int): Int = u8(at) or (u8(at + 1) shl BYTE_BITS)
-
-        fun int(at: Int): Int = u16(at) or (u16(at + 2) shl SHORT_BITS)
-
-        fun u32(at: Int): Long = int(at).toLong() and UINT
 
         private companion object {
             const val RES_XML_TYPE = 0x0003
@@ -342,14 +357,15 @@ public object ManifestScanner {
             const val ATTR_DATA = 16
             const val TYPE_STRING = 0x03
             const val INT_BYTES = 4
-            const val BYTE = 0xFF
-            const val BYTE_BITS = 8
-            const val SHORT_BITS = 16
-            const val HIGH_BIT_8 = 0x80
-            const val LOW_7 = 0x7F
-            const val HIGH_BIT_16 = 0x8000
-            const val LOW_15 = 0x7FFF
-            const val UINT = 0xFFFF_FFFFL
         }
     }
+
+    private const val BYTE = 0xFF
+    private const val BYTE_BITS = 8
+    private const val SHORT_BITS = 16
+    private const val HIGH_BIT_8 = 0x80
+    private const val LOW_7 = 0x7F
+    private const val HIGH_BIT_16 = 0x8000
+    private const val LOW_15 = 0x7FFF
+    private const val UINT = 0xFFFF_FFFFL
 }

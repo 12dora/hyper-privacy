@@ -44,11 +44,12 @@ class OriginMatcherTest {
         assertEquals("kuaishou-ads", matcher.sdkId(matcher.attribute(async)))
         // App code called back by an SDK asks for itself.
         val callback = stack("java.net.URL", "$APP.Level", "com.qq.e.adsim.Callbacks", "android.os.Handler")
-        assertEquals(OriginMatcher.UNKNOWN, matcher.attribute(callback))
+        assertEquals(OriginMatcher.OWN, matcher.attribute(callback))
         // Third-party libraries between the SDK and the sink do not hide it.
         val library = stack("okhttp3.OkHttpClient", "com.squareup.lib.X", "com.qq.e.adsim.Net", "$APP.Main")
         assertEquals("tencent-gdt", matcher.sdkId(matcher.attribute(library)))
-        assertEquals(OriginMatcher.UNKNOWN, matcher.attribute(stack("java.net.URL", "$APP.Main")))
+        assertEquals(OriginMatcher.OWN, matcher.attribute(stack("java.net.URL", "$APP.Main")))
+        assertEquals(OriginMatcher.UNKNOWN, matcher.attribute(stack("java.net.URL", "com.squareup.lib.X")))
     }
 
     @Test
@@ -97,8 +98,7 @@ class OriginMatcherTest {
         return stack(*names.toTypedArray())
     }
 
-    private fun stack(vararg classes: String) =
-        classes.map { StackTraceElement(it, "m", null, -1) }.toTypedArray()
+    private fun stack(vararg classes: String) = classes.map { StackTraceElement(it, "m", null, -1) }.toTypedArray()
 
     private companion object {
         const val APP = "io.example.app"

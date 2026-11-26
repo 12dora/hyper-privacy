@@ -51,8 +51,8 @@ public class OriginMatcher(sdkPrefixes: List<Pair<String, String>>, ownPrefixes:
     public fun indexOf(sdkId: String): Int = trie.ids.indexOf(sdkId).takeIf { it >= 0 } ?: UNKNOWN
 
     /**
-     * The SDK the innermost decisive frame of [frames] belongs to (an index for [sdkId]), or
-     * [UNKNOWN] when an app frame comes first or no frame is claimed. At most [MAX_FRAMES] frames
+     * The SDK the innermost decisive frame of [frames] belongs to (an index for [sdkId]), [OWN]
+     * when an app frame comes first, or [UNKNOWN] when no frame is claimed. At most [MAX_FRAMES] frames
      * are read. [resolver], if given, is asked about frames of unknown classes only (it may return
      * an SDK index from [indexOf], else [UNKNOWN]); it is the only part that may cost more.
      */
@@ -61,12 +61,15 @@ public class OriginMatcher(sdkPrefixes: List<Pair<String, String>>, ownPrefixes:
         for (i in 0 until end) {
             val name = frames[i].className
             when (val kind = classify(name)) {
-                OWN -> return UNKNOWN
+                OWN -> return OWN
+
                 PLATFORM -> Unit
+
                 UNKNOWN -> if (resolver != null) {
                     val resolved = resolver(name)
                     if (resolved >= 0) return resolved
                 }
+
                 else -> return kind
             }
         }

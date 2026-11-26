@@ -47,8 +47,8 @@ private val HeaderIcon = 48.dp
 
 /**
  * One user-installed app: the protection switch, detected SDKs grouped by category with a switch
- * each (opt-in SDKs carry a one-line impact note), the app-level protections (DRM device ID, system
- * DNS) with a switch each, and app-list hiding.
+ * each (opt-in SDKs carry a one-line impact note), suspected ad components (off unless enabled),
+ * the app-level protections (DRM device ID, system DNS) with a switch each, and app-list hiding.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +84,7 @@ internal fun UserAppScreen(
             item(key = "header") { Header(app) }
             item(key = "protect") { ProtectionCard(app, canEdit, actions) }
             sdkSections(app, canEdit, actions.onSdk)
+            suspectSection(app, canEdit, actions.onSuspect)
             appRuleSection(app, canEdit, actions.onAppRule)
             appListSection(app, canEdit, actions)
         }
@@ -273,6 +274,7 @@ private fun UserAppScreenPreview() {
                 hits = 0,
             ),
         )
-        UserAppScreen(app, canEdit = true, actions = UserAppActions({}, {}, { _, _ -> }, { _, _ -> }, {}, {}, {}))
+        val actions = UserAppActions({}, {}, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {})
+        UserAppScreen(app, canEdit = true, actions = actions)
     }
 }
