@@ -10,6 +10,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.hyperprivacy.BuildConfig
 import io.github.hyperprivacy.ui.theme.AppearanceStore
 
 class MainActivity : ComponentActivity() {
@@ -18,7 +19,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val model: UiModel = viewModel.also(::watchPackages)
+        // Debug builds only: sample data for screenshots, without the module, LSPosed or the preferences.
+        val demo = if (BuildConfig.DEBUG) demoFactory?.create(this) else null
+        val model: UiModel = demo ?: viewModel.also(::watchPackages)
         setContent {
             val appearance by AppearanceStore.appearance.collectAsStateWithLifecycle()
             // Loading takes a frame or two; showing nothing beats flashing the wrong palette.

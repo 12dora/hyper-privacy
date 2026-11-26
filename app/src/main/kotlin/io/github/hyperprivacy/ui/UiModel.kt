@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.ui
 
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import io.github.hyperprivacy.core.config.ConfigBackup
 import io.github.hyperprivacy.core.config.ProtectionPause
 import io.github.hyperprivacy.ui.apps.AppSwitch
@@ -10,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 /*
  * What the screens read and call. [MainViewModel] backs it with the remote preferences, the status
- * store and LSPosed.
+ * store and LSPosed; debug builds can swap in sample data instead ([DemoFactory]).
  */
 
 /** The LSPosed scope of the catalog's system apps. */
@@ -92,4 +93,13 @@ internal interface UiModel {
     fun clearObserved()
 
     suspend fun diagnosticReport(includeUserApps: Boolean?): ReportOutcome
+}
+
+/**
+ * Builds the sample-data model of debug builds' demo mode, or `null` when [activity] was not
+ * launched for it. Release builds define no factory at all (`src/release`), and the caller also
+ * checks `BuildConfig.DEBUG`, so R8 drops the call.
+ */
+internal fun interface DemoFactory {
+    fun create(activity: ComponentActivity): UiModel?
 }
