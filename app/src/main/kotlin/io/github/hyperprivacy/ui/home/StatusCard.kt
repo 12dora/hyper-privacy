@@ -26,6 +26,7 @@ import io.github.hyperprivacy.ui.Attention
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.ModuleState
+import io.github.hyperprivacy.ui.ScopeUi
 import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.components.GroupedSurface
 import io.github.hyperprivacy.ui.components.IconBadge
@@ -80,9 +81,10 @@ private fun statusDetail(module: ModuleState, enabledCount: Int, totalHits: Long
 }
 
 /**
- * Home's first card: module state, and directly beneath it (same card) the attention entry when
- * any rule needs a look. Only the state title is a live region, so TalkBack announces state
- * changes but not every change of the blocked count.
+ * Home's first card: module state, and directly beneath it (same card) a row for installed apps
+ * missing from the LSPosed scope and the attention entry when any rule needs a look. Only the
+ * state title is a live region, so TalkBack announces state changes but not every change of the
+ * blocked count.
  */
 @Composable
 internal fun StatusCard(
@@ -92,13 +94,19 @@ internal fun StatusCard(
     attention: Attention,
     onOpenHealth: () -> Unit,
     modifier: Modifier = Modifier,
+    scope: ScopeUi = ScopeUi(),
+    onEnableScope: () -> Unit = {},
 ) {
+    val showScope = !scope.isEmpty
     val showAttention = !attention.isEmpty && module.canEdit
-    val rows = if (showAttention) 2 else 1
+    val rows = 1 + listOf(showScope, showAttention).count { it }
     Column(modifier) {
         GroupedSurface(index = 0, count = rows) { StatusRow(module, enabledCount, totalHits) }
+        if (showScope) {
+            GroupedSurface(index = 1, count = rows) { ScopeRow(scope, onEnableScope) }
+        }
         if (showAttention) {
-            GroupedSurface(index = 1, count = rows) { AttentionRow(attention, onOpenHealth) }
+            GroupedSurface(index = rows - 1, count = rows) { AttentionRow(attention, onOpenHealth) }
         }
     }
 }
@@ -174,6 +182,22 @@ private fun StatusCardPreview() {
     HyperPrivacyTheme {
         val state = sampleState()
         StatusCard(state.module, state.enabledCount, state.totalHits, state.attention, onOpenHealth = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun StatusCardScopePreview() {
+    HyperPrivacyTheme {
+        val state = sampleState()
+        StatusCard(
+            module = state.module,
+            enabledCount = state.enabledCount,
+            totalHits = state.totalHits,
+            attention = state.attention,
+            onOpenHealth = {},
+            scope = ScopeUi(missingApps = 3, systemMissing = true),
+        )
     }
 }
 

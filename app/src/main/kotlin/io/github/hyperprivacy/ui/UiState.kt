@@ -49,6 +49,9 @@ internal data class RuleItem(
 ) {
     val id: String get() = rule.id
 
+    /** Target apps of this rule that are not installed here; shown only as a quiet footnote. */
+    val notInstalledCount: Int get() = rule.packages.size - apps.size
+
     /** Only an enabled rule can need attention: a switched-off rule has nothing to fix. */
     val attention: Health? get() = health.takeIf { enabled && it.needsAttention }
 }
@@ -108,6 +111,7 @@ internal data class UiState(
     val diagnosticMode: Boolean = false,
     val observed: List<ObservedEndpointUi> = emptyList(),
     val suspected: List<ObservedEndpointUi> = emptyList(),
+    val scope: ScopeUi = ScopeUi(),
 ) {
     fun rule(id: String): RuleItem? = rules.firstOrNull { it.id == id }
 

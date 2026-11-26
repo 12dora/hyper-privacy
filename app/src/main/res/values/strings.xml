@@ -73,8 +73,12 @@
         <item quantity="other">%1$d rules in this category will be turned on.</item>
     </plurals>
     <plurals name="category_enable_body_impact">
-        <item quantity="one">%1$d rule will be turned on. %2$d that affect features stay as they are.</item>
-        <item quantity="other">%1$d rules will be turned on. %2$d that affect features stay as they are.</item>
+        <item quantity="one">%1$d rule will be turned on. Left off because they affect features: %2$d.</item>
+        <item quantity="other">%1$d rules will be turned on. Left off because they affect features: %2$d.</item>
+    </plurals>
+    <plurals name="category_enable_side_effects">
+        <item quantity="one">%1$d of them has side effects.</item>
+        <item quantity="other">%1$d of them have side effects.</item>
     </plurals>
     <plurals name="category_disable_body">
         <item quantity="one">%1$d rule will be turned off and its data will be reported again.</item>
@@ -212,5 +216,24 @@
     <string name="about_framework">Framework</string>
     <string name="about_repository">Source code</string>
     <string name="common_separator" translatable="false">" · "</string>
+    <plurals name="scope_missing_apps">
+        <item quantity="one">%1$d app not protected</item>
+        <item quantity="other">%1$d apps not protected</item>
+    </plurals>
+    <string name="scope_missing_system">System framework not protected</string>
+    <string name="scope_missing_hint">Not in the LSPosed scope yet</string>
+    <string name="scope_missing_system_hint">Includes system framework; restart after enabling</string>
+    <string name="scope_requesting">Confirm in the LSPosed notification</string>
+    <string name="scope_enable">Enable</string>
+    <string name="scope_enable_description">Add the missing apps to the LSPosed scope</string>
+    <string name="scope_approved">Enabled. Takes effect when the apps restart</string>
+    <string name="scope_approved_reboot">Enabled. Restart your device to apply</string>
+    <string name="scope_denied">LSPosed did not approve the request</string>
+    <string name="scope_no_response">No response yet. Check the LSPosed notification or enable the apps in LSPosed</string>
+    <string name="scope_unsupported">Can\'t request scope. Enable the apps in LSPosed manually</string>
+    <plurals name="detail_not_installed">
+        <item quantity="one">%1$d more app not installed</item>
+        <item quantity="other">%1$d more apps not installed</item>
+    </plurals>
     <string name="repository_url" translatable="false">https://github.com/12dora/hyper-privacy</string>
 </resources>
