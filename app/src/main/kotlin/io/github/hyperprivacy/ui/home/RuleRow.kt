@@ -64,7 +64,8 @@ internal fun RuleRow(
                 text = summaryLine(entry),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                // Copy is length-gated in CatalogTest to fit one line; two lines are only a safety net.
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
