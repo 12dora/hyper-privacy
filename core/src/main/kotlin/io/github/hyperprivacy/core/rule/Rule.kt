@@ -57,7 +57,8 @@ public enum class IdentifierSource {
     /**
      * `MediaDrm` property `deviceUniqueId` (Widevine), read by any app in its own process. Not hidden
      * but replaced per app: each package gets a stable value derived from the real one and its
-     * package name, so the id can no longer link one app to another.
+     * package name, so the id can no longer link one app to another. Only for protected
+     * third-party apps ([Catalog.protectedAppRules]), never for vendor packages.
      */
     MEDIA_DRM_ID,
 }
@@ -139,7 +140,9 @@ public sealed interface RulePayload {
  *
  * @property id stable identifier; persisted in preferences, so never rename a shipped id.
  * @property packages target package names the rule applies to; [Catalog.SYSTEM_SCOPE] stands for
- *   system_server itself (rules enforced there on behalf of every app, e.g. Settings keys).
+ *   system_server itself (rules enforced there on behalf of every app, e.g. Settings keys), and
+ *   exactly `{`[Catalog.PROTECTED_APPS]`}` for the user's protected third-party apps
+ *   ([Catalog.protectedAppRules]).
  * @property evidence where the reporting channel was observed, e.g.
  *   `traffic: com.miui.analytics → tracking.miui.com` or `dex: Lcom/xiaomi/onetrack/OneTrack`.
  * @property impact null when blocking cannot affect any vendor service. Non-null for a channel
@@ -167,11 +170,14 @@ public data class Rule(
 ) {
     val kind: RuleKind get() = payload.kind
 
+    /** Targets [Catalog.PROTECTED_APPS] only: the user's protected third-party apps, resolved at runtime. */
+    val isProtectedAppRule: Boolean get() = packages.size == 1 && Catalog.PROTECTED_APPS in packages
+
     init {
         require(ID_PATTERN.matches(id)) { "Invalid rule id: $id" }
         require(packages.isNotEmpty()) { "Rule $id has no target package" }
-        require(packages.all { it == Catalog.SYSTEM_SCOPE || PACKAGE_PATTERN.matches(it) }) {
-            "Rule $id has an invalid package name"
+        require(isProtectedAppRule || packages.all { it == Catalog.SYSTEM_SCOPE || PACKAGE_PATTERN.matches(it) }) {
+            "Rule $id has an invalid package name or mixes protected apps with fixed packages"
         }
         require(evidence.isNotBlank()) { "Rule $id has no evidence" }
         require(impact == null || !defaultOn || highRisk) {
