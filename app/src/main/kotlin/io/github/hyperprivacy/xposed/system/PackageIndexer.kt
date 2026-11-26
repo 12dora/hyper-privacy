@@ -43,6 +43,9 @@ internal class PackageIndexer(
     /** Written and read on [handler]'s thread only. */
     private var homeApp: String? = null
 
+    /** Whether the policy last built was the empty one of a paused module; [handler]'s thread only. */
+    private var appliedPaused = false
+
     /** Uptime of the first rebuild request not yet served, or 0; [handler]'s thread only. */
     private var pendingSince = 0L
 
@@ -80,6 +83,8 @@ internal class PackageIndexer(
         // Sent by PackageManager when the default home (ROLE_HOME holder) or another preferred activity changes.
         registerForAllUsers(IntentFilter(ACTION_PREFERRED_ACTIVITY_CHANGED))
         prefs?.registerOnSharedPreferenceChangeListener(prefsListener)
+        // Pausing (and resuming) all protection also pauses hiding; the switches own the deadline.
+        state.switches?.addListener { handler.post(::rebuildForPause) }
         readProtected()
         state.onUnknownApp = { handler.post(::scheduleRebuild) }
         rebuildIndex()
@@ -156,18 +161,31 @@ internal class PackageIndexer(
             ?.takeIf { it != ANDROID_PACKAGE }
     }
 
+    /** Rebuilds the policy when, and only when, the paused state changed since the last build. */
+    private fun rebuildForPause() {
+        if ((state.switches?.paused == true) != appliedPaused) log.guard("rebuild app-list policy") { rebuildPolicy() }
+    }
+
     private fun rebuildPolicy() {
         val raw = log.guard("read app-list config") { prefs?.all }.orEmpty()
         val config = AppListConfig.decode(raw)
         // Catalog targets report status to the module's provider, so they must keep seeing it.
         // Protected third-party apps never do: they report through system_server (StatusRelay).
         val exempt = Catalog.scope + listOfNotNull(homeApp)
-        val policy = AppListPolicy.resolve(config, state.index, BuildConfig.APPLICATION_ID, exempt)
+        val paused = state.switches?.paused == true
+        appliedPaused = paused
+        // Paused: nothing is hidden, the module included; the hooks read the empty policy as usual.
+        val policy = if (paused) {
+            AppListPolicy.INACTIVE
+        } else {
+            AppListPolicy.resolve(config, state.index, BuildConfig.APPLICATION_ID, exempt)
+        }
         state.appList = policy
         // Apps cache PackageManager answers in-process; a new snapshot or config must not wait for the next install.
         log.guard("invalidate package caches") { invalidateClientCaches() }
         val counts = "${config.restricted.size} restricted, ${config.strict.size} strict"
-        log.info("app-list: $counts, ${config.allowlist.size} allowlisted, self hidden: ${config.hideSelf}")
+        val others = "${config.allowlist.size} allowlisted, self hidden: ${config.hideSelf}, paused: $paused"
+        log.info("app-list: $counts, $others")
     }
 
     /** Protected third-party apps, the only callers [StatusRelayGuard] accepts. */

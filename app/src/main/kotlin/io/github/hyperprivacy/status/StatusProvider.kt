@@ -15,6 +15,7 @@ import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
+import io.github.hyperprivacy.core.status.PerfCodec
 import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.StatusBatch
@@ -55,6 +56,7 @@ class StatusProvider : ContentProvider() {
         store.meta.merge(accepted.meta, receivedAt = System.currentTimeMillis())
         store.mergeSinks(accepted.sinks)
         store.mergeObserved(accepted.observed)
+        store.perf.merge(accepted.perf)
         return Bundle.EMPTY
     }
 
@@ -121,6 +123,8 @@ private fun accept(batch: StatusBatch, callerPackages: Set<String>, isSystemServ
                 (isSystemServer && SettingsObservation.isSettingsHost(it.host))
         }.take(if (isSystemServer) MAX_OBSERVED_PER_RELAY else MAX_OBSERVED_PER_CALL),
         meta = batch.meta.filter { mine(it.packageName) || relayed(it.packageName) },
+        // Per sink name, never per package: nothing about who sent it beyond being authenticated.
+        perf = batch.perf.take(PerfCodec.MAX_ROWS),
     )
 }
 
