@@ -30,6 +30,10 @@ internal class SystemState {
     @Volatile
     var reporter: StatusReporter? = null
 
+    /** Packages with tracker protection on, from the remote preferences; read by the status relay. */
+    @Volatile
+    var protectedPackages: Set<String> = emptySet()
+
     /** Rebuilds [index] soon; set once [PackageIndexer] runs. Called from hot paths, so rate-limited. */
     @Volatile
     var onUnknownApp: (() -> Unit)? = null

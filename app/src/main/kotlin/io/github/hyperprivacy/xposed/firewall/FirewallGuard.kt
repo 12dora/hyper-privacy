@@ -57,7 +57,7 @@ internal class FirewallGuard(private val xposed: XposedInterface, private val lo
         }
         val firewall = ConnectivityFirewall.resolve(context, log) ?: return
         val switches = RuleSwitches.open(xposed, log, FirewallEnforcer.RULES)
-        val reporter = StatusReporter(log) { context }
+        val reporter = StatusReporter(log, context = { context })
         FirewallEnforcer(context, handler, log, firewall, switches, reporter).start()
     }
 
