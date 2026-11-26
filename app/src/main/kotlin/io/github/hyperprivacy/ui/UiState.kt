@@ -144,6 +144,15 @@ internal data class UiState(
     val otherProtectionOn: Boolean = false,
     val conflict: ConflictUi? = null,
 ) {
+    /**
+     * A timed pause is shown, so the banner's countdown ticks. A pause until resumed shows no time
+     * and so wakes nothing.
+     */
+    val pauseCountdown: Boolean get() = pausedUntil != 0L && pausedUntil != ProtectionPause.UNTIL_MANUAL
+
+    /** Pausing is offered while the module can be edited and anything protects. */
+    val canPause: Boolean get() = module.canEdit && (enabledCount > 0 || otherProtectionOn)
+
     fun rule(id: String): RuleItem? = rules.firstOrNull { it.id == id }
 
     fun app(packageName: String): AppSummary? = apps.firstOrNull { it.packageName == packageName }

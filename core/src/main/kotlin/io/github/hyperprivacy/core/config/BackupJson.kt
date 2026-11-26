@@ -60,13 +60,16 @@ internal object BackupJson {
         /** Takes one entry from the file-wide [budget]; `false` once it is spent. */
         private fun take(): Boolean = (budget > 0).also { if (it) budget-- }
 
+        /** Whether one more app fits, besides [apps] read so far; takes from the budget when it does. */
+        private fun hasRoom(apps: Int): Boolean = apps < MAX_APPS && take()
+
         fun read(root: Map<*, *>): ConfigBackup {
             val rules = booleans(root["rules"], ConfigBackup::isRuleId)
             val apps = LinkedHashMap<String, AppBackup>()
             (root["apps"] as? Map<*, *>)?.entries?.forEach { (key, value) ->
                 val pkg = (key as? String)?.takeIf(BackupExtractor::isPackageName)
                 val app = value as? Map<*, *>
-                if (apps.size < MAX_APPS && pkg != null && app != null && take()) apps[pkg] = readApp(app) else ignored++
+                if (pkg != null && app != null && hasRoom(apps.size)) apps[pkg] = readApp(app) else ignored++
             }
             return ConfigBackup(
                 rules = rules,

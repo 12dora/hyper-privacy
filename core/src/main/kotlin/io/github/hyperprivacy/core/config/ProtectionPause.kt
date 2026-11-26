@@ -49,8 +49,7 @@ public object ProtectionPause {
      * When the module app should clear the stored [until] (its one resume alarm), or `null` when
      * nothing is to be scheduled: not paused, already over, or paused until resumed.
      */
-    public fun resumeAt(until: Long, now: Long): Long? =
-        until.takeIf { it != UNTIL_MANUAL && isPaused(it, now) }
+    public fun resumeAt(until: Long, now: Long): Long? = until.takeIf { it != UNTIL_MANUAL && isPaused(it, now) }
 
     /** Whether [until] is a timed pause whose deadline has passed at [now]: the stored value is stale. */
     public fun isExpired(until: Long, now: Long): Boolean = until > 0 && until != UNTIL_MANUAL && now >= until

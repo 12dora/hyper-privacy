@@ -36,7 +36,9 @@ internal class FsIdHooks(private val env: GuardEnv, private val state: Fingerpri
         val GROUP = TraitGroup("fsid")
 
         /** Created once: a lambda capturing nothing, so no closure is allocated per call. */
-        private val MASKED: (HardwareTraits, StructStatVfs) -> StructStatVfs = { traits, stat -> withFsid(stat, traits.fsid(stat.f_fsid)) }
+        private val MASKED: (HardwareTraits, StructStatVfs) -> StructStatVfs = { traits, stat ->
+            withFsid(stat, traits.fsid(stat.f_fsid))
+        }
 
         private fun withFsid(stat: StructStatVfs, fsid: Long) = StructStatVfs(
             stat.f_bsize, stat.f_frsize, stat.f_blocks, stat.f_bfree, stat.f_bavail,

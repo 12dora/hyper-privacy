@@ -175,7 +175,8 @@ public class ConfigBackup(
          * Protection itself stays: turning it off also leaves the LSPosed scope behind, which the
          * user does on the Apps page.
          */
-        public fun resetKeys(current: Map<String, *>): Set<String> = current.keys.filterTo(LinkedHashSet(), ::isManagedKey)
+        public fun resetKeys(current: Map<String, *>): Set<String> =
+            current.keys.filterTo(LinkedHashSet(), ::isManagedKey)
 
         /**
          * Preference keys an import replaces wholesale; protect keys are only ever added. Global

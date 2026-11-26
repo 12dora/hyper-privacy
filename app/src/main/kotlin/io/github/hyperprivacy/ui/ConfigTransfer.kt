@@ -120,7 +120,9 @@ internal class ConfigTransfer(
     private suspend fun import(backup: ConfigBackup): ImportOutcome = withContext(worker) {
         val target = prefs() ?: return@withContext ImportOutcome.Failed
         val raw = runCatching { target.all }.getOrNull() ?: return@withContext ImportOutcome.Failed
-        val device = withContext(Dispatchers.IO) { DeviceApps.load(appContext) { status()?.trust?.signers().orEmpty() } }
+        val device = withContext(Dispatchers.IO) {
+            DeviceApps.load(appContext) { status()?.trust?.signers().orEmpty() }
+        }
         val scans = withContext(Dispatchers.IO) { scansFor(backup, raw, device) }
         val plan = backup.plan(raw, BuildConfig.APPLICATION_ID, { it in device.configurable }) { scans[it]?.ids }
         val written = runCatching {

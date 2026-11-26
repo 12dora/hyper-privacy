@@ -99,7 +99,8 @@ class StatusProvider : ContentProvider() {
      * the package it called as, not every package sharing that uid.
      */
     private fun callerScopePackages(uid: Int): Set<String> {
-        val packages = context?.packageManager?.getPackagesForUid(uid).orEmpty().filterTo(HashSet()) { it in Catalog.scope }
+        val packages = context?.packageManager?.getPackagesForUid(uid).orEmpty()
+            .filterTo(HashSet()) { it in Catalog.scope }
         if (uid % UidPolicy.PER_USER_RANGE != Process.SYSTEM_UID) return packages
         return packages.filterTo(HashSet()) { it == callingPackage }
     }

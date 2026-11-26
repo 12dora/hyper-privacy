@@ -90,7 +90,9 @@ internal object PauseAlarm {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val service = withTimeoutOrNull(BIND_TIMEOUT_MS) { ModuleConnection.service.filterNotNull().first() }
-                val prefs = service?.let { runCatching { it.getRemotePreferences(ConfigCodec.PREFS_GROUP) }.getOrNull() }
+                val prefs = service?.let { bound ->
+                    runCatching { bound.getRemotePreferences(ConfigCodec.PREFS_GROUP) }.getOrNull()
+                }
                 if (prefs != null) {
                     val until = ProtectionPause.untilOf(runCatching { prefs.all }.getOrNull().orEmpty())
                     if (ProtectionPause.isExpired(until, System.currentTimeMillis())) {

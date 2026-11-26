@@ -86,11 +86,8 @@ internal class FingerprintState(private val env: GuardEnv, private val ruleId: S
  * the original's own exceptions still reach the caller. In diagnostics mode the cost of [body] is
  * recorded under [sink] (one volatile read otherwise).
  */
-internal class ResultHook(
-    private val state: FingerprintState,
-    sink: String,
-    private val body: (Any?) -> Any?,
-) : Hooker {
+internal class ResultHook(private val state: FingerprintState, sink: String, private val body: (Any?) -> Any?) :
+    Hooker {
     private val cell = SinkStats.cell(sink)
 
     override fun intercept(chain: Chain): Any? {
@@ -111,11 +108,8 @@ internal class ResultHook(
  * proceed with the arguments unchanged (nothing is copied then). The call's argument array is
  * never written to. Fail-open and measured like [ResultHook].
  */
-internal class ArgumentHook(
-    private val state: FingerprintState,
-    sink: String,
-    private val body: (Any?) -> Any?,
-) : Hooker {
+internal class ArgumentHook(private val state: FingerprintState, sink: String, private val body: (Any?) -> Any?) :
+    Hooker {
     private val cell = SinkStats.cell(sink)
 
     override fun intercept(chain: Chain): Any? {

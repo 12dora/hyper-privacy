@@ -329,7 +329,7 @@
     <string name="backup_import">Import configuration</string>
     <string name="backup_import_summary">Restore settings from an exported file</string>
     <string name="backup_import_title">Import this configuration?</string>
-    <string name="backup_import_body">This replaces your rule switches, app options, app-list settings and appearance. Apps already protected stay protected and take the file's options. Apps newly protected by the file need approval on the Apps page. Only third-party apps installed on this device are configured.</string>
+    <string name="backup_import_body">This replaces your rule switches, app options, app-list settings and appearance. Apps already protected stay protected and take the file\'s options. Apps newly protected by the file need approval on the Apps page. Only third-party apps installed on this device are configured.</string>
     <string name="backup_import_confirm">Import</string>
     <plurals name="backup_summary_rules">
         <item quantity="one">%1$d rule switch</item>
