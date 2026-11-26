@@ -59,11 +59,27 @@ class AppListPolicyTest {
         assertFalse(index.isKnown(1_000))
         assertTrue(index.isKnown(10_060))
         assertFalse(index.isKnown(10_999))
+        assertTrue(index.isThirdParty(10_999), "installed after the snapshot: fail closed")
+        assertFalse(AppIndex.EMPTY.isThirdParty(10_999), "no snapshot yet: fail open")
+        assertTrue(AppIndex.EMPTY.isEmpty && !index.isEmpty)
         assertEquals(SHARED_SYSTEM, index.packageOf(10_060))
         assertEquals(10_200, AppIndex.appIdOf(1_010_200))
         assertEquals(-1, AppIndex.appIdOf(1_000))
         assertEquals(-1, AppIndex.appIdOf(-5))
         assertEquals(-1, AppIndex.appIdOf(20_001), "sdk sandbox / isolated range")
+    }
+
+    @Test
+    fun `sdk sandbox callers are third-party and attributed to their owner`() {
+        val sandbox = AppIndex.callerAppId(1_020_050)
+        assertEquals(20_050, sandbox)
+        assertTrue(index.isThirdParty(sandbox), "sandbox of a system app still runs SDK code")
+        assertTrue(index.isKnown(sandbox))
+        assertEquals(VENDOR, index.packageOf(sandbox))
+        assertEquals(10_100, AppIndex.callerAppId(10_100))
+        assertEquals(-1, AppIndex.callerAppId(99_001), "isolated")
+        assertEquals(-1, AppIndex.callerAppId(1_000))
+        assertFalse(AppIndex.EMPTY.isThirdParty(sandbox))
     }
 
     @Test
@@ -82,7 +98,8 @@ class AppListPolicyTest {
         assertFalse(p.shouldHide(id(PROBER), id(PROBER)), "itself")
         assertFalse(p.shouldHide(id(PROBER), id(VENDOR)), "system app")
         assertFalse(p.shouldHide(id(PROBER), id(SHARED_USER)), "shares a system uid")
-        assertFalse(p.shouldHide(id(PROBER), 10_999), "unknown app id")
+        assertTrue(p.shouldHide(id(PROBER), 10_999), "app id installed after the snapshot")
+        assertFalse(p.shouldHide(id(PROBER), 1_000), "not an application")
         assertFalse(p.shouldHide(id(PROBER), id(WECHAT)), "default allowlist")
         assertFalse(p.shouldHide(id(BANK), id(PROBER)), "unrestricted caller")
     }
@@ -139,6 +156,8 @@ class AppListPolicyTest {
         assertFalse(p.shouldHide(id(VENDOR), id(MODULE)), "system app (hooked targets report status)")
         assertFalse(p.shouldHide(id(MODULE), id(MODULE)))
         assertFalse(p.mayHideFrom(id(VENDOR)))
+        assertTrue(p.shouldHide(10_999, id(MODULE)), "caller installed after the snapshot")
+        assertFalse(p.mayHideFrom(-1), "non-application caller")
         val off = AppListPolicy.resolve(
             AppListConfig.decode(mapOf(AppListConfig.SELF_HIDE_KEY to false)),
             index,

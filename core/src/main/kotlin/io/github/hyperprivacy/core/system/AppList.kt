@@ -13,7 +13,7 @@ package io.github.hyperprivacy.core.system
  *   partner apps that SDKs legitimately probe for share / login / pay, left visible to non-strict
  *   restricted apps. Absent: [DEFAULT_ALLOWLIST]; present (even empty): replaces the default.
  * - [SELF_HIDE_KEY] → Boolean, default `true`: hide this module's own package (and so its status
- *   provider) from every third-party app, except launchers, LSPosed managers and hooked targets
+ *   provider) from every third-party app, except the default home app, LSPosed managers and hooked targets
  *   (see [AppListPolicy.resolve]). SDKs otherwise detect the module by package name.
  */
 public data class AppListConfig(
@@ -89,18 +89,20 @@ public data class AppListConfig(
  * (a PackageManager hot path) decides with a few [IntSet] probes.
  *
  * Two independent reasons hide a target from a caller (never the caller itself):
- * - **restricted caller**: the caller is restricted, the target is a known third-party app, and
- *   the target is not allowlisted (unless the caller is strict);
- * - **module self-hiding**: the target is this module, the caller is a known third-party app and
- *   not exempt (launchers, module managers, hooked targets).
+ * - **restricted caller**: the caller is restricted, the target is a third-party app, and the
+ *   target is not allowlisted (unless the caller is strict);
+ * - **module self-hiding**: the target is this module, the caller is a third-party app and not
+ *   exempt (the default home app, module managers, hooked targets).
  *
- * System apps, unknown app ids and non-application uids are never hidden and never hidden from.
+ * "Third-party" is [AppIndex.isThirdParty]: vendor-trusted apps ([VendorTrust]) and
+ * non-application uids are never hidden and never hidden from; an app id installed after the
+ * snapshot counts as third-party until the next rebuild (fail closed).
  */
 public class AppListPolicy private constructor(
     private val restricted: IntSet,
     private val strict: IntSet,
     private val allowlisted: IntSet,
-    private val thirdParty: IntSet,
+    private val index: AppIndex,
     /** The module's app id, or `-1` when self-hiding is off or the module is not indexed. */
     private val selfAppId: Int,
     private val selfVisibleTo: IntSet,
@@ -110,27 +112,29 @@ public class AppListPolicy private constructor(
 
     /** Whether any target can be hidden from [callerAppId]; the cheap pre-check before reading the target. */
     public fun mayHideFrom(callerAppId: Int): Boolean =
-        callerAppId in restricted || (selfAppId >= 0 && callerAppId in thirdParty && callerAppId !in selfVisibleTo)
+        callerAppId in restricted ||
+            (selfAppId >= 0 && callerAppId !in selfVisibleTo && index.isThirdParty(callerAppId))
 
     public fun isRestricted(callerAppId: Int): Boolean = callerAppId in restricted
 
     public fun shouldHide(callerAppId: Int, targetAppId: Int): Boolean {
         if (callerAppId == targetAppId) return false
         if (selfAppId >= 0 && targetAppId == selfAppId) return mayHideFrom(callerAppId)
-        return callerAppId in restricted && targetAppId in thirdParty &&
+        return callerAppId in restricted && index.isThirdParty(targetAppId) &&
             (callerAppId in strict || targetAppId !in allowlisted)
     }
 
     public companion object {
         public val INACTIVE: AppListPolicy =
-            IntSet.EMPTY_SET.let { none -> AppListPolicy(none, none, none, none, NO_APP, none) }
+            IntSet.EMPTY_SET.let { none -> AppListPolicy(none, none, none, AppIndex.EMPTY, NO_APP, none) }
 
         private const val NO_APP = -1
 
         /**
          * @param selfPackage this module's package name.
          * @param selfExempt packages that keep seeing the module besides [AppListConfig.MODULE_MANAGERS]:
-         *   home apps and the module's hooked targets (they deliver status to its provider).
+         *   the current default home app and the module's hooked targets (they deliver status to
+         *   its provider).
          *
          * Restricted packages that are not installed are skipped; they are resolved again on the next rebuild.
          */
@@ -148,7 +152,7 @@ public class AppListPolicy private constructor(
                 restricted = restricted,
                 strict = ids(config.strict),
                 allowlisted = ids(config.allowlist),
-                thirdParty = index.thirdParty,
+                index = index,
                 selfAppId = selfAppId,
                 selfVisibleTo = ids(selfExempt + AppListConfig.MODULE_MANAGERS),
             )
