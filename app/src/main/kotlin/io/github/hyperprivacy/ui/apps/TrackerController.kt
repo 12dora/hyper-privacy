@@ -59,7 +59,9 @@ internal class TrackerController(
 
     // SharedPreferences are opened on first use, on a background thread.
     private val store by lazy { TrackerStore(appContext) }
-    private val appScanner by lazy { AppScanner(appContext.packageManager, store) }
+    private val appScanner by lazy {
+        AppScanner(appContext.packageManager, store) { status()?.trust?.signers().orEmpty() }
+    }
     private val scanner = Dispatchers.IO.limitedParallelism(1)
     private val mutableState = MutableStateFlow(AppsUi())
     private val pending = PendingWrites()
