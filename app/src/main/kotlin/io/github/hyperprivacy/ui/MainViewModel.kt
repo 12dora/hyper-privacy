@@ -51,6 +51,17 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     private var settled = false
     private var observed: List<ObservedEndpointUi> = emptyList()
 
+    /** Installed apps and LSPosed scope: refreshed on resume, scope requested on a user tap. */
+    val device = ScopeSync(
+        scope = viewModelScope,
+        worker = worker,
+        rebootFlag = RebootFlag(application),
+        service = { boundService },
+        installed = { backend?.view?.apps?.packages },
+        refreshApps = { backend?.refreshApps() },
+        onChange = { rebuildRequests.trySend(Unit) },
+    )
+
     init {
         viewModelScope.launch(worker) {
             val loaded = Backend.create(application, changeListener)
@@ -151,6 +162,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         remotePrefs.getAndSet(prefs)?.unregisterOnSharedPreferenceChangeListener(changeListener)
         prefs?.registerOnSharedPreferenceChangeListener(changeListener)
         framework = service?.let { runCatching { "${it.frameworkName} ${it.frameworkVersion}" }.getOrNull() }
+        device.check()
         rebuildRequests.trySend(Unit)
     }
 
@@ -170,6 +182,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
                 prefsReachable = prefs != null,
                 settled = settled,
                 snapshot = snapshot,
+                rebootPending = device.rebootPending,
             ),
             framework = framework,
             versionName = backend.versionName,
@@ -182,6 +195,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             suspected = suspected,
             diagnosticMode = pendingWrites.resolve(stored, ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT),
             observed = observed,
+            scope = device.ui,
         )
     }
 
@@ -195,22 +209,34 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
 private class Backend(
     val store: StatusStore,
     val health: RuleHealthSource,
-    val view: RuleCatalogView,
+    view: RuleCatalogView,
     val versionName: String,
 ) {
-    val endpoints: ObservedEndpointsSource = StatusStoreEndpoints(store, view.apps)
+    /** Rebuilt by [refreshApps] when apps are installed or removed; written on the worker only. */
+    @Volatile
+    var view: RuleCatalogView = view
+        private set
+
+    val endpoints: ObservedEndpointsSource get() = StatusStoreEndpoints(store, view.apps)
+
+    /** Reloads the installed target apps; cheap (one package manager call) when nothing changed. */
+    fun refreshApps() {
+        val pm = store.packageManager
+        val installed = InstalledApps.installed(pm, Catalog.allPackages)
+        if (view.apps.matches(installed)) return
+        view = RuleCatalogView(store, health, InstalledApps.load(pm, installed), Catalog.rules)
+    }
 
     companion object {
         fun create(application: Application, listener: SharedPreferences.OnSharedPreferenceChangeListener): Backend {
             val store = StatusStore(application)
             store.registerListener(listener)
-            val rules = Catalog.rules
             val health: RuleHealthSource = StoreHealthSource(store)
-            val apps = InstalledApps.load(application.packageManager, rules.flatMapTo(sortedSetOf()) { it.packages })
-            val version = runCatching {
-                application.packageManager.getPackageInfo(application.packageName, 0).versionName
-            }.getOrNull().orEmpty()
-            return Backend(store, health, RuleCatalogView(store, health, apps, rules), version)
+            val pm = application.packageManager
+            val apps = InstalledApps.load(pm, InstalledApps.installed(pm, Catalog.allPackages))
+            val version = runCatching { pm.getPackageInfo(application.packageName, 0).versionName }
+                .getOrNull().orEmpty()
+            return Backend(store, health, RuleCatalogView(store, health, apps, Catalog.rules), version)
         }
     }
 }
@@ -220,9 +246,11 @@ internal fun resolveModuleState(
     prefsReachable: Boolean,
     settled: Boolean,
     snapshot: RuleSnapshot,
+    rebootPending: Boolean = false,
 ): ModuleState = when {
     !bound -> if (settled) ModuleState.INACTIVE else ModuleState.CHECKING
     !prefsReachable -> ModuleState.UNAVAILABLE
+    rebootPending -> ModuleState.NEEDS_REBOOT
     snapshot.enabledCount > 0 && !snapshot.anyReported -> ModuleState.NEEDS_REBOOT
     else -> ModuleState.ACTIVE
 }

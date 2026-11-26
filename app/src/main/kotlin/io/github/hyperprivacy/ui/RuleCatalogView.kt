@@ -1,8 +1,10 @@
 package io.github.hyperprivacy.ui
 
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.rule.Rule
+import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.DisplayStatus
 import io.github.hyperprivacy.status.StatusStore
 import java.text.Collator
@@ -20,12 +22,30 @@ internal class InstalledApps private constructor(
 ) {
     private val labels = ConcurrentHashMap<String, String>(ordered.associate { it.packageName to it.label })
 
+    /** Installed catalog packages; compared across loads to notice installs and removals. */
+    val packages: Set<String> = ordered.mapTo(HashSet()) { it.packageName }
+
     /** Display name of any installed package; falls back to the package name for unknown ones. */
     fun labelOf(packageName: String): String = labels.getOrPut(packageName) {
         systemLabel(pm, packageName)?.let { AppNames.display(packageName, it, languageTag) } ?: packageName
     }
 
+    /** Whether this load still matches [installed] packages and the current locale (labels are localised). */
+    fun matches(installed: Set<String>): Boolean =
+        installed == packages && languageTag == Locale.getDefault().toLanguageTag()
+
     companion object {
+        /**
+         * Which of [packages] are installed for this user, in one package manager call. Visibility comes
+         * from the generated `<queries>` manifest, which lists every catalog package; lint cannot see
+         * that build-time manifest, and only catalog packages are kept anyway.
+         */
+        @SuppressLint("QueryPermissionsNeeded")
+        fun installed(pm: PackageManager, packages: Set<String>): Set<String> = runCatching {
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+                .mapNotNullTo(HashSet()) { info -> info.packageName.takeIf { it in packages } }
+        }.getOrElse { packages.filterTo(HashSet()) { systemLabel(pm, it) != null } }
+
         private fun systemLabel(pm: PackageManager, packageName: String): String? = runCatching {
             pm.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0)).loadLabel(pm).toString()
         }.getOrNull()
@@ -65,10 +85,10 @@ internal class RuleCatalogView(
 ) {
     private class CachedHealth(val enabled: Boolean, val at: Long, val byPackage: Map<String, Health>)
 
-    private val packagesByRule: Map<String, List<AppLabel>> = rules.associate { rule ->
+    val visibleRules: List<Rule> = DeviceCoverage.applicableRules(rules, apps.packages)
+    private val packagesByRule: Map<String, List<AppLabel>> = visibleRules.associate { rule ->
         rule.id to apps.ordered.filter { it.packageName in rule.packages }
     }
-    val visibleRules: List<Rule> = rules.filter { packagesByRule.getValue(it.id).isNotEmpty() }
     private val healthCache = HashMap<String, CachedHealth>()
 
     fun snapshot(isEnabled: (Rule) -> Boolean): RuleSnapshot {

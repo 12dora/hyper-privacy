@@ -14,7 +14,10 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -27,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigationevent.NavigationEventInfo
@@ -107,6 +111,8 @@ internal fun AppNavigation(viewModel: MainViewModel) {
     val expandedHolder = rememberSaveable(stateSaver = KeysSaver) { mutableStateOf<List<String>?>(null) }
     val listState = rememberLazyListState()
     val home = remember(viewHolder, expandedHolder, listState) { HomeMemory(viewHolder, expandedHolder, listState) }
+    val snackbar = remember { SnackbarHostState() }
+    ScopeMessages(viewModel, snackbar)
     if (home.expanded == null && state.loaded) {
         val keys = state.byCategory.map { it.key }
         home.expanded = if (state.rules.size <= EXPAND_ALL_MAX_RULES) keys else emptyList()
@@ -125,7 +131,7 @@ internal fun AppNavigation(viewModel: MainViewModel) {
 
     AnimatedContent(targetState = nav.stack, transitionSpec = { pageTransition() }, label = "route") { target ->
         val page = if (target.size > 1) Modifier.predictiveBack(backProgress) else Modifier
-        Page(target.last(), state, viewModel, nav, home, page)
+        Page(target.last(), state, viewModel, nav, home, snackbar, page)
     }
 }
 
@@ -136,6 +142,7 @@ private fun Page(
     viewModel: MainViewModel,
     nav: Navigator,
     home: HomeMemory,
+    snackbar: SnackbarHostState,
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -167,8 +174,10 @@ private fun Page(
                 onOpenSearch = { nav.push(Route.Search) },
                 onOpenSettings = { nav.push(Route.Settings) },
                 onOpenHealth = { nav.push(Route.Health) },
+                onEnableScope = viewModel.device::request,
             ),
             listState = home.listState,
+            snackbarHostState = snackbar,
         )
 
         Route.Settings -> SettingsPage(state, viewModel, nav, export, modifier)
@@ -239,6 +248,27 @@ private fun SearchPage(
         onBack = nav::pop,
         modifier = modifier,
     )
+}
+
+/** Shows each scope request outcome once, on Home's snackbar host (requests are only made from Home). */
+@Composable
+private fun ScopeMessages(viewModel: MainViewModel, snackbar: SnackbarHostState) {
+    val resources = LocalResources.current
+    LaunchedEffect(viewModel, snackbar, resources) {
+        viewModel.device.messages.collect { result ->
+            snackbar.currentSnackbarData?.dismiss()
+            // Launched so a newer outcome can replace one still on screen.
+            launch { snackbar.showSnackbar(resources.getString(result.messageRes()), duration = SnackbarDuration.Long) }
+        }
+    }
+}
+
+private fun ScopeResult.messageRes(): Int = when (this) {
+    ScopeResult.APPROVED -> R.string.scope_approved
+    ScopeResult.APPROVED_REBOOT -> R.string.scope_approved_reboot
+    ScopeResult.DENIED -> R.string.scope_denied
+    ScopeResult.NO_RESPONSE -> R.string.scope_no_response
+    ScopeResult.UNSUPPORTED -> R.string.scope_unsupported
 }
 
 private fun share(context: Context, report: String) {

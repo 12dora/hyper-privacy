@@ -196,7 +196,10 @@ private fun MethodCard(rule: Rule) {
     }
 }
 
-/** Long app lists (a shared SDK can span 100 apps) show the first few, then a "show all" row. */
+/**
+ * Long app lists (a shared SDK can span 100 apps) show the first few, then a "show all" row. Targets
+ * not installed here are only counted in a quiet footnote: they cannot matter on this device.
+ */
 private fun LazyListScope.appRows(item: RuleItem, showAll: Boolean, onShowAll: () -> Unit) {
     val collapsed = !showAll && item.apps.size > COLLAPSED_APPS + 1
     val shown = if (collapsed) item.apps.take(COLLAPSED_APPS) else item.apps
@@ -206,6 +209,17 @@ private fun LazyListScope.appRows(item: RuleItem, showAll: Boolean, onShowAll: (
             ShowAllRow(item.apps.size, onShowAll)
         } else {
             AppRow(app, item.enabled)
+        }
+    }
+    val missing = item.notInstalledCount
+    if (missing > 0) {
+        item(key = "apps-not-installed") {
+            Text(
+                text = pluralStringResource(R.plurals.detail_not_installed, missing, missing),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+            )
         }
     }
 }
