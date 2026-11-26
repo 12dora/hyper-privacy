@@ -141,6 +141,11 @@ public class AppListPolicy private constructor(
          *   system_server ([io.github.hyperprivacy.core.status.StatusRelay]).
          *
          * Restricted packages that are not installed are skipped; they are resolved again on the next rebuild.
+         *
+         * Whatever the preferences say, only third-party apps ([AppIndex.isThirdParty]) can be
+         * restricted: never a vendor-trusted or system app (launcher, package installer, permission
+         * controller …), never this module, a module manager or an exempt package. The import and
+         * the UI check the same; this is the last line, so a crafted preference cannot blind them.
          */
         public fun resolve(
             config: AppListConfig,
@@ -149,16 +154,21 @@ public class AppListPolicy private constructor(
             selfExempt: Set<String> = emptySet(),
         ): AppListPolicy {
             fun ids(packages: Set<String>) = IntSet.of(packages.mapNotNull(index::appIdOf))
-            val selfAppId = selfPackage?.takeIf { config.hideSelf }?.let(index::appIdOf) ?: -1
-            val restricted = ids(config.restricted)
-            if (restricted.isEmpty() && selfAppId < 0) return INACTIVE
+            val moduleAppId = selfPackage?.let(index::appIdOf) ?: NO_APP
+            val selfAppId = if (config.hideSelf) moduleAppId else NO_APP
+            val exemptIds = (selfExempt + AppListConfig.MODULE_MANAGERS).mapNotNullTo(HashSet(), index::appIdOf)
+            val restrictedIds = config.restricted.mapNotNull(index::appIdOf).filter { appId ->
+                index.isThirdParty(appId) && appId != moduleAppId && appId !in exemptIds
+            }
+            if (restrictedIds.isEmpty() && selfAppId < 0) return INACTIVE
+            val restricted = IntSet.of(restrictedIds)
             return AppListPolicy(
                 restricted = restricted,
-                strict = ids(config.strict),
+                strict = IntSet.of(config.strict.mapNotNull(index::appIdOf).filter { it in restricted }),
                 allowlisted = ids(config.allowlist),
                 index = index,
                 selfAppId = selfAppId,
-                selfVisibleTo = ids(selfExempt + AppListConfig.MODULE_MANAGERS),
+                selfVisibleTo = IntSet.of(exemptIds),
             )
         }
     }
