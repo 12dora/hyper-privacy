@@ -36,4 +36,22 @@ internal object Sinks {
     const val STATUS_RELAY = "status.relay"
 
     const val MEDIA_DRM = "id.mediadrm"
+
+    /** Hardware-fingerprint hook groups (`xposed.fp.HardwareFingerprintGuard`). */
+    const val FP_SENSOR = "fp.sensor"
+    const val FP_FSID = "fp.fsid"
+    const val FP_BATTERY = "fp.battery"
+
+    /**
+     * Every sink above. The status provider and the status relay accept sink reports only for
+     * these, so a reporting process cannot grow the sink tables with names of its own: a new sink
+     * must be added here too.
+     */
+    private val ALL: Set<String> = setOf(
+        DNS, TLS, CONNECT, URL_JAVA_HOST, URL_JAVA, URL_OKHTTP, URL_CRONET, URL_TURBONET, URL_HTTP_ENGINE,
+        URL_WEBVIEW, MIUI_ID_PROVIDER, SETTINGS_KEYS, APP_LIST_FILTER, STATUS_RELAY, MEDIA_DRM, FP_SENSOR,
+        FP_FSID, FP_BATTERY,
+    )
+
+    fun isKnown(sink: String): Boolean = sink in ALL
 }

@@ -18,11 +18,17 @@ import io.github.hyperprivacy.core.status.StatusCodec
  *   ([io.github.hyperprivacy.core.status.ObservedCodec]);
  * - [KEY_META]: facts about the reporting process: installed versionCode and start time
  *   ([io.github.hyperprivacy.core.status.MetaCodec]). Added later; receivers must not require it.
+ * - [KEY_TRUST]: system_server only, the vendor-trusted signer digests of its package snapshot
+ *   ([io.github.hyperprivacy.core.system.AppIndex.trustedSigners]), so the module app's own app
+ *   listing classifies vendor apps exactly as system_server does although it sees fewer packages.
+ *
+ * Each table is decoded only up to [MAX_TABLE_CHARS] characters and a bounded number of rows.
  *
  * A non-null reply means accepted; `null` means the caller was rejected (retrying cannot help).
  *
- * Protected third-party apps send the same extras to system_server instead
- * ([io.github.hyperprivacy.core.status.StatusRelay]), which forwards them with its own batches.
+ * Protected third-party apps hand their rows to system_server instead, in the relay's own sealed
+ * format ([io.github.hyperprivacy.core.status.StatusRelay]); system_server forwards them here with
+ * its own batches.
  */
 internal object StatusContract {
     /** Matches `${applicationId}.status` in the manifest; derived so the two can never drift. */
@@ -41,18 +47,34 @@ internal object StatusContract {
     /** Bundle key holding a [io.github.hyperprivacy.core.status.MetaCodec] payload. */
     const val KEY_META = "meta"
 
-    fun encode(batch: StatusBatch): Bundle = Bundle().apply {
+    /** Bundle key holding system_server's vendor-trusted signer digests, one per line. */
+    const val KEY_TRUST = "trust"
+
+    /** Longest table decoded; longer ones are dropped whole. Reporters stay well below it. */
+    const val MAX_TABLE_CHARS = 256 * 1024
+
+    private const val MAX_TRUSTED_SIGNERS = 512
+    private val SIGNER_DIGEST = Regex("[0-9a-f]{64}")
+
+    fun encode(batch: StatusBatch, trustedSigners: Set<String> = emptySet()): Bundle = Bundle().apply {
         if (batch.reports.isNotEmpty()) putString(KEY_PAYLOAD, StatusCodec.encode(batch.reports))
         if (batch.sinks.isNotEmpty()) putString(KEY_SINKS, SinkCodec.encode(batch.sinks))
         if (batch.observed.isNotEmpty()) putString(KEY_OBSERVED, ObservedCodec.encode(batch.observed))
         if (batch.meta.isNotEmpty()) putString(KEY_META, MetaCodec.encode(batch.meta))
+        if (trustedSigners.isNotEmpty()) putString(KEY_TRUST, trustedSigners.sorted().joinToString("\n"))
     }
 
     /** Decodes [extras]; malformed rows and tables are dropped, never thrown. */
     fun decode(extras: Bundle?): StatusBatch = StatusBatch(
-        reports = StatusCodec.decode(extras?.getString(KEY_PAYLOAD)),
-        sinks = SinkCodec.decode(extras?.getString(KEY_SINKS)),
-        observed = ObservedCodec.decode(extras?.getString(KEY_OBSERVED)),
-        meta = MetaCodec.decode(extras?.getString(KEY_META)),
+        reports = StatusCodec.decode(extras.table(KEY_PAYLOAD)),
+        sinks = SinkCodec.decode(extras.table(KEY_SINKS)),
+        observed = ObservedCodec.decode(extras.table(KEY_OBSERVED)),
+        meta = MetaCodec.decode(extras.table(KEY_META)),
     )
+
+    /** The trusted signer digests in [extras], `null` when it carries none. */
+    fun decodeTrust(extras: Bundle?): Set<String>? = extras.table(KEY_TRUST)
+        ?.lineSequence()?.filter(SIGNER_DIGEST::matches)?.take(MAX_TRUSTED_SIGNERS)?.toSet()
+
+    private fun Bundle?.table(key: String): String? = this?.getString(key)?.takeIf { it.length <= MAX_TABLE_CHARS }
 }

@@ -11,15 +11,17 @@ public data class ProcessMeta(val packageName: String, val versionCode: Long, va
 
 /** Wire format for [ProcessMeta] rows: `package  versionCode  processStartAt` per line. */
 public object MetaCodec {
-    private const val FIELD_COUNT = 3
+    internal const val FIELD_COUNT = 3
 
-    public fun encode(rows: Iterable<ProcessMeta>): String = TsvRows.encode(
-        rows.map { listOf(it.packageName, it.versionCode.toString(), it.processStartAt.toString()) },
-    )
+    public fun encode(rows: Iterable<ProcessMeta>): String = TsvRows.encode(rows.map(::fields))
 
-    public fun decode(text: String?): List<ProcessMeta> = TsvRows.decode(text, FIELD_COUNT, ::parse)
+    internal fun fields(it: ProcessMeta): List<String> =
+        listOf(it.packageName, it.versionCode.toString(), it.processStartAt.toString())
 
-    private fun parse(fields: List<String>): ProcessMeta? {
+    public fun decode(text: String?, maxRows: Int = TsvRows.DEFAULT_MAX_ROWS): List<ProcessMeta> =
+        TsvRows.decode(text, FIELD_COUNT, maxRows, ::parse)
+
+    internal fun parse(fields: List<String>): ProcessMeta? {
         val pkg = fields[0].ifEmpty { return null }
         val code = fields[1].toLongOrNull()?.takeIf { it >= 0 } ?: return null
         val startedAt = fields[2].toLongOrNull()?.takeIf { it >= 0 } ?: return null

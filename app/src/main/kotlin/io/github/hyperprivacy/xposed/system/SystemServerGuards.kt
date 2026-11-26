@@ -9,6 +9,7 @@ import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.scope.PackageRules
 import io.github.hyperprivacy.core.status.HookState
+import io.github.hyperprivacy.core.status.RetryBackoff
 import io.github.hyperprivacy.xposed.HookLog
 import io.github.hyperprivacy.xposed.Reflection
 import io.github.hyperprivacy.xposed.RuleSwitches
@@ -78,7 +79,9 @@ internal class SystemServerGuards(private val xposed: XposedInterface, private v
             log.warn("system guards: system context unavailable")
             return
         }
-        val reporter = StatusReporter(log, context = { context })
+        // Never slows below the 5 min cap: relayed status must flow again soon after the user unlocks.
+        val backoff = RetryBackoff(slowMillis = RetryBackoff.DEFAULT_MAX_MILLIS)
+        val reporter = StatusReporter(log, context = { context }, backoff = backoff)
         state.reporter = reporter
         state.switches = RuleSwitches.open(xposed, log, RULES)
         val prefs = log.guard("open app-list preferences") { xposed.getRemotePreferences(ConfigCodec.PREFS_GROUP) }

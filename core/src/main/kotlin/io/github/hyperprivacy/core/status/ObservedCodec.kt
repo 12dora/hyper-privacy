@@ -6,27 +6,26 @@ package io.github.hyperprivacy.core.status
  * means `null` and blocked is `1`/`0`. Rows that fail validation are dropped.
  */
 public object ObservedCodec {
-    private const val FIELD_COUNT = 7
+    internal const val FIELD_COUNT = 7
     private const val TRUE = "1"
     private const val FALSE = "0"
 
-    public fun encode(endpoints: Iterable<ObservedEndpoint>): String = TsvRows.encode(
-        endpoints.map {
-            listOf(
-                it.packageName,
-                it.host,
-                it.pathPrefix.orEmpty(),
-                it.count.toString(),
-                it.firstSeen.toString(),
-                it.lastSeen.toString(),
-                if (it.blocked) TRUE else FALSE,
-            )
-        },
+    public fun encode(endpoints: Iterable<ObservedEndpoint>): String = TsvRows.encode(endpoints.map(::fields))
+
+    internal fun fields(it: ObservedEndpoint): List<String> = listOf(
+        it.packageName,
+        it.host,
+        it.pathPrefix.orEmpty(),
+        it.count.toString(),
+        it.firstSeen.toString(),
+        it.lastSeen.toString(),
+        if (it.blocked) TRUE else FALSE,
     )
 
-    public fun decode(text: String?): List<ObservedEndpoint> = TsvRows.decode(text, FIELD_COUNT, ::parse)
+    public fun decode(text: String?, maxRows: Int = TsvRows.DEFAULT_MAX_ROWS): List<ObservedEndpoint> =
+        TsvRows.decode(text, FIELD_COUNT, maxRows, ::parse)
 
-    private fun parse(fields: List<String>): ObservedEndpoint? {
+    internal fun parse(fields: List<String>): ObservedEndpoint? {
         val pkg = fields[0].ifEmpty { return null }
         val host = fields[1].takeIf(ObservedEndpoint::isValidHost) ?: return null
         val path = fields[2].ifEmpty { null }

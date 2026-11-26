@@ -9,14 +9,16 @@ public data class SinkReport(val packageName: String, val sink: String, val stat
 
 /** Wire format for [SinkReport] batches: `package  sink  STATE` per line. */
 public object SinkCodec {
-    private const val FIELD_COUNT = 3
+    internal const val FIELD_COUNT = 3
 
-    public fun encode(reports: Iterable<SinkReport>): String =
-        TsvRows.encode(reports.map { listOf(it.packageName, it.sink, it.state.name) })
+    public fun encode(reports: Iterable<SinkReport>): String = TsvRows.encode(reports.map(::fields))
 
-    public fun decode(text: String?): List<SinkReport> = TsvRows.decode(text, FIELD_COUNT, ::parse)
+    internal fun fields(it: SinkReport): List<String> = listOf(it.packageName, it.sink, it.state.name)
 
-    private fun parse(fields: List<String>): SinkReport? {
+    public fun decode(text: String?, maxRows: Int = TsvRows.DEFAULT_MAX_ROWS): List<SinkReport> =
+        TsvRows.decode(text, FIELD_COUNT, maxRows, ::parse)
+
+    internal fun parse(fields: List<String>): SinkReport? {
         val pkg = fields[0].ifEmpty { return null }
         val sink = fields[1].ifEmpty { return null }
         val state = HookState.parse(fields[2]) ?: return null
