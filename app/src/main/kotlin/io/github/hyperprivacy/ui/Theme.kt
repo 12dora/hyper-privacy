@@ -27,4 +27,5 @@ internal fun HyperPrivacyTheme(content: @Composable () -> Unit) {
 
 @Composable
 @ReadOnlyComposable
-private fun currentLanguageTag(): String = LocalConfiguration.current.locales[0].toLanguageTag()
+private fun currentLanguageTag(): String =
+    LocalConfiguration.current.locales.takeIf { !it.isEmpty }?.get(0)?.toLanguageTag() ?: "en"

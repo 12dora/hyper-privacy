@@ -7,21 +7,34 @@ import io.github.hyperprivacy.core.status.DisplayStatus
 import io.github.hyperprivacy.status.StatusStore
 import java.text.Collator
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /** Target apps that are installed on this device, with their display names. */
-internal class InstalledApps(val ordered: List<AppLabel>) {
+internal class InstalledApps private constructor(
+    private val pm: PackageManager,
+    private val languageTag: String,
+    val ordered: List<AppLabel>,
+) {
+    private val labels = ConcurrentHashMap<String, String>(ordered.associate { it.packageName to it.label })
+
+    /** Display name of any installed package; falls back to the package name for unknown ones. */
+    fun labelOf(packageName: String): String = labels.getOrPut(packageName) {
+        systemLabel(pm, packageName)?.let { AppNames.display(packageName, it, languageTag) } ?: packageName
+    }
+
     companion object {
+        private fun systemLabel(pm: PackageManager, packageName: String): String? = runCatching {
+            pm.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0)).loadLabel(pm).toString()
+        }.getOrNull()
+
         fun load(pm: PackageManager): InstalledApps {
+            val locale = Locale.getDefault()
+            val tag = locale.toLanguageTag()
             val installed = Catalog.allPackages.mapNotNull { pkg ->
-                runCatching {
-                    AppLabel(
-                        pkg,
-                        pm.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0)).loadLabel(pm).toString(),
-                    )
-                }.getOrNull()
+                systemLabel(pm, pkg)?.let { AppLabel(pkg, AppNames.display(pkg, it, tag)) }
             }
-            val collator = Collator.getInstance(Locale.getDefault())
-            return InstalledApps(installed.sortedWith { a, b -> collator.compare(a.label, b.label) })
+            val collator = Collator.getInstance(locale)
+            return InstalledApps(pm, tag, installed.sortedWith { a, b -> collator.compare(a.label, b.label) })
         }
     }
 }
@@ -37,7 +50,7 @@ internal class RuleSnapshot(val rules: List<RuleItem>, val byCategory: List<Rule
  * Builds [RuleSnapshot]s. Rules whose target apps are all missing from the device are left out,
  * so the list only shows protections that can matter here.
  */
-internal class RuleCatalogView(private val statusStore: StatusStore, private val apps: InstalledApps) {
+internal class RuleCatalogView(private val statusStore: StatusStore, val apps: InstalledApps) {
     private val packagesByRule: Map<String, List<AppLabel>> = Catalog.rules.associate { rule ->
         rule.id to apps.ordered.filter { it.packageName in rule.packages }
     }
