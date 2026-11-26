@@ -61,6 +61,7 @@ internal fun UserAppPage(
             onRetryScope = { trackers.retryScope(packageName) },
             onSdk = { sdk, on -> trackers.set(AppSwitch.Sdk(packageName, sdk), on) },
             onAppRule = { rule, on -> trackers.set(AppSwitch.AppRule(packageName, rule), on) },
+            onSuspect = { root, on -> trackers.set(AppSwitch.Suspect(packageName, root), on) },
             onHideApps = { trackers.set(AppSwitch.HideApps(packageName), it) },
             onStrict = { trackers.set(AppSwitch.Strict(packageName), it) },
             onBack = nav::pop,

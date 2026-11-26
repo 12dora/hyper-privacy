@@ -5,17 +5,17 @@ package io.github.hyperprivacy.core.tracker
  * Raw [Trackers] table, one record per SDK. A record starts with `sdk <id> <defaultBlock 1|0>
  * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
  * display name (zh / en), `v` vendor, and the space-separated, repeatable lists `p` code
- * prefixes, `b` block hosts, `u` block URLs (`host/path`) and `k` keep hosts. Unknown tags are
- * ignored by the parser.
+ * prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs (`host/path`) and `k` keep
+ * hosts. Unknown tags are ignored by the parser.
  */
 internal object TrackerData {
-    const val VERSION: String = "2026.11.27d"
+    const val VERSION: String = "2026.11.27e"
 
     /** SHA-256 of data/trackers.json as generated. */
-    const val SOURCE_SHA256: String = "eb7224d7357ab0100375a52876311d2f1e97ad83a3ad8ecb9127af890103c141"
+    const val SOURCE_SHA256: String = "c83855cb93c9ea405f20a1bec417973627fea30ad55fb0b03e137be2a7a6b6de"
 
     /** SHA-256 of [PARTS] joined, so a hand edit of the table is caught by tests. */
-    const val TABLE_SHA256: String = "8b77256852d810d6d961bfbfde530602eb8572ba84155a5bfd2db88cf067dc11"
+    const val TABLE_SHA256: String = "a64585715a4c0520f252500e4e2a19bd723045fd3b77670d00cac28ea8f32365"
 
     val PARTS: List<String> = listOf(PART_0, PART_1)
 }
@@ -31,6 +31,7 @@ n AdColony 广告
 e AdColony
 v Digital Turbine (AdColony)
 p com.adcolony.sdk.
+a com.adcolony.sdk.AdColonyInterstitialActivity
 b adc3-launch.adcolony.com wd.adcolony.com adc-ad-assets.adtilt.com
 sdk adjust 1 ATTRIBUTION,ANALYTICS
 n Adjust 归因
@@ -284,6 +285,21 @@ v 字节跳动 / 巨量引擎 (ByteDance)
 dn 穿山甲广告
 de Pangle Ads
 p com.bytedance.sdk.openadsdk. com.bykv.vk. com.bytedance.pangle. com.bytedance.adsdk.
+a com.bytedance.sdk.openadsdk.activity.TTAdActivity
+a com.bytedance.sdk.openadsdk.activity.TTAppOpenAdActivity
+a com.bytedance.sdk.openadsdk.activity.TTCeilingLandingPageActivity
+a com.bytedance.sdk.openadsdk.activity.TTDelegateActivity
+a com.bytedance.sdk.openadsdk.activity.TTFullScreenExpressVideoActivity
+a com.bytedance.sdk.openadsdk.activity.TTFullScreenVideoActivity
+a com.bytedance.sdk.openadsdk.activity.TTInterstitialActivity
+a com.bytedance.sdk.openadsdk.activity.TTInterstitialExpressActivity
+a com.bytedance.sdk.openadsdk.activity.TTLandingPageActivity
+a com.bytedance.sdk.openadsdk.activity.TTPlayableLandingPageActivity
+a com.bytedance.sdk.openadsdk.activity.TTRewardExpressVideoActivity
+a com.bytedance.sdk.openadsdk.activity.TTRewardVideoActivity
+a com.bytedance.sdk.openadsdk.activity.TTVideoLandingPageLink2Activity
+a com.bytedance.sdk.openadsdk.activity.TTWebsiteActivity
+a com.bytedance.sdk.openadsdk.multipro.aidl.BinderPoolService
 b 5log-api.pangolin-sdk-toutiao-b.com api-access.pangolin-sdk-toutiao-b.com
 b api-access.pangolin-sdk-toutiao.com api-access.pangolin-sdk-toutiao1.com api16-access-sg.pangle.io
 b api16-access-ttp-b.tiktokpangle-b.us api16-access-ttp.tiktokpangle.us
@@ -383,6 +399,10 @@ n DT Exchange (Fyber Marketplace) 广告
 e Digital Turbine DT Exchange (Inneractive)
 v Digital Turbine
 p com.fyber.inneractive.sdk. com.fyber.marketplace.
+a com.fyber.inneractive.sdk.activities.InneractiveInternalBrowserActivity
+a com.fyber.inneractive.sdk.activities.InneractiveFullscreenAdActivity
+a com.fyber.inneractive.sdk.activities.InneractiveRichMediaVideoPlayerActivityCore
+a com.fyber.inneractive.sdk.activities.FyberReportAdActivity
 b postbidopt.fyber.com init-mp.digitalturbine.com wv.inner-active.mobi sdk-events.inner-active.mobi
 b cdn2.inner-active.mobi
 sdk dynatrace 1 ANALYTICS,CRASH
@@ -430,6 +450,7 @@ n Fyber FairBid 聚合广告
 e Digital Turbine FairBid (Fyber)
 v Digital Turbine
 p com.fyber.fairbid. com.fyber.ads.
+a com.fyber.ads.ofw.OfferWallActivity
 b mediation.fyber.com init-mp.fyber.com fev.fyber.com service.fyber.com
 sdk geetest-risk 0 IDENTIFICATION
 n 极验 设备风控 (GT4 gtc4)
@@ -617,6 +638,10 @@ n HyprMX 广告
 e HyprMX
 v HyprMX (Jun Group)
 p com.hyprmx.android.
+a com.hyprmx.android.sdk.activity.HyprMXOfferViewerActivity
+a com.hyprmx.android.sdk.activity.HyprMXRequiredInformationActivity
+a com.hyprmx.android.sdk.activity.HyprMXNoOffersActivity
+a com.hyprmx.android.sdk.overlay.HyprMXBrowserActivity
 b prd-event-tracking-service.hyprmx.com jungroup-pbs.relevant-digital.com
 b jungroup-pbs-nt.relevant-digital.com
 sdk iab-open-measurement 1 ADS
@@ -666,6 +691,11 @@ v Unity (ironSource)
 de ironSource LevelPlay
 p com.ironsource. com.supersonicads. com.supersonic.adapters. com.unity3d.mediation.
 p com.unity3d.ironsourceads.
+a com.ironsource.sdk.controller.ControllerActivity
+a com.ironsource.sdk.controller.InterstitialActivity com.ironsource.sdk.controller.OpenUrlActivity
+a com.ironsource.lifecycle.IronsourceLifecycleProvider
+a com.ironsource.lifecycle.LevelPlayActivityLifecycleProvider
+a com.unity3d.ironsourceads.internal.services.InlineStoreActivity
 b iads.unity3d.com mediation.unity3d.com postlog.supersonic.com ssacdn.com ssadscdn.cn
 b init.supersonicads.com pm-gateway.supersonicads.com banner-gateway.supersonicads.com
 b www.supersonicads.com secure.ironbeast.io android-att.ironsrc.mobi
@@ -764,6 +794,7 @@ n 美数广告 SDK
 e Meishu Ads
 v 美数科技
 p com.meishu.sdk.
+a com.meishu.sdk.activity.SdkInterstitialActivity
 sdk meizu-push 1 PUSH
 n 魅族推送
 e Meizu Push
@@ -784,6 +815,9 @@ v Microsoft
 dn 微软 Clarity 会话回放
 p com.microsoft.clarity.
 b www.clarity.ms
+"""
+
+private const val PART_1: String = """
 sdk mintegral 1 ADS
 n Mintegral 汇量
 e Mintegral (Mobvista)
@@ -831,6 +865,9 @@ n Moloco 广告
 e Moloco Ads SDK
 v Moloco
 p com.moloco.sdk.
+a com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.mraid.MraidActivity
+a com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.staticrenderer.StaticAdActivity
+a com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.vast.VastActivity
 b dsp-api.moloco.com cdn-f.adsmoloco.com
 sdk mparticle 1 ANALYTICS
 n mParticle 数据平台
@@ -857,10 +894,8 @@ n myTarget 广告 (VK)
 e myTarget (VK Ads SDK)
 v VK
 p com.my.target. io.github.mytargetsdk.
+a com.my.target.common.MyTargetActivity com.my.target.common.MyTargetContentProvider
 b ad.mail.ru
-"""
-
-private const val PART_1: String = """
 sdk mytracker 1 ANALYTICS,ATTRIBUTION
 n myTracker 统计 (VK)
 e myTracker (VK analytics & attribution)
@@ -1090,6 +1125,7 @@ n Tapjoy 积分墙
 e Tapjoy (Unity Offerwall)
 v Unity (Tapjoy)
 p com.tapjoy.
+a com.tapjoy.TJAdUnitActivity com.tapjoy.TJWebViewActivity
 k gateway-b.offerwall.unity3d.com
 sdk taptap-ads 1 ADS
 n TapADN 广告 (TapTap)
@@ -1325,6 +1361,8 @@ n Unity 广告
 e Unity Ads
 v Unity Technologies
 p com.unity3d.ads. com.unity3d.services. com.unity3d.scar.
+a com.unity3d.ads.adplayer.FullScreenWebViewDisplay
+a com.unity3d.ads.adplayer.AdTaskRemovalDetectionService
 b unityads.unity3d.com iads.unity3d.com isx.unity3d.com unityads.unitychina.cn
 b cdn-creatives-cf-prd.acquire.unity3dusercontent.com
 sdk uxcam 1 PROFILING,ANALYTICS

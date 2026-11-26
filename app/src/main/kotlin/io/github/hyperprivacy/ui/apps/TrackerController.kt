@@ -5,10 +5,12 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.hyperprivacy.core.tracker.Trackers
 import io.github.hyperprivacy.status.StatusStore
+import io.github.hyperprivacy.trackers.AppScan
 import io.github.hyperprivacy.trackers.AppScanner
 import io.github.hyperprivacy.trackers.ScanKey
 import io.github.hyperprivacy.trackers.TrackerStore
@@ -41,8 +43,9 @@ import kotlinx.coroutines.withContext
  * [PUBLISH_INTERVAL_MS].
  *
  * Whether an app is protected lives only in the remote preferences ([TrackerProtection.protectKey]);
- * turning protection on writes the scan result there and asks LSPosed to add the app to the module
- * scope ([ScopeRequests], only ever on that tap); turning it off removes both. The scope is
+ * turning protection on writes the scan result there (detected SDKs, and the manifest findings
+ * under [TrackerOrigin.originKey]) and asks LSPosed to add the app to the module scope
+ * ([ScopeRequests], only ever on that tap); turning it off removes all of it. The scope is
  * reconciled with the preferences on every refresh. State is confined to [worker].
  */
 internal class TrackerController(
@@ -76,7 +79,7 @@ internal class TrackerController(
     val messages: Flow<ScopeResult> get() = scopes.messages
 
     /** A scan result for one app build. */
-    private class Scan(val key: ScanKey, val ids: Set<String>)
+    private class Scan(val key: ScanKey, val result: AppScan)
 
     // Worker only.
     private var started = false
@@ -125,9 +128,13 @@ internal class TrackerController(
             val target = prefs() ?: return@launch
             pendingProtect[packageName] = on
             publish()
-            val value = TrackerProtection.encodeDetected(detected[packageName]?.ids.orEmpty())
-            val key = TrackerProtection.protectKey(packageName)
-            if (runCatching { target.edit { if (on) putString(key, value) else remove(key) } }.isFailure) {
+            val result = detected[packageName]?.result ?: AppScan(emptySet())
+            val written = runCatching {
+                target.edit {
+                    if (on) putScanResult(packageName, result) else removeScanResult(packageName)
+                }
+            }
+            if (written.isFailure) {
                 pendingProtect.remove(packageName)
             } else if (on) {
                 scopes.request(packageName)
@@ -187,7 +194,7 @@ internal class TrackerController(
             runCatching { store.retainScans(byPackage.keys) }
             missing.mapNotNull { app -> runCatching { appScanner.cached(app) }.getOrNull()?.let { app to it } }
         }
-        cached.forEach { (app, ids) -> detected[app.packageName] = Scan(app.key, ids) }
+        cached.forEach { (app, result) -> detected[app.packageName] = Scan(app.key, result) }
         scopes.check()
         scopes.reconcile(byPackage.keys)
         publish()
@@ -234,7 +241,7 @@ internal class TrackerController(
                     in failed -> ScanState.FAILED
                     else -> ScanState.PENDING
                 }
-                builder.build(app, scan, detected[app.packageName]?.ids.orEmpty(), protect)
+                builder.build(app, scan, detected[app.packageName]?.result ?: AppScan(emptySet()), protect)
             },
             scanned = apps.count { it.packageName in detected || it.packageName in failed },
             total = apps.size,
@@ -255,6 +262,8 @@ internal sealed class AppSwitch(val key: String) {
     class HideApps(packageName: String) : AppSwitch(AppListConfig.hideKey(packageName))
 
     class Strict(packageName: String) : AppSwitch(AppListConfig.strictKey(packageName))
+
+    class Suspect(packageName: String, root: String) : AppSwitch(TrackerOrigin.suspectKey(packageName, root))
 }
 
 /** Whether protection is on for [packageName] in [prefs] (the single source of truth). */
@@ -264,12 +273,25 @@ private fun isProtected(prefs: SharedPreferences?, packageName: String): Boolean
 }
 
 /** A protected app was updated and rescanned: hooks pick up the new SDK set on its next start. */
-private fun updateStoredResult(prefs: SharedPreferences, packageName: String, found: Set<String>) {
+private fun updateStoredResult(prefs: SharedPreferences, packageName: String, found: AppScan) {
     val key = TrackerProtection.protectKey(packageName)
     val stored = runCatching { prefs.getString(key, null) }.getOrNull() ?: return
-    val value = TrackerProtection.encodeDetected(found)
-    if (stored == value) return
-    runCatching { prefs.edit { putString(key, value) } }
+    val origin = runCatching { prefs.getString(TrackerOrigin.originKey(packageName), null) }.getOrNull()
+    if (stored == TrackerProtection.encodeDetected(found.ids) && origin.orEmpty() == found.hints.encode()) return
+    runCatching { prefs.edit { putScanResult(packageName, found) } }
+}
+
+/** The remote copy of one scan result, read by the hooks of a protected [packageName]. */
+private fun SharedPreferences.Editor.putScanResult(packageName: String, result: AppScan) {
+    putString(TrackerProtection.protectKey(packageName), TrackerProtection.encodeDetected(result.ids))
+    val origin = result.hints.encode()
+    val originKey = TrackerOrigin.originKey(packageName)
+    if (origin.isEmpty()) remove(originKey) else putString(originKey, origin)
+}
+
+private fun SharedPreferences.Editor.removeScanResult(packageName: String) {
+    remove(TrackerProtection.protectKey(packageName))
+    remove(TrackerOrigin.originKey(packageName))
 }
 
 /** Builds [UserAppUi] rows from one preferences snapshot. */
@@ -280,18 +302,18 @@ private class AppsUiBuilder(
     private val granted: Set<String>,
     private val requesting: Set<String>,
 ) {
-    fun build(app: UserApp, scan: ScanState, ids: Set<String>, protect: Boolean): UserAppUi {
+    fun build(app: UserApp, scan: ScanState, result: AppScan, protect: Boolean): UserAppUi {
         val pkg = app.packageName
-        val sdks = ids.mapNotNull(Trackers::byId).map { sdk ->
+        val sdks = result.ids.mapNotNull(Trackers::byId).map { sdk ->
             val key = TrackerProtection.blockKey(pkg, sdk.id)
             SdkUi(
                 id = sdk.id,
                 name = sdk.displayName,
                 vendor = sdk.vendor,
                 category = sdk.category,
-                blockable = sdk.blockable,
+                blockable = sdk.switchable,
                 defaultBlock = sdk.defaultBlock,
-                blocked = sdk.blockable && pending.resolve(raw, key, sdk.defaultBlock),
+                blocked = sdk.switchable && pending.resolve(raw, key, sdk.defaultBlock),
                 hits = hits(pkg, TrackerProtection.ruleId(sdk.id)),
             )
         }
@@ -305,11 +327,20 @@ private class AppsUiBuilder(
                 hits = hits(pkg, rule.id),
             )
         }
+        val suspects = result.hints.suspects.map { suspect ->
+            SuspectUi(
+                root = suspect.prefix,
+                components = suspect.components,
+                blocked = pending.resolve(raw, TrackerOrigin.suspectKey(pkg, suspect.prefix), false),
+            )
+        }
         return UserAppUi(
             packageName = pkg,
             label = app.label,
             scan = scan,
             sdks = sdks,
+            suspects = suspects,
+            suspectHits = hits(pkg, TrackerOrigin.SUSPECT_RULE_ID),
             appRules = appRules,
             protected = protect,
             scoped = pkg in granted,

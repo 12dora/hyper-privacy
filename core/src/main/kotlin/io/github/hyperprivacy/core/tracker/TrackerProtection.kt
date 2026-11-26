@@ -14,6 +14,8 @@ import io.github.hyperprivacy.core.rule.Catalog
  * - [BLOCK_PREFIX]`<pkg>.<ruleId>` → Boolean: the user's choice for one app-level rule
  *   ([io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]) in one app; see
  *   [TrackerRules.isAppRuleOn]. SDK ids have no dot and rule ids do, so the two never collide.
+ * - origin attribution keys ([TrackerOrigin]): the manifest findings of `<pkg>` and the user's
+ *   choices for its suspected ad packages (under the block keys above).
  *
  * [TrackerRules] turns this into the rules enforced inside a protected app.
  */
@@ -21,7 +23,6 @@ public object TrackerProtection {
     public const val PROTECT_PREFIX: String = "trackers."
     public const val BLOCK_PREFIX: String = "tracker.block."
     public const val RULE_PREFIX: String = "tracker."
-
     private const val SEPARATOR = ","
 
     public fun protectKey(packageName: String): String = PROTECT_PREFIX + packageName
@@ -37,7 +38,8 @@ public object TrackerProtection {
 
     /** Whether a change of preference [key] can affect tracker protection (`null`: everything changed). */
     public fun affects(key: String?): Boolean =
-        key == null || key.startsWith(PROTECT_PREFIX) || key.startsWith(BLOCK_PREFIX)
+        key == null || key.startsWith(PROTECT_PREFIX) || key.startsWith(BLOCK_PREFIX) ||
+            key.startsWith(TrackerOrigin.ORIGIN_PREFIX)
 
     /**
      * Whether a change of preference [key] can affect tracker protection inside [packageName]
@@ -45,7 +47,8 @@ public object TrackerProtection {
      * [io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]. Edits for other apps are ignored.
      */
     public fun affects(key: String?, packageName: String): Boolean = key == null ||
-        key == protectKey(packageName) || key.startsWith("$BLOCK_PREFIX$packageName.") ||
+        key == protectKey(packageName) || key == TrackerOrigin.originKey(packageName) ||
+        key.startsWith("$BLOCK_PREFIX$packageName.") ||
         ConfigCodec.ruleIdOf(key)?.let { it in Catalog.protectedAppRuleIds } == true
 
     /** Encodes detected SDK ids for [protectKey]. */
