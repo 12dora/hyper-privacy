@@ -35,8 +35,8 @@
     <string name="module_reboot_hint">Restart your device to apply rules</string>
     <string name="module_no_rules">No rules turned on</string>
     <plurals name="summary_blocked">
-        <item quantity="one">%1$s blocked in total</item>
-        <item quantity="other">%1$s blocked in total</item>
+        <item quantity="one">%1$s time in total</item>
+        <item quantity="other">%1$s times in total</item>
     </plurals>
 
     <!-- Attention -->

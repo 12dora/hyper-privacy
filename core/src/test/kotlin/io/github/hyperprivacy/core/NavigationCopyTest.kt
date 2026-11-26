@@ -70,6 +70,16 @@ class NavigationCopyTest {
     }
 
     @Test
+    fun `blocked row is named for what it counts, not as a log`() {
+        assertEquals("已拦截", zh["overview_blocked"])
+        assertEquals("Blocked", en["overview_blocked"])
+        // Title and summary must not repeat each other: the summary is only the count.
+        assertEquals("累计 0 次", zh["summary_blocked"])
+        assertEquals("0 times in total", en["summary_blocked"])
+        assertTrue(!zh.getValue("overview_blocked").contains("记录"))
+    }
+
+    @Test
     fun `self-hide summary names the audience, not a procedure`() {
         assertEquals("第三方应用无法检测本模块", zh["settings_self_hide_summary"])
         assertEquals("Hidden from third-party apps", en["settings_self_hide_summary"])

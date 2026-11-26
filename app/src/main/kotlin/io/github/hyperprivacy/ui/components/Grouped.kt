@@ -55,9 +55,10 @@ internal fun GroupedSurface(
 internal fun <T> LazyListScope.groupedItems(
     items: List<T>,
     key: (T) -> Any,
+    contentType: (T) -> Any = { GROUPED_ROW },
     content: @Composable LazyItemScope.(T) -> Unit,
 ) {
-    items(count = items.size, key = { key(items[it]) }, contentType = { GROUPED_ROW }) { index ->
+    items(count = items.size, key = { key(items[it]) }, contentType = { contentType(items[it]) }) { index ->
         GroupedSurface(index, items.size, Modifier.animateItem()) { content(items[index]) }
     }
 }
