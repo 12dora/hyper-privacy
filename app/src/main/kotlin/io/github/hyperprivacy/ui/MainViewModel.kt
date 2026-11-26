@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.hyperprivacy.ModuleConnection
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.system.AppListConfig
 import io.github.hyperprivacy.status.StatusStore
 import io.github.hyperprivacy.ui.apps.TrackerController
 import io.github.libxposed.service.XposedService
@@ -106,7 +107,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         }.getOrNull()
     }
 
-    fun setDiagnosticMode(enabled: Boolean) = write(listOf(ConfigCodec.OBSERVE_KEY), enabled)
+    fun setSwitch(switch: ModuleSwitch, enabled: Boolean) = write(listOf(switch.key), enabled)
 
     fun resetDefaults() {
         viewModelScope.launch(worker) {
@@ -207,6 +208,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             attention = attentionOf(snapshot.rules, suspected.size),
             suspected = suspected,
             diagnosticMode = pendingWrites.resolve(stored, ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT),
+            selfHidden = pendingWrites.resolve(stored, AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf),
             observed = observed,
             scope = device.ui,
         )
@@ -216,6 +218,15 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         const val THROTTLE_MS = 200L
         const val SETTLE_MS = 1_000L
     }
+}
+
+/** Module-wide switches besides the rule switches; hooks and system_server apply them live. */
+internal enum class ModuleSwitch(val key: String) {
+    /** Diagnostics mode ([ConfigCodec.OBSERVE_KEY]). */
+    DIAGNOSTICS(ConfigCodec.OBSERVE_KEY),
+
+    /** Hide the module from third-party apps ([AppListConfig.SELF_HIDE_KEY]). */
+    SELF_HIDE(AppListConfig.SELF_HIDE_KEY),
 }
 
 /** Objects that must not be created on the main thread. */

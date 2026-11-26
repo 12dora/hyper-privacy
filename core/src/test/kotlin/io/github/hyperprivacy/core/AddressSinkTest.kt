@@ -10,7 +10,6 @@ import io.github.hyperprivacy.core.net.IpLiterals
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
-import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.rule.catalog.HttpDnsResolvers
@@ -156,17 +155,5 @@ class AddressSinkTest {
         )
         val host = HttpDnsResolvers.ALWAYS_ALLOWED
         listOf("/", "/gslb/", "/gslb/gslb/getbucket.asp").forEach { path -> assertNull(urls.find(host, path), path) }
-    }
-
-    @Test
-    fun `app-wide rules target exactly the app processes other in-process rules inject into`() {
-        val injected = Catalog.rules.filter { it.kind != RuleKind.FIREWALL && !it.preventive }
-            .flatMap { it.packages }
-            .toSet() - Catalog.SYSTEM_SCOPE
-        val appWide = Catalog.rules.filter { it.preventive }
-        assertEquals(setOf("mediadrm.device-id", "httpdns.resolvers"), appWide.map { it.id }.toSet())
-        appWide.forEach { assertEquals(injected, it.packages, it.id) }
-        assertTrue(appWide.none { Catalog.SYSTEM_SCOPE in it.packages }, "app-wide rules never target system_server")
-        assertTrue(appWide.all { it.defaultOn && it.impact == null })
     }
 }

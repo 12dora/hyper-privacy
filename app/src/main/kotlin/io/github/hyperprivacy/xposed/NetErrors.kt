@@ -36,9 +36,18 @@ internal object NetErrors {
         return SSLHandshakeException(PlausibleErrors.tlsHandshakeMessage(host, pointer))
     }
 
-    /** libcore `IoBridge.connect` refusing a connection to [address]:[port]. */
-    fun connectRefused(address: InetAddress, port: Int, timeoutMs: Int): ConnectException {
-        val message = PlausibleErrors.connectRefusedMessage(address.toString(), port, timeoutMs)
+    /**
+     * libcore `IoBridge.connect` refusing a connection to [address]:[port], seen from [local]:[localPort]
+     * (`InetAddress.toString()` form; `null` leaves the ` from` clause out); see [ConnectRefusal].
+     */
+    fun connectRefused(
+        address: InetAddress,
+        port: Int,
+        timeoutMs: Int,
+        local: String?,
+        localPort: Int,
+    ): ConnectException {
+        val message = PlausibleErrors.connectRefusedMessage(address.toString(), port, timeoutMs, local, localPort)
         val call = if (timeoutMs > 0) "isConnected" else "connect"
         return ConnectException(message).apply { initCause(ErrnoException(call, OsConstants.ECONNREFUSED)) }
     }

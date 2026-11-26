@@ -109,6 +109,8 @@ internal data class UiState(
     val totalHits: Long = 0,
     val attention: Attention = Attention(),
     val diagnosticMode: Boolean = false,
+    /** `applist.self.hide`: the module's package is hidden from third-party apps (system_server). */
+    val selfHidden: Boolean = true,
     val observed: List<ObservedEndpointUi> = emptyList(),
     val suspected: List<ObservedEndpointUi> = emptyList(),
     val scope: ScopeUi = ScopeUi(),

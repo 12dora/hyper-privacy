@@ -375,3 +375,35 @@ internal val ONETRACK_SDK_APPS: Set<String> = ONETRACK_APPS - ONETRACK_WITHOUT_S
 
 /** Apps bundling the Xiaomi ad SDK (ad request and impression reporting). */
 internal val AD_SDK_APPS: Set<String> = ONETRACK_APPS - AD_SDK_EXCLUDED_APPS
+
+/**
+ * Packages the app-wide `httpdns.resolvers` rule never targets although other rules inject into
+ * them: vendor services that bind the account, a payment card or the device to a backend, or that
+ * keep the device reachable and secure. A refused resolver there risks a failed login, card or
+ * key operation, a lost push channel or a broken connectivity check, for little privacy gain.
+ */
+internal val HTTPDNS_EXCLUDED_APPS: Set<String> = setOf(
+    "com.android.phone", // telephony
+    "com.android.provision", // setup wizard (account sign-in, activation)
+    "com.android.settings",
+    "com.android.updater", // OTA updates
+    "com.fido.asm", // FIDO authenticator
+    "com.lbe.security.miui", // permission manager
+    "com.miui.cloudbackup", // Xiaomi Cloud backup
+    "com.miui.cloudservice", // Xiaomi Cloud sync
+    "com.miui.guardprovider", // security scan
+    "com.miui.newmidrive", // Xiaomi Cloud drive
+    "com.miui.passwords", // password manager / autofill
+    "com.miui.securityadd", // security center
+    "com.miui.securitycenter", // security center
+    "com.miui.securitycore", // security core (second space, app lock)
+    "com.miui.tsmclient", // wallet card emulation (TSM)
+    "com.miui.virtualsim", // virtual SIM
+    "com.unionpay.tsmservice.mi", // UnionPay TSM
+    "com.xiaomi.account", // Xiaomi account
+    "com.xiaomi.digitalkey", // digital car key
+    "com.xiaomi.finddevice", // Find Device
+    "com.xiaomi.payment", // Mi Pay / wallet
+    "com.xiaomi.simactivate.service", // SIM activation
+    "com.xiaomi.xmsf", // MiPush
+)

@@ -45,6 +45,12 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
      * Rule id blocking a connection to [address]:[port] (an IP listed by a DOMAIN rule, or the
      * learned host of the address), or `null`. Local addresses are never blocked. In diagnostics
      * mode an address with no known host name (a hard-coded or HTTPDNS-resolved IP) is recorded.
+     *
+     * Limited reach of the learned-address path: the book only learns hosts that were resolved or
+     * reached while *allowed* (blocked hosts never resolve), so it matches only after a rule is
+     * switched on mid-process. IP literals listed by rules are the effective part; HTTPDNS-resolved
+     * IPs of blocked hosts are caught by the TLS SNI check (and, for cleartext HTTP, only when a
+     * `Host` header names the host), not here.
      */
     fun checkConnect(address: InetAddress, port: Int): String? {
         if (!AddressBook.isPublic(address)) return null
