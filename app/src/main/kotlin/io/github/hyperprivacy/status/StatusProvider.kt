@@ -12,6 +12,7 @@ import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.status.EndpointRecorder
+import io.github.hyperprivacy.core.status.MetaCodec
 import io.github.hyperprivacy.core.status.ObservedCodec
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.SinkCodec
@@ -22,7 +23,7 @@ import io.github.hyperprivacy.core.status.StatusCodec
  *
  * The provider is exported, so every call is authenticated by Binder uid: the caller must be
  * system_server (reporting FIREWALL rules) or run as a package in the module scope, and may only
- * report rules, sinks and observed endpoints of its own package. Everything else is dropped.
+ * report rules, sinks, process facts and observed endpoints of its own package. Everything else is dropped.
  */
 class StatusProvider : ContentProvider() {
     private val store by lazy { StatusStore(requireNotNull(context)) }
@@ -45,7 +46,10 @@ class StatusProvider : ContentProvider() {
         val observed = ObservedCodec.decode(extras?.getString(StatusContract.KEY_OBSERVED))
             .filter { it.packageName in callerPackages }
             .take(MAX_OBSERVED_PER_CALL)
+        val meta = MetaCodec.decode(extras?.getString(StatusContract.KEY_META))
+            .filter { it.packageName in callerPackages }
         store.merge(reports)
+        store.meta.merge(meta, receivedAt = System.currentTimeMillis())
         store.mergeSinks(sinks)
         store.mergeObserved(observed)
         return Bundle.EMPTY
