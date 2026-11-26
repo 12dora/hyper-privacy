@@ -4,18 +4,19 @@ package io.github.hyperprivacy.core.tracker
 /**
  * Raw [Trackers] table, one record per SDK. A record starts with `sdk <id> <defaultBlock 1|0>
  * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
- * display name (zh / en), `v` vendor, and the space-separated, repeatable lists `p` code
+ * display name (zh / en), `v` vendor, optional `o 0` (not blocked by origin unless the user turns
+ * the SDK on; its defaultBlock is then 0), and the space-separated, repeatable lists `p` code
  * prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs (`host/path`) and `k` keep
  * hosts. Unknown tags are ignored by the parser.
  */
 internal object TrackerData {
-    const val VERSION: String = "2026.11.27e"
+    const val VERSION: String = "2026.11.27f"
 
     /** SHA-256 of data/trackers.json as generated. */
-    const val SOURCE_SHA256: String = "c83855cb93c9ea405f20a1bec417973627fea30ad55fb0b03e137be2a7a6b6de"
+    const val SOURCE_SHA256: String = "a6ab57b0ca1ccee4010203f25bd4ca6a6d948f99b14a5af32909aab4fbba464f"
 
     /** SHA-256 of [PARTS] joined, so a hand edit of the table is caught by tests. */
-    const val TABLE_SHA256: String = "a64585715a4c0520f252500e4e2a19bd723045fd3b77670d00cac28ea8f32365"
+    const val TABLE_SHA256: String = "a351ad1417c2e887281bec23d9e2fc7a9c37d1d501bc89a379028da07b3dca9c"
 
     val PARTS: List<String> = listOf(PART_0, PART_1)
 }
@@ -445,10 +446,11 @@ n FullStory 会话回放
 e FullStory (mobile session replay)
 v FullStory
 p com.fullstory.
-sdk fyber-fairbid 1 ADS
+sdk fyber-fairbid 0 ADS
 n Fyber FairBid 聚合广告
 e Digital Turbine FairBid (Fyber)
 v Digital Turbine
+o 0
 p com.fyber.fairbid. com.fyber.ads.
 a com.fyber.ads.ofw.OfferWallActivity
 b mediation.fyber.com init-mp.fyber.com fev.fyber.com service.fyber.com
@@ -1120,10 +1122,11 @@ e TalkingData App Analytics
 v TalkingData
 p com.tendcloud.tenddata.
 b tdcv3.talkingdata.net u.talkingdata.net
-sdk tapjoy 1 ADS
+sdk tapjoy 0 ADS
 n Tapjoy 积分墙
 e Tapjoy (Unity Offerwall)
 v Unity (Tapjoy)
+o 0
 p com.tapjoy.
 a com.tapjoy.TJAdUnitActivity com.tapjoy.TJWebViewActivity
 k gateway-b.offerwall.unity3d.com

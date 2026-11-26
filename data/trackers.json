@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026.11.27e",
+  "version": "2026.11.27f",
   "trackers": [
     {
       "id": "aatkit",
@@ -1551,11 +1551,12 @@
         "fev.fyber.com",
         "service.fyber.com"
       ],
+      "originBlock": false,
       "evidence": [
         "apk: com.mi.globalbrowser dex contains Lcom/fyber/fairbid/ads/ and string com.fyber.ads.ofw.OfferWallActivity",
         "sdk: https://repo1.maven.org/maven2/com/fyber/fairbid-sdk/3.68.3/ (AAR hosts mediation/init-mp/fev/service.fyber.com)"
       ],
-      "notes": "offer.fyber.com / api.fyber.com serve offerwall and virtual-currency balances (user-visible rewards) — not blocked."
+      "notes": "offer.fyber.com / api.fyber.com serve offerwall and virtual-currency balances (user-visible rewards) — not blocked. Origin blocking is off by default (user-visible offerwall rewards); the user can turn the SDK on per app."
     },
     {
       "id": "geetest-risk",
@@ -3953,13 +3954,14 @@
       "keepHosts": [
         "gateway-b.offerwall.unity3d.com"
       ],
+      "originBlock": false,
       "evidence": [
         "sdk: https://sdk.tapjoy.com/com/tapjoy/tapjoy-android-sdk/14.9.0/ (AAR host gateway-b.offerwall.unity3d.com)",
         "doc: https://services.api.unity.com/advertise/developer/v1/tcf.json (Unity domain disclosure lists *.tapjoy.com, *.tapjoy.net)",
         "sdk: https://sdk.tapjoy.com/com/tapjoy/tapjoy-android-sdk/14.9.0/ re-scanned: only gateway-b.offerwall.unity3d.com and dev.tapjoy.com are visible in plain strings (offerwall placements /placements/); no telemetry-only subdomain could be verified",
         "sdk: com.tapjoy:tapjoy-android-sdk 14.9.0 AAR AndroidManifest.xml declares com.tapjoy.TJAdUnitActivity and TJWebViewActivity (manifest anchors)"
       ],
-      "notes": "Detection only: tapjoy.com/tapjoy.net apexes (support/privacy pages) and the offerwall gateway (earned rewards) are not blocked, and no telemetry-only Tapjoy subdomain could be verified in the SDK, so nothing is blocked until one is."
+      "notes": "Detection only: tapjoy.com/tapjoy.net apexes (support/privacy pages) and the offerwall gateway (earned rewards) are not blocked, and no telemetry-only Tapjoy subdomain could be verified in the SDK, so nothing is blocked until one is. Origin blocking is off by default (user-visible offerwall rewards); the user can turn the SDK on per app."
     },
     {
       "id": "taptap-ads",

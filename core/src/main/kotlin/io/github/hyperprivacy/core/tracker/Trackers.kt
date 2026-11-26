@@ -25,8 +25,12 @@ public enum class TrackerCategory {
  * @property blockUrls reporting paths on hosts that also serve features (same semantics as URL rules).
  * @property keepHosts hosts the SDK needs for user-visible features; never blocked at host level.
  * @property shortName explicit list-row name per language from the database, if any; see [displayName].
- * @property defaultBlock `false` for SDKs whose blocking can affect sign-in, payment or app updates:
- *   protection skips them unless the user opts in for that app.
+ * @property defaultBlock `false` for SDKs whose blocking can affect sign-in, payment or app updates,
+ *   or ([originBlock] `false`) user-visible offerwall rewards: protection skips them unless the user
+ *   opts in for that app.
+ * @property originBlock `false` for advertising SDKs that also serve user-visible features
+ *   (offerwall rewards): they are blocked by origin only once the user turns them on, never by
+ *   default (the generator then also emits [defaultBlock] `false`).
  */
 public data class TrackerSdk(
     val id: String,
@@ -40,10 +44,12 @@ public data class TrackerSdk(
     val defaultBlock: Boolean = true,
     val shortName: ShortName = ShortName(),
     val anchors: List<String> = emptyList(),
+    val originBlock: Boolean = true,
 ) {
     init {
         require(categories.isNotEmpty()) { "Tracker $id has no category" }
         require(codePrefixes.isNotEmpty()) { "Tracker $id has no code prefix" }
+        require(originBlock || !defaultBlock) { "Tracker $id is kept out of origin blocking but on by default" }
     }
 
     /**
@@ -60,7 +66,8 @@ public data class TrackerSdk(
 
     /**
      * Whether protection can block the SDK by the origin of its requests and pages, whatever
-     * hosts it uses: advertising SDKs, never device-verification ones.
+     * hosts it uses: advertising SDKs, never device-verification ones. SDKs with [originBlock]
+     * `false` are blockable too, but start off ([defaultBlock] `false`).
      */
     val originBlockable: Boolean
         get() = TrackerCategory.ADS in categories && TrackerCategory.IDENTIFICATION !in categories
@@ -130,6 +137,7 @@ public object Trackers {
         val hosts = ArrayList<String>()
         val urls = ArrayList<UrlPrefix>()
         val keep = ArrayList<String>()
+        var originBlock = true
 
         fun add(tag: String, rest: String) {
             when (tag) {
@@ -143,6 +151,7 @@ public object Trackers {
                 "b" -> hosts += tokens(rest)
                 "u" -> urls += tokens(rest).mapNotNull(::urlOf)
                 "k" -> keep += tokens(rest)
+                "o" -> originBlock = rest.trim() != "0"
                 else -> Unit
             }
         }
@@ -160,6 +169,7 @@ public object Trackers {
                 defaultBlock = defaultBlock,
                 shortName = TrackerSdk.ShortName(displayZh, displayEn),
                 anchors = anchors,
+                originBlock = originBlock,
             )
         }.getOrNull()
 
