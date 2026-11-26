@@ -42,7 +42,7 @@ internal class MethodGuard(private val env: GuardEnv) {
                 if (!env.switches.isEnabled(ruleId)) return@FailOpenHooker Verdict.Proceed
                 env.reporter.hit(packageName, ruleId, method.name)
                 Verdict.Return(value)
-            },
+            }.measuredAs(Sinks.METHOD),
         )
     }
 

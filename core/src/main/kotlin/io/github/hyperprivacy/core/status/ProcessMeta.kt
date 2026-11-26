@@ -7,7 +7,16 @@ package io.github.hyperprivacy.core.status
  * @property versionCode the host's own installed `longVersionCode`.
  * @property processStartAt wall-clock millis at which the process started.
  */
-public data class ProcessMeta(val packageName: String, val versionCode: Long, val processStartAt: Long)
+public data class ProcessMeta(val packageName: String, val versionCode: Long, val processStartAt: Long) {
+    public companion object {
+        /**
+         * Name system_server reports the module's own code version under: the version of the
+         * module APK it loaded at boot, which differs from the installed one after an update
+         * until the device restarts. Has no dot, so it never collides with a package name.
+         */
+        public const val MODULE: String = "module"
+    }
+}
 
 /** Wire format for [ProcessMeta] rows: `package  versionCode  processStartAt` per line. */
 public object MetaCodec {

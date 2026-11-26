@@ -1,7 +1,10 @@
 package io.github.hyperprivacy.ui
 
 import androidx.compose.runtime.Immutable
+import io.github.hyperprivacy.core.config.ProtectionPause
+import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.core.health.Health
+import io.github.hyperprivacy.core.health.RebootReason
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.status.DisplayStatus
@@ -96,6 +99,22 @@ internal data class Attention(val broken: Int = 0, val review: Int = 0, val idle
     val isEmpty: Boolean get() = rules == 0 && suspected == 0
 }
 
+/**
+ * Another installed module that overlaps with this one, for the Home hint. [label] is that app's own
+ * label, shown as is; [others] counts further overlapping modules. [appListOverlap] says the hint
+ * is about app-list hiding, and [canDisableAppList] that this module's own app-list hiding is on
+ * (so the one-tap "turn it off" action makes sense).
+ */
+@Immutable
+internal data class ConflictUi(
+    val label: String,
+    val others: Int,
+    val area: OverlapArea,
+    val canDisableAppList: Boolean,
+) {
+    val appListOverlap: Boolean get() = area == OverlapArea.APP_LIST
+}
+
 @Immutable
 internal data class UiState(
     val loaded: Boolean = false,
@@ -114,6 +133,11 @@ internal data class UiState(
     val observed: List<ObservedEndpointUi> = emptyList(),
     val suspected: List<ObservedEndpointUi> = emptyList(),
     val scope: ScopeUi = ScopeUi(),
+    /** Why a restart is due, when [module] is [ModuleState.NEEDS_REBOOT]; [RebootReason.NONE] for the generic case. */
+    val rebootReason: RebootReason = RebootReason.NONE,
+    /** `pause.until` ([ProtectionPause]): `0` not paused, `UNTIL_MANUAL`, or the deadline in wall-clock millis. */
+    val pausedUntil: Long = 0L,
+    val conflict: ConflictUi? = null,
 ) {
     fun rule(id: String): RuleItem? = rules.firstOrNull { it.id == id }
 

@@ -264,4 +264,62 @@
     <string name="tracker_cat_location">位置</string>
     <string name="tracker_cat_push">推送</string>
     <string name="tracker_cat_attribution">广告归因</string>
+
+    <!-- 首页提示：重启、暂停、功能重叠 -->
+    <string name="module_reboot_updated_hint">模块已更新，重启设备后生效</string>
+    <string name="module_reboot_guards_hint">系统防护未运行，请重启设备</string>
+    <string name="pause_action">暂停</string>
+    <string name="pause_resume">恢复</string>
+    <string name="pause_active">已暂停全部拦截</string>
+    <string name="pause_until_resumed">直到手动恢复</string>
+    <plurals name="pause_remaining">
+        <item quantity="other">剩余 %1$d 分钟</item>
+    </plurals>
+    <string name="pause_dialog_title">暂停全部拦截？</string>
+    <string name="pause_dialog_body">暂停期间所有规则暂不生效，包括防火墙和应用列表隐藏。</string>
+    <string name="pause_15m">15 分钟</string>
+    <string name="pause_1h">1 小时</string>
+    <string name="pause_manual">直到手动恢复</string>
+    <string name="conflict_title">发现功能重叠的模块</string>
+    <string name="conflict_summary_applist">%1$s 也在隐藏应用列表</string>
+    <string name="conflict_summary_ads">%1$s 也在拦截广告</string>
+    <string name="conflict_summary_privacy">%1$s 也在拦截隐私上报</string>
+    <plurals name="conflict_more">
+        <item quantity="other">另有 %1$d 个模块</item>
+    </plurals>
+    <string name="conflict_hint">同时启用可能重复拦截或相互干扰</string>
+    <string name="conflict_disable_applist">关闭应用列表隐藏</string>
+    <string name="conflict_dismiss">忽略</string>
+    <string name="conflict_applist_off">应用列表隐藏已关闭</string>
+    <string name="action_undo">撤销</string>
+
+    <!-- 设置：备份 -->
+    <string name="settings_backup">备份</string>
+    <string name="backup_export">导出配置</string>
+    <string name="backup_export_summary">规则、应用选项与外观，不含密钥</string>
+    <string name="backup_import">导入配置</string>
+    <string name="backup_import_summary">从导出的文件恢复设置</string>
+    <string name="backup_import_title">导入此配置？</string>
+    <string name="backup_import_body">将覆盖当前的规则开关、应用选项和应用列表设置。已开启防护的应用保持不变，新开启的仍需在 LSPosed 中确认。</string>
+    <string name="backup_import_confirm">导入</string>
+    <plurals name="backup_summary_rules">
+        <item quantity="other">%1$d 项规则开关</item>
+    </plurals>
+    <plurals name="backup_summary_apps">
+        <item quantity="other">%1$d 个应用的选项</item>
+    </plurals>
+    <string name="backup_summary_applist">应用列表设置</string>
+    <string name="backup_summary_appearance">外观</string>
+    <string name="backup_summary_empty">不含任何设置</string>
+    <plurals name="backup_summary_ignored">
+        <item quantity="other">已跳过 %1$d 项无法识别的内容</item>
+    </plurals>
+    <string name="backup_exported">配置已导出</string>
+    <string name="backup_export_failed">无法导出配置</string>
+    <string name="backup_imported">配置已导入</string>
+    <string name="backup_imported_partial">已导入，部分应用需重新开启防护</string>
+    <string name="backup_import_failed">无法导入配置</string>
+    <string name="backup_invalid">这不是 HyperPrivacy 配置文件</string>
+    <string name="backup_newer">文件来自更新版本，请先更新应用</string>
+    <string name="backup_unreadable">无法读取该文件</string>
 </resources>

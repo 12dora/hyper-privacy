@@ -2,14 +2,20 @@ package io.github.hyperprivacy.ui
 
 import android.app.Application
 import android.content.SharedPreferences
+import android.os.SystemClock
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.hyperprivacy.BuildConfig
 import io.github.hyperprivacy.ModuleConnection
 import io.github.hyperprivacy.core.config.ConfigCodec
+import io.github.hyperprivacy.core.health.RebootAdvice
+import io.github.hyperprivacy.core.health.RebootReason
+import io.github.hyperprivacy.core.health.SystemHalf
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
 import io.github.hyperprivacy.status.StatusStore
+import io.github.hyperprivacy.status.systemReport
 import io.github.hyperprivacy.ui.apps.TrackerController
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +80,34 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         service = { boundService },
     )
 
+    /** The global pause switch. */
+    val pause = PauseController(
+        scope = viewModelScope,
+        worker = worker,
+        prefs = { remotePrefs.get() },
+        onChange = { rebuildRequests.trySend(Unit) },
+    )
+
+    /** Other Xposed modules that overlap with this one. */
+    val conflicts = ConflictController(
+        context = application,
+        scope = viewModelScope,
+        worker = worker,
+        prefs = { remotePrefs.get() },
+        pendingWrites = pendingWrites,
+        onChange = { rebuildRequests.trySend(Unit) },
+    )
+
+    /** Configuration export and import. */
+    val config = ConfigTransfer(
+        context = application,
+        worker = worker,
+        prefs = { remotePrefs.get() },
+        pendingWrites = pendingWrites,
+        moduleVersion = { backend?.versionName.orEmpty() },
+        onChange = { rebuildRequests.trySend(Unit) },
+    )
+
     init {
         viewModelScope.launch(worker) {
             val loaded = Backend.create(application, changeListener)
@@ -121,6 +155,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     fun resetDefaults() {
         viewModelScope.launch(worker) {
             val prefs = remotePrefs.get() ?: return@launch
+            pause.resume()
             val rules = backend?.view?.rules ?: Catalog.rules
             rules.forEach { pendingWrites.put(ConfigCodec.key(it.id), it.defaultOn) }
             pendingWrites.put(ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT)
@@ -195,6 +230,22 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         val snapshot = backend.view.snapshot { rule ->
             pendingWrites.resolve(stored, ConfigCodec.key(rule.id), rule.defaultOn)
         }
+        val rebootReason = RebootAdvice.reason(
+            runCatching { backend.store.systemReport() }.getOrNull().let { report ->
+                SystemHalf(
+                    scopeRebootPending = device.rebootPending,
+                    installedVersion = BuildConfig.VERSION_CODE.toLong(),
+                    systemReportedThisBoot = report?.reportedThisBoot ?: false,
+                    systemModuleVersion = report?.moduleVersion,
+                    systemInScope = device.systemInScope,
+                    uptimeMs = SystemClock.elapsedRealtime(),
+                )
+            },
+        )
+        val until = pause.resolve(stored)
+        pause.track(until)
+        val selfHidden = pendingWrites.resolve(stored, AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
+        val hidingApps = selfHidden || AppListConfig.decode(stored).restricted.isNotEmpty()
         val suspected = runCatching { backend.health.suspected() }.getOrDefault(emptyList())
             .sortedByDescending { it.lastSeen }
             .map { it.toUi(backend.view.apps) }
@@ -205,7 +256,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
                 prefsReachable = prefs != null,
                 settled = settled,
                 snapshot = snapshot,
-                rebootPending = device.rebootPending,
+                rebootReason = rebootReason,
             ),
             framework = framework,
             versionName = backend.versionName,
@@ -217,9 +268,12 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             attention = attentionOf(snapshot.rules, suspected.size),
             suspected = suspected,
             diagnosticMode = pendingWrites.resolve(stored, ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT),
-            selfHidden = pendingWrites.resolve(stored, AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf),
+            selfHidden = selfHidden,
             observed = observed,
             scope = device.ui,
+            rebootReason = rebootReason,
+            pausedUntil = until,
+            conflict = conflicts.ui(appListHidingOn = hidingApps),
         )
     }
 
@@ -289,11 +343,11 @@ internal fun resolveModuleState(
     prefsReachable: Boolean,
     settled: Boolean,
     snapshot: RuleSnapshot,
-    rebootPending: Boolean = false,
+    rebootReason: RebootReason = RebootReason.NONE,
 ): ModuleState = when {
     !bound -> if (settled) ModuleState.INACTIVE else ModuleState.CHECKING
     !prefsReachable -> ModuleState.UNAVAILABLE
-    rebootPending -> ModuleState.NEEDS_REBOOT
+    rebootReason != RebootReason.NONE -> ModuleState.NEEDS_REBOOT
     snapshot.enabledCount > 0 && !snapshot.anyReported -> ModuleState.NEEDS_REBOOT
     else -> ModuleState.ACTIVE
 }

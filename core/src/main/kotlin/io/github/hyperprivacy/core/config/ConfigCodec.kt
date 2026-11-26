@@ -30,7 +30,8 @@ public object ConfigCodec {
 
     /** Whether a change of preference [key] can affect hooks (`null` means "everything changed"). */
     public fun affectsHooks(key: String?): Boolean =
-        key == null || key == OBSERVE_KEY || key == ModuleSecret.KEY || ruleIdOf(key) != null
+        key == null || key == OBSERVE_KEY || key == ModuleSecret.KEY || key == ProtectionPause.KEY ||
+            ruleIdOf(key) != null
 
     /** Inverse of [key]; `null` for keys not owned by this codec. */
     public fun ruleIdOf(key: String?): String? = key?.takeIf { it.startsWith(KEY_PREFIX) }?.removePrefix(KEY_PREFIX)

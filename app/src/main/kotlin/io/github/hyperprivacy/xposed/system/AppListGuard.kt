@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.system.AppIndex
 import io.github.hyperprivacy.xposed.FailOpenHooker
 import io.github.hyperprivacy.xposed.HookLog
 import io.github.hyperprivacy.xposed.Reflection
+import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
@@ -75,7 +76,7 @@ internal class AppListGuard(
         // PROTECTIVE: the hook returns a value or proceeds, it never throws on purpose.
         xposed.hook(target)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
-            .intercept(FailOpenHooker(log, "app-list filter", ::decide))
+            .intercept(FailOpenHooker(log, Sinks.APP_LIST_FILTER, ::decide))
         hooked = true
         log.info("app-list: hooked $FILTER_CLASS#$SHOULD_FILTER")
         return true
