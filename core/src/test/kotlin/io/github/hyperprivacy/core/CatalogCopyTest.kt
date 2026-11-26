@@ -46,12 +46,39 @@ class CatalogCopyTest {
         assertTrue(duplicates.isEmpty(), "Duplicate titles:\n" + duplicates.joinToString("\n"))
     }
 
+    @Test
+    fun `copy names no third-party company or product`() {
+        val offenders = (Catalog.rules + Catalog.protectedAppRules).flatMap { rule ->
+            listOfNotNull(
+                "title" to rule.title,
+                "summary" to rule.summary,
+                rule.impact?.let { "impact" to it },
+            ).flatMap { (field, text) ->
+                listOf(text.zh, text.en).flatMap { copy ->
+                    THIRD_PARTY_NAMES.filter { copy.contains(it, ignoreCase = true) }
+                        .map { "${rule.id} $field: \"$copy\" names $it" }
+                }
+            }
+        }
+        assertTrue(offenders.isEmpty(), "Third-party names in copy:\n" + offenders.joinToString("\n"))
+    }
+
     private fun width(text: String): Double = text.sumOf { if (it.isCjk()) 1.0 else HALF_WIDTH }
 
     private fun Char.isCjk(): Boolean = Character.UnicodeScript.of(code) == Character.UnicodeScript.HAN ||
         this in FULL_WIDTH_PUNCTUATION
 
     private companion object {
+        /** Static copy describes a channel and its host app, never a third-party company or product. */
+        val THIRD_PARTY_NAMES = listOf(
+            "广点通", "穿山甲", "腾讯", "百度", "阿里", "字节", "快手", "抖音", "华为", "谷歌", "搜狗", "讯飞",
+            "微信", "支付宝", "淘宝", "京东", "美团", "联通", "电信", "移动", "高德", "个推", "神策", "迅雷",
+            "喜马拉雅", "金山", "北斗", "Tencent", "Baidu", "Alibaba", "ByteDance", "Kuaishou", "Douyin",
+            "Huawei", "Google", "Sogou", "iFlytek", "WeChat", "Alipay", "Taobao", "JD.com", "Meituan",
+            "Unicom", "Telecom", "AMap", "Pangle", "GDT", "Bugly", "QIMEI", "RDelivery", "UBC", "Sofire",
+            "AppLog", "APM+", "Pub/Sub", "AdMob", "DoubleClick", "Firebase", "Crashlytics", "Sentry",
+            "Getui", "Sensors", "Xunlei", "Ximalaya", "Kingsoft", "BeiDou", "QQ", "HMS",
+        )
         const val ZH_TITLE_MAX = 10.0
         const val ZH_SUMMARY_MAX = 14.0
         const val EN_TITLE_MAX = 28

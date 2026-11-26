@@ -134,8 +134,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "sensorsdata.domains",
         packages = SENSORSDATA_APPS,
-        title = Text("神策统计", "Sensors Analytics"),
-        summary = Text("阻止神策数据埋点上报", "Block Sensors Data event uploads"),
+        title = Text("系统应用埋点统计", "System-app event analytics"),
+        summary = Text("阻止应用内埋点事件上报", "Block in-app event-tracking uploads"),
         payload = RulePayload.Domains(
             listOf(
                 "sensorsdata.10046.xiaomimobile.com",
@@ -151,8 +151,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "tencent.beacon",
         packages = TENCENT_BEACON_APPS,
-        title = Text("腾讯灯塔统计", "Tencent Beacon"),
-        summary = Text("阻止腾讯灯塔事件上报", "Block Tencent Beacon event uploads"),
+        title = Text("事件统计组件", "Event analytics SDK"),
+        summary = Text("阻止第三方事件统计上报", "Block third-party event uploads"),
         payload = RulePayload.Domains(
             listOf(
                 "otheve.beacon.qq.com",
@@ -174,8 +174,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "qq-opensdk.stats",
         packages = QQ_OPENSDK_STATS_APPS,
-        title = Text("QQ 互联统计", "QQ Connect stats"),
-        summary = Text("阻止 QQ 分享登录统计", "Block QQ share/login statistics"),
+        title = Text("社交登录统计", "Social login stats"),
+        summary = Text("阻止分享与登录统计", "Block share/login statistics"),
         payload = RulePayload.Urls(
             listOf(
                 UrlPrefix("appsupport.qq.com", "/cgi-bin/appstage/mstats_batch_report"),
@@ -191,7 +191,7 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "tencent.rdelivery-report",
         packages = TENCENT_RDELIVERY_APPS,
-        title = Text("腾讯配置回执", "RDelivery reports"),
+        title = Text("远程配置回执", "Remote config receipts"),
         summary = Text("阻止配置下发回执上报", "Block config-delivery reports"),
         payload = RulePayload.Urls(listOf(UrlPrefix("rdelivery.qq.com", "/v1/sdk/report"))),
         category = Category.ANALYTICS,
@@ -201,8 +201,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "bytedance.applog",
         packages = BYTEDANCE_APPLOG_APPS,
-        title = Text("字节 AppLog", "ByteDance AppLog"),
-        summary = Text("阻止字节跳动行为统计", "Block ByteDance behavior analytics"),
+        title = Text("内容平台行为统计", "Content platform analytics"),
+        summary = Text("阻止内容平台行为统计", "Block content-platform analytics"),
         payload = RulePayload.Domains(
             listOf(
                 "applog.snssdk.com",
@@ -226,8 +226,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "baidu.mobstat",
         packages = setOf("com.baidu.input_mi", "com.xiaomi.youpin"),
-        title = Text("百度移动统计", "Baidu Mobile Stats"),
-        summary = Text("阻止百度移动统计上报", "Block Baidu Mobile Stats uploads"),
+        title = Text("应用统计组件", "App stats SDK"),
+        summary = Text("阻止应用统计数据上报", "Block app-stats SDK uploads"),
         payload = RulePayload.Domains(listOf("hmma.baidu.com", "sdkss.shitu.baidu.com")),
         category = Category.ANALYTICS,
         evidence = "dex: baidu.input_mi com.baidu.mobstat -> https://hmma.baidu.com/app.gif (evidence.md L322 " +
@@ -236,7 +236,7 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "baidu-ime.stats",
         packages = setOf("com.baidu.input_mi"),
-        title = Text("百度输入法统计", "Baidu IME statistics"),
+        title = Text("输入法使用统计", "IME usage statistics"),
         summary = Text("阻止输入行为统计上报", "Block typing-behavior statistics"),
         payload = RulePayload.Urls(
             listOf(
@@ -279,7 +279,7 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "sogou-ime.pingback",
         packages = setOf("com.sohu.inputmethod.sogou.xiaomi"),
-        title = Text("搜狗输入法统计", "Sogou IME pingback"),
+        title = Text("输入法按键统计", "IME keystroke pingback"),
         summary = Text("阻止输入与活跃统计上报", "Block typing and activity pingbacks"),
         payload = RulePayload.Domains(
             listOf(
@@ -309,7 +309,7 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "sogou-ime.alive",
         packages = setOf("com.sohu.inputmethod.sogou.xiaomi"),
-        title = Text("搜狗激活上报", "Sogou activation reports"),
+        title = Text("输入法激活上报", "IME activation reports"),
         summary = Text("阻止安装激活与日志收集", "Block install/activation and log reports"),
         payload = RulePayload.Urls(
             listOf(
@@ -325,8 +325,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "iflytek-ime.stats",
         packages = setOf("com.iflytek.inputmethod.miui"),
-        title = Text("讯飞输入法统计", "iFlytek IME statistics"),
-        summary = Text("阻止讯飞统计与日志上报", "Block iFlytek stats and log uploads"),
+        title = Text("输入法日志上报", "IME log uploads"),
+        summary = Text("阻止统计与日志上报", "Block stats and log uploads"),
         payload = RulePayload.Domains(
             listOf(
                 "inputd.xfinfr.com",
@@ -518,8 +518,8 @@ internal val analyticsRules: List<Rule> = listOf(
             "com.android.providers.downloads",
             "com.android.providers.downloads.ui",
         ),
-        title = Text("迅雷下载统计", "Xunlei download stats"),
-        summary = Text("阻止下载加速统计上报", "Block download-acceleration stats"),
+        title = Text("下载加速统计", "Download accel. stats"),
+        summary = Text("阻止下载与资源推送统计", "Block download and resource-push stats"),
         payload = RulePayload.Urls(
             listOf(
                 UrlPrefix("etl-xlmc-ssl.sandai.net", "/api/stat/"),
@@ -538,8 +538,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "huawei.analytics",
         packages = SHOP_APPS,
-        title = Text("华为分析", "Huawei Analytics"),
-        summary = Text("阻止华为 HMS 统计上报", "Block Huawei HMS analytics"),
+        title = Text("其他厂商统计", "Other-vendor analytics"),
+        summary = Text("阻止其他厂商服务统计", "Block other-vendor service stats"),
         payload = RulePayload.Domains(
             listOf(
                 "metrics.data.hicloud.com",
@@ -558,8 +558,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "firebase.analytics",
         packages = FIREBASE_ANALYTICS_APPS,
-        title = Text("Firebase 统计", "Firebase Analytics"),
-        summary = Text("阻止 Firebase 与 GA 统计", "Block Firebase and GA analytics"),
+        title = Text("海外统计组件", "Overseas analytics SDK"),
+        summary = Text("阻止海外统计组件上报", "Block overseas analytics uploads"),
         payload = RulePayload.Domains(
             listOf(
                 "app-measurement.com",
@@ -575,8 +575,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "baidu-ime.ubc",
         packages = setOf("com.baidu.input_mi"),
-        title = Text("百度 UBC 日志", "Baidu UBC logs"),
-        summary = Text("阻止百度 UBC 行为日志", "Block Baidu UBC behavior logs"),
+        title = Text("输入法行为日志", "IME behavior logs"),
+        summary = Text("阻止行为日志上报", "Block behavior-log uploads"),
         payload = RulePayload.Urls(
             listOf(
                 UrlPrefix("tcbox.baidu.com", "/ztbox"),
@@ -588,7 +588,7 @@ internal val analyticsRules: List<Rule> = listOf(
         evidence = "jadx baidu.input_mi com.baidu.ubc Constants UPLOAD_URL_PATH \"/ztbox?action=zubc\", UBCHelper -> " +
             "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325); traffic cap3 typing: mbd.baidu.com x3 " +
             "(L321). /ztbox multiplexes other action= services and the matcher ignores query strings",
-        impact = Text("可能影响百度部分云端功能", "May affect other Baidu ztbox services"),
+        impact = Text("可能影响输入法部分云端功能", "May affect other IME cloud services"),
         highRisk = true,
     ),
     Rule(
@@ -604,8 +604,8 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "onetrack.pubsub",
         packages = ONETRACK_PUBSUB_APPS,
-        title = Text("OneTrack 云端通道", "OneTrack Pub/Sub uplink"),
-        summary = Text("阻止经谷歌云通道上报事件", "Block events sent via Google Pub/Sub"),
+        title = Text("OneTrack 云端通道", "OneTrack cloud uplink"),
+        summary = Text("阻止经云消息通道上报", "Block events sent via cloud messaging"),
         payload = RulePayload.Domains(listOf("pubsub.googleapis.com")),
         category = Category.ANALYTICS,
         evidence = "evidence.md L532 home: pubsub.googleapis.com/api/v1/token + hyper_one_track::pubsub::uploader " +
@@ -633,7 +633,7 @@ internal val analyticsRules: List<Rule> = listOf(
     Rule(
         id = "smarthome.ximalaya-stats",
         packages = setOf("com.xiaomi.smarthome"),
-        title = Text("喜马拉雅播放统计", "Ximalaya play stats"),
+        title = Text("音频播放统计", "Audio play stats"),
         summary = Text("阻止音频播放记录上报", "Block audio play-record reports"),
         payload = RulePayload.Urls(listOf(UrlPrefix("api.ximalaya.com", "/openapi-collector-app/"))),
         category = Category.ANALYTICS,
@@ -644,7 +644,7 @@ internal val analyticsRules: List<Rule> = listOf(
         id = "thirdparty.analytics",
         packages = setOf("com.mi.car.mobile", "com.mi.health", "com.miui.core"),
         title = Text("第三方统计 SDK", "Third-party analytics"),
-        summary = Text("阻止阿里 UT 等统计上报", "Block Alibaba UT and similar stats"),
+        summary = Text("阻止通用统计组件上报", "Block generic analytics SDK uploads"),
         payload = RulePayload.Domains(listOf("mmstat.com", "cg.play-analytics.com")),
         category = Category.ANALYTICS,
         evidence = "evidence.md L361 mi.car.mobile mmstat.com, L496 miui.core mmstat.com (Alibaba UT/AMap), L377 " +
