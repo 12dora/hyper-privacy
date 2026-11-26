@@ -1,5 +1,7 @@
 package io.github.hyperprivacy.status
 
+import io.github.hyperprivacy.BuildConfig
+
 /**
  * Wire contract between hooked processes and [StatusProvider].
  *
@@ -14,7 +16,8 @@ package io.github.hyperprivacy.status
  * A non-null reply means accepted; `null` means the caller was rejected (retrying cannot help).
  */
 internal object StatusContract {
-    const val AUTHORITY = "io.github.hyperprivacy.status"
+    /** Matches `${applicationId}.status` in the manifest; derived so the two can never drift. */
+    const val AUTHORITY = "${BuildConfig.APPLICATION_ID}.status"
     const val METHOD_REPORT = "report"
 
     /** Bundle key holding a [io.github.hyperprivacy.core.status.StatusCodec] payload. */
