@@ -10,7 +10,6 @@ import io.github.hyperprivacy.core.net.IpLiterals
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
-import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.rule.catalog.HttpDnsResolvers

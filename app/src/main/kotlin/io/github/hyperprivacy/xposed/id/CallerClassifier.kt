@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.xposed.id
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
@@ -49,6 +50,8 @@ internal class CallerClassifier {
     }
 
     /** Certificates of the platform and of vendor system packages; `null` if unreadable (retried later). */
+    // Runs in the ID provider's host (the security center, which sees all packages); a filtered answer falls back.
+    @SuppressLint("QueryPermissionsNeeded")
     private fun trustedSigners(pm: PackageManager): Set<String>? {
         trusted?.let { return it }
         val now = SystemClock.uptimeMillis()
@@ -58,15 +61,11 @@ internal class CallerClassifier {
         val system = try {
             pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags))
         } catch (_: RuntimeException) {
-            return null
+            emptyList()
         }
-        val apps = system.filter { it.packageName == VendorTrust.PLATFORM_PACKAGE || VendorTrust.isVendorNamespace(it.packageName) }
-            .map { InstalledApp(it.packageName, it.applicationInfo?.uid ?: -1, isSystem = true, SignerDigests.of(it)) }
-        val signers = VendorTrust.trustedSigners(apps)
-        // An empty set means the query was filtered or truncated: keep failing open and retry next time.
-        if (signers.isEmpty()) return null
-        trusted = signers
-        return signers
+        val apps = system.map { InstalledApp(it.packageName, -1, isSystem = true, SignerDigests.of(it)) }
+        // Empty: the query failed or was filtered; fall back to the system flag and retry later.
+        return VendorTrust.trustedSigners(apps).takeIf { it.isNotEmpty() }?.also { trusted = it }
     }
 
     private fun isVendorOrUnknown(pm: PackageManager, packageName: String, signers: Set<String>): Boolean {

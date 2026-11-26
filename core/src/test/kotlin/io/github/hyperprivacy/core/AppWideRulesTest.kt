@@ -3,7 +3,6 @@ package io.github.hyperprivacy.core
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.IdentifierSource
-import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.catalog.HTTPDNS_EXCLUDED_APPS
@@ -76,7 +75,11 @@ class AppWideRulesTest {
     @Test
     fun `media drm rule applies to protected third-party apps only`() {
         assertNull(Catalog.byId(MEDIA_DRM), "not a vendor-catalog rule")
-        assertTrue(Catalog.rules.none { (it.payload as? RulePayload.Identifiers)?.source == IdentifierSource.MEDIA_DRM_ID })
+        assertTrue(
+            Catalog.rules.none { rule ->
+                (rule.payload as? RulePayload.Identifiers)?.source == IdentifierSource.MEDIA_DRM_ID
+            },
+        )
         val rule = assertNotNull(Catalog.protectedAppRules.singleOrNull { it.id == MEDIA_DRM })
         assertEquals(setOf(Catalog.PROTECTED_APPS), rule.packages)
         assertTrue(rule.isProtectedAppRule && rule.preventive && rule.defaultOn)

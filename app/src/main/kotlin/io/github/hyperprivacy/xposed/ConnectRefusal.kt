@@ -39,7 +39,11 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
     fun verdict(fd: FileDescriptor?, address: InetAddress, port: Int, timeoutMs: Int): Verdict.Throw {
         val local = localEndpoint(fd, address)
         val error = NetErrors.connectRefused(address, port, timeoutMs, local?.first, local?.second ?: 0)
-        val top = if (bridgeConnect == null) null else if (timeoutMs > 0) timedFrames else blockingFrames
+        val top = when {
+            bridgeConnect == null -> null
+            timeoutMs > 0 -> timedFrames
+            else -> blockingFrames
+        }
         return Verdict.Throw(error, top)
     }
 
@@ -49,10 +53,7 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         val boundPort = bound?.port ?: 0
         val source = boundAddress?.takeUnless { it.isAnyLocalAddress } ?: sourceAddressFor(destination)
         return when {
-            source != null -> {
-                val port = boundPort.takeIf { it != 0 } ?: PlausibleErrors.ephemeralPort(ThreadLocalRandom.current().nextInt())
-                source.toString() to port
-            }
+            source != null -> source.toString() to (boundPort.takeIf { it != 0 } ?: randomEphemeralPort())
 
             // Unroutable: libcore would print the unbound wildcard, as getsockname reports it.
             boundAddress != null -> boundAddress.toString() to boundPort
@@ -60,6 +61,8 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
             else -> null
         }
     }
+
+    private fun randomEphemeralPort(): Int = PlausibleErrors.ephemeralPort(ThreadLocalRandom.current().nextInt())
 
     private fun socketName(fd: FileDescriptor): InetSocketAddress? = try {
         Os.getsockname(fd) as? InetSocketAddress
@@ -86,7 +89,13 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         val fd = Os.socket(OsConstants.AF_INET6, OsConstants.SOCK_STREAM, 0)
         try {
             val invoker = xposed.getInvoker(method).setType(XposedInterface.Invoker.Type.ORIGIN)
-            invoker.invoke(null, fd, InetAddress.getByAddress(LOOPBACK), CLOSED_PORT, if (timed) HARVEST_TIMEOUT_MS else 0)
+            invoker.invoke(
+                null,
+                fd,
+                InetAddress.getByAddress(LOOPBACK),
+                CLOSED_PORT,
+                if (timed) HARVEST_TIMEOUT_MS else 0,
+            )
             null // Something listens there after all: no template.
         } catch (e: InvocationTargetException) {
             templateOf(e.targetException, timed)

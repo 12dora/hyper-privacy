@@ -111,9 +111,8 @@ public class AppListPolicy private constructor(
     public val isInactive: Boolean get() = restricted.isEmpty() && selfAppId < 0
 
     /** Whether any target can be hidden from [callerAppId]; the cheap pre-check before reading the target. */
-    public fun mayHideFrom(callerAppId: Int): Boolean =
-        callerAppId in restricted ||
-            (selfAppId >= 0 && callerAppId !in selfVisibleTo && index.isThirdParty(callerAppId))
+    public fun mayHideFrom(callerAppId: Int): Boolean = callerAppId in restricted ||
+        (selfAppId >= 0 && callerAppId !in selfVisibleTo && index.isThirdParty(callerAppId))
 
     public fun isRestricted(callerAppId: Int): Boolean = callerAppId in restricted
 

@@ -1,6 +1,6 @@
 package io.github.hyperprivacy.xposed
 
-import io.github.hyperprivacy.core.net.PlausibleErrors
+import io.github.hyperprivacy.core.net.PlausibleFrames
 import java.lang.reflect.Constructor
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
@@ -20,7 +20,7 @@ internal class TopFrames(val error: Array<StackTraceElement>, val cause: Array<S
  *   so this holds after R8 renames or repackages classes;
  * - on top go genuine platform frames when the caller has them ([TopFrames]), else one frame for the
  *   hooked method itself, where the original would have thrown, with a stable plausible line number
- *   ([PlausibleErrors.plausibleLine]).
+ *   ([PlausibleFrames.line]).
  *
  * What remains are the app's own frames and the framework's hook-bridge frames between them and
  * the hooked method. The bridge frames are inherent to LSPosed (they are also present in every
@@ -84,10 +84,9 @@ internal object StackScrub {
         while (start < frames.size && isModuleFrame(frames[start].className)) start++
         for (i in start until frames.size) {
             val name = frames[i].className
-            if (KOTLIN_ROOTS.none(name::startsWith) && isModuleFrame(name)) continue
             // The hooked method's own frame can survive below a synthesized one; never show it twice.
-            if (i == start && !head.isNullOrEmpty() && frames[i] == head.last()) continue
-            kept += frames[i]
+            val duplicate = i == start && !head.isNullOrEmpty() && frames[i] == head.last()
+            if (!duplicate && (KOTLIN_ROOTS.any(name::startsWith) || !isModuleFrame(name))) kept += frames[i]
         }
         return kept.toTypedArray()
     }
@@ -96,7 +95,7 @@ internal object StackScrub {
         val type = executable.declaringClass
         val method = if (executable is Constructor<*>) "<init>" else executable.name
         val outer = type.name.substringAfterLast('.').substringBefore('$')
-        return StackTraceElement(type.name, method, "$outer.java", PlausibleErrors.plausibleLine(type.name, method))
+        return StackTraceElement(type.name, method, "$outer.java", PlausibleFrames.line(type.name, method))
     }
 
     private fun isModuleFrame(className: String): Boolean {

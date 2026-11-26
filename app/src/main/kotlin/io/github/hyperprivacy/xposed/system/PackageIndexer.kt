@@ -157,7 +157,7 @@ internal class PackageIndexer(
         val exempt = Catalog.scope + listOfNotNull(homeApp)
         val policy = AppListPolicy.resolve(config, state.index, BuildConfig.APPLICATION_ID, exempt)
         state.appList = policy
-        // Apps cache PackageManager answers in-process; a changed snapshot or config must not wait for the next install.
+        // Apps cache PackageManager answers in-process; a new snapshot or config must not wait for the next install.
         log.guard("invalidate package caches") { invalidateClientCaches() }
         val counts = "${config.restricted.size} restricted, ${config.strict.size} strict"
         log.info("app-list: $counts, ${config.allowlist.size} allowlisted, self hidden: ${config.hideSelf}")
