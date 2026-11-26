@@ -81,7 +81,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_diagnostics">Diagnostics</string>
     <string name="settings_diag_mode">Diagnostic mode</string>
-    <string name="settings_diag_mode_summary">Logs apps' network requests to find new reporting channels</string>
+    <string name="settings_diag_mode_summary">Records app network requests to find new reporting channels</string>
     <string name="settings_endpoints">Discovered endpoints</string>
     <string name="settings_endpoints_clear">Clear</string>
     <string name="settings_endpoints_off">Captured requests appear here when diagnostic mode is on</string>
