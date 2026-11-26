@@ -86,9 +86,10 @@ internal fun RuleRow(
 private fun summaryLine(entry: RuleEntry): String {
     val tag = LocalLanguageTag.current
     val rule = entry.item.rule
+    // A rule titled after its only app (e.g. a whole-app firewall) needs no app prefix.
     val meta = when (val meta = entry.meta) {
         RowMeta.None -> null
-        is RowMeta.App -> meta.label
+        is RowMeta.App -> meta.label.takeUnless { it == rule.title.resolve(tag) }
         is RowMeta.Apps -> appCountString(meta.count)
     }
     val text = rule.impact?.let { stringResource(R.string.rule_impact, it.resolve(tag)) } ?: rule.summary.resolve(tag)
