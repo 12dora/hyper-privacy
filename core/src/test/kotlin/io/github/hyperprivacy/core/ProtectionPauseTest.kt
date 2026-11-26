@@ -34,7 +34,8 @@ class ProtectionPauseTest {
         val until = ProtectionPause.deadline(ProtectionPause.Option.UNTIL_RESUMED, now)
         assertEquals(ProtectionPause.UNTIL_MANUAL, until)
         assertTrue(ProtectionPause.isPaused(until, Long.MAX_VALUE - 1))
-        assertNull(ProtectionPause.nextCheckDelayMs(until, now))
+        assertNull(ProtectionPause.resumeAt(until, now))
+        assertFalse(ProtectionPause.isExpired(until, Long.MAX_VALUE - 1))
         assertNull(ProtectionPause.remainingMinutes(until, now))
     }
 
@@ -47,12 +48,23 @@ class ProtectionPauseTest {
     }
 
     @Test
-    fun `the resume timer waits at most a minute and never spins`() {
-        assertEquals(60_000L, ProtectionPause.nextCheckDelayMs(now + 15 * 60_000, now))
-        assertEquals(30_000L, ProtectionPause.nextCheckDelayMs(now + 30_000, now))
-        assertEquals(50L, ProtectionPause.nextCheckDelayMs(now + 1, now))
-        assertNull(ProtectionPause.nextCheckDelayMs(now - 1, now))
-        assertNull(ProtectionPause.nextCheckDelayMs(0, now))
+    fun `one resume is scheduled at the deadline, none for a pause that is over`() {
+        val until = now + 15 * 60_000
+        assertEquals(until, ProtectionPause.resumeAt(until, now))
+        assertEquals(until, ProtectionPause.resumeAt(until, until - 1))
+        assertNull(ProtectionPause.resumeAt(until, until))
+        assertNull(ProtectionPause.resumeAt(0, now))
+    }
+
+    @Test
+    fun `a process starting after the deadline is not paused`() {
+        val until = now + 60_000
+        // One clock read when the process reads its switches: the stored deadline alone decides.
+        assertTrue(ProtectionPause.isPaused(until, now))
+        assertFalse(ProtectionPause.isPaused(until, until + 1))
+        assertTrue(ProtectionPause.isExpired(until, until))
+        assertFalse(ProtectionPause.isExpired(until, until - 1))
+        assertFalse(ProtectionPause.isExpired(0, now))
     }
 
     @Test
