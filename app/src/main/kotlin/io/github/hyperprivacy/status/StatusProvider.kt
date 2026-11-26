@@ -47,7 +47,7 @@ class StatusProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         if (method != StatusContract.METHOD_REPORT) return null
         val uid = Binder.getCallingUid()
-        val isSystemServer = uid % UidPolicy.PER_USER_RANGE == Process.SYSTEM_UID
+        val isSystemServer = isSystemServer(uid)
         val callerPackages = if (isSystemServer) emptySet() else callerScopePackages(uid)
         if (callerPackages.isEmpty() && !isSystemServer) {
             Log.w(TAG, "Rejected status report from uid $uid")
@@ -83,8 +83,27 @@ class StatusProvider : ContentProvider() {
         context?.packageManager?.getPackageInfo(DeviceCoverage.versionPackage(pkg), flags)?.longVersionCode
     }.getOrNull()
 
-    private fun callerScopePackages(uid: Int): Set<String> =
-        context?.packageManager?.getPackagesForUid(uid).orEmpty().filterTo(HashSet()) { it in Catalog.scope }
+    /**
+     * system_server itself, not merely a process of the system uid: HyperOS runs many vendor apps
+     * (Settings, the security center …) as `android.uid.system` too, and they must not speak for
+     * it (for [ProcessMeta.MODULE] in particular, which drives the restart advice). Its calls carry
+     * the framework package, which the platform verifies against the calling uid; a vendor app's
+     * calls carry its own package. Its pid cannot be checked from here: apps cannot see other
+     * processes in `/proc`.
+     */
+    private fun isSystemServer(uid: Int): Boolean =
+        uid % UidPolicy.PER_USER_RANGE == Process.SYSTEM_UID && callingPackage == SYSTEM_SERVER_PACKAGE
+
+    /**
+     * The catalog targets the caller may report for. A caller of the shared system uid is held to
+     * the package it called as, not every package sharing that uid.
+     */
+    private fun callerScopePackages(uid: Int): Set<String> {
+        val packages = context?.packageManager?.getPackagesForUid(uid).orEmpty()
+            .filterTo(HashSet()) { it in Catalog.scope }
+        if (uid % UidPolicy.PER_USER_RANGE != Process.SYSTEM_UID) return packages
+        return packages.filterTo(HashSet()) { it == callingPackage }
+    }
 
     override fun query(
         uri: Uri,
@@ -105,6 +124,7 @@ class StatusProvider : ContentProvider() {
 
     private companion object {
         const val TAG = "StatusProvider"
+        const val SYSTEM_SERVER_PACKAGE = "android"
     }
 }
 

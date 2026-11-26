@@ -63,6 +63,7 @@ internal object TrackerGuards {
     private fun installOrigin(env: GuardEnv, raw: Map<String, *>, switches: RuleSwitches, read: () -> Map<String, *>) {
         if (!AdOrigin.canEverMatch(raw, env.packageName)) return
         // Built from the effective switches: a global pause empties the table like every other rule.
+        // refresh() reads the preferences and rebuilds under the origin's own lock, so the last change wins.
         val origin = AdOrigin(env.log, env.packageName, env.reporter, switches, read)
         origin.refresh(raw)
         switches.addListener { origin.refresh() }

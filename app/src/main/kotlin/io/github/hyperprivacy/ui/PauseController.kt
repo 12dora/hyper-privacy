@@ -1,8 +1,10 @@
 package io.github.hyperprivacy.ui
 
+import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.core.config.ProtectionPause
+import io.github.hyperprivacy.pause.PauseAlarm
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -11,21 +13,28 @@ import kotlinx.coroutines.launch
 
 /**
  * Writes the global pause deadline ([ProtectionPause.KEY]) to the remote preferences and keeps the
- * UI's view of it. Hooked processes and system_server end a timed pause on their own; this only
- * has to show the result: a rebuild is requested when the deadline passes, and the expired value
- * is cleared from the preferences (an open app tidies up; nothing depends on it).
+ * UI's view of it. The deadline is removed by one alarm ([PauseAlarm]) when a timed pause ends;
+ * hooked processes and system_server only react to that change. While the app is open it also
+ * refreshes the banner on time and removes an expired deadline itself (once per deadline: a failed
+ * removal is not retried on every rebuild; the alarm still covers it).
  *
  * State is confined to [worker].
  */
 internal class PauseController(
+    context: Context,
     private val scope: CoroutineScope,
     private val worker: CoroutineDispatcher,
     private val prefs: () -> SharedPreferences?,
     private val onChange: () -> Unit,
 ) {
+    private val appContext = context.applicationContext
+
     /** A deadline written but not yet visible in the preferences (`0`: a resume). */
     private var pending: Long? = null
     private var expiry: Job? = null
+
+    /** The expired deadline last removed by [track], so a failed removal does not loop. */
+    private var cleared = 0L
 
     /** The deadline to show: the stored one, unless a write of ours is still on its way. */
     fun resolve(stored: Map<String, *>): Long {
@@ -36,20 +45,24 @@ internal class PauseController(
     }
 
     /**
-     * Follows the shown deadline: a finished timed pause is cleared, a running one is revisited
-     * when it ends so the banner disappears on time.
+     * Follows the shown deadline: the resume alarm is kept in step, a finished timed pause is
+     * cleared, and a running one is revisited when it ends so the banner disappears on time.
      */
     fun track(until: Long) {
         expiry?.cancel()
         val now = System.currentTimeMillis()
-        if (until <= 0 || until == ProtectionPause.UNTIL_MANUAL) return
-        if (now >= until) {
-            write(0)
+        if (pending == null) PauseAlarm.sync(appContext, until)
+        if (!ProtectionPause.isExpired(until, now)) {
+            val at = ProtectionPause.resumeAt(until, now) ?: return
+            expiry = scope.launch(worker) {
+                delay(at - now)
+                onChange()
+            }
             return
         }
-        expiry = scope.launch(worker) {
-            delay(until - now + EXPIRY_SLACK_MS)
-            onChange()
+        if (until != cleared) {
+            cleared = until
+            write(0)
         }
     }
 
@@ -62,17 +75,15 @@ internal class PauseController(
             val target = prefs() ?: return@launch
             pending = until
             onChange()
-            runCatching {
+            val written = runCatching {
                 target.edit { if (until > 0) putLong(ProtectionPause.KEY, until) else remove(ProtectionPause.KEY) }
-            }.onFailure {
+            }
+            if (written.isSuccess) {
+                PauseAlarm.sync(appContext, until)
+            } else {
                 pending = null
                 onChange()
             }
         }
-    }
-
-    private companion object {
-        /** Lets hooked processes (whose timers fire at the deadline) go first. */
-        const val EXPIRY_SLACK_MS = 250L
     }
 }

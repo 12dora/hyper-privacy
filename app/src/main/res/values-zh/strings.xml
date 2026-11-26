@@ -195,9 +195,9 @@
     </plurals>
     <string name="settings_data">数据</string>
     <string name="settings_reset">恢复默认</string>
-    <string name="settings_reset_summary">将所有规则恢复为推荐设置</string>
+    <string name="settings_reset_summary">恢复规则、应用选项与应用列表设置</string>
     <string name="settings_reset_title">恢复默认设置？</string>
-    <string name="settings_reset_body">所有规则将恢复默认，并关闭诊断模式。</string>
+    <string name="settings_reset_body">规则、各应用选项和应用列表设置将恢复默认，并关闭诊断模式。已开启防护的应用保持开启。</string>
     <string name="settings_reset_confirm">恢复</string>
     <string name="settings_about">关于</string>
     <string name="about_framework">框架</string>
@@ -303,7 +303,7 @@
     <string name="backup_import">导入配置</string>
     <string name="backup_import_summary">从导出的文件恢复设置</string>
     <string name="backup_import_title">导入此配置？</string>
-    <string name="backup_import_body">将覆盖当前的规则开关、应用选项和应用列表设置。已开启防护的应用保持不变，新开启的仍需在 LSPosed 中确认。</string>
+    <string name="backup_import_body">将覆盖当前的规则开关、应用选项、应用列表设置和外观。已开启防护的应用保持开启，其选项按文件更新；文件中新开启防护的应用需在“应用”页确认。仅对本机已安装的第三方应用生效。</string>
     <string name="backup_import_confirm">导入</string>
     <plurals name="backup_summary_rules">
         <item quantity="other">%1$d 项规则开关</item>
@@ -320,7 +320,8 @@
     <string name="backup_exported">配置已导出</string>
     <string name="backup_export_failed">无法导出配置</string>
     <string name="backup_imported">配置已导入</string>
-    <string name="backup_imported_partial">已导入，部分应用需重新开启防护</string>
+    <string name="backup_imported_partial">已导入，本机不可用的应用已跳过</string>
+    <string name="backup_importing">正在导入配置…</string>
     <string name="backup_import_failed">无法导入配置</string>
     <string name="backup_invalid">这不是 HyperPrivacy 配置文件</string>
     <string name="backup_newer">文件来自更新版本，请先更新应用</string>
