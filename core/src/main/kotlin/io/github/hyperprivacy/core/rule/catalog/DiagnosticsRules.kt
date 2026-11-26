@@ -52,7 +52,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "sentry.domains",
         packages = SENTRY_APPS,
-        title = Text("Sentry 崩溃", "Sentry crash reports"),
+        title = Text("小米崩溃日志", "Xiaomi crash reports"),
         summary = Text("阻止崩溃与异常上报", "Block crash and error reports"),
         payload = RulePayload.Domains(listOf("sentry.d.mi.com", "sentry.d.xiaomi.net", "car-app-sentry.d.xiaomi.net")),
         category = Category.DIAGNOSTICS,
@@ -63,8 +63,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "bugly.domains",
         packages = BUGLY_APPS,
-        title = Text("Bugly 崩溃", "Bugly crash reports"),
-        summary = Text("阻止腾讯崩溃日志上报", "Block Tencent crash logs"),
+        title = Text("第三方崩溃日志", "Third-party crash logs"),
+        summary = Text("阻止第三方崩溃日志上报", "Block third-party crash logs"),
         payload = RulePayload.Domains(
             listOf(
                 "bugly.qq.com",
@@ -83,7 +83,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "rmonitor.domains",
         packages = setOf("com.sohu.inputmethod.sogou.xiaomi"),
-        title = Text("腾讯性能监控", "Tencent RMonitor"),
+        title = Text("性能卡顿监控", "Performance jank monitor"),
         summary = Text("阻止性能与卡顿数据上报", "Block performance and jank data"),
         payload = RulePayload.Domains(listOf("rmonitor.qq.com")),
         category = Category.DIAGNOSTICS,
@@ -93,7 +93,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "bytedance.apm",
         packages = setOf("com.android.browser", "com.mi.globalbrowser", "com.xiaomi.smarthome"),
-        title = Text("字节 APM", "ByteDance APM+"),
+        title = Text("性能与崩溃监控", "Perf and crash monitoring"),
         summary = Text("阻止性能与崩溃数据上报", "Block performance and crash data"),
         payload = RulePayload.Domains(
             listOf(
@@ -112,8 +112,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "firebase.crashlytics",
         packages = setOf("com.android.fileexplorer", "com.mi.globalbrowser", "com.miui.extraphoto"),
-        title = Text("Firebase 崩溃", "Firebase Crashlytics"),
-        summary = Text("阻止谷歌崩溃日志上报", "Block Google crash logs"),
+        title = Text("海外崩溃日志", "Overseas crash logs"),
+        summary = Text("阻止海外崩溃日志上报", "Block overseas crash logs"),
         payload = RulePayload.Domains(listOf("crashlytics.com", "crashlyticsreports-pa.googleapis.com")),
         category = Category.DIAGNOSTICS,
         evidence = "dex: com/google/firebase/crashlytics in fileexplorer, globalbrowser, extraphoto; " +
@@ -132,7 +132,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "kingsoft.stats",
         packages = setOf("com.xiaomi.market", "com.xiaomi.shop"),
-        title = Text("金山云统计", "Kingsoft Cloud stats"),
+        title = Text("播放质量统计", "Playback quality stats"),
         summary = Text("阻止播放与网络质量统计", "Block playback/network quality stats"),
         payload = RulePayload.Domains(
             listOf(
@@ -171,7 +171,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         id = "thirdparty.sdk-logs",
         packages = THIRDPARTY_SDK_LOGS_APPS,
         title = Text("第三方组件日志", "Third-party SDK logs"),
-        summary = Text("阻止云服务与内核组件日志", "Block cloud and WebView SDK logs"),
+        summary = Text("阻止云服务与内核组件日志", "Block cloud and engine SDK logs"),
         payload = RulePayload.Domains(
             listOf(
                 "nls-log-gather.aliyuncs.com",
@@ -189,7 +189,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         id = "payment-sdk.logs",
         packages = PAYMENT_SDK_LOGS_APPS,
         title = Text("支付组件日志", "Payment SDK logs"),
-        summary = Text("阻止支付宝与微信支付日志", "Block Alipay and WeChat Pay logs"),
+        summary = Text("阻止第三方支付组件日志", "Block third-party payment SDK logs"),
         payload = RulePayload.Urls(
             listOf(
                 UrlPrefix("loggw-exsdk.alipay.com", "/loggw/logUpload.do"),
@@ -303,8 +303,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "music.login-logs",
         packages = setOf("com.miui.player"),
-        title = Text("QQ 登录日志", "QQ login logs"),
-        summary = Text("阻止 QQ 登录组件日志", "Block QQ login SDK logs"),
+        title = Text("社交登录日志", "Social login logs"),
+        summary = Text("阻止社交登录组件日志", "Block social login SDK logs"),
         payload = RulePayload.Domains(listOf("log.wtlogin.qq.com", "log1.wtlogin.qq.com")),
         category = Category.DIAGNOSTICS,
         evidence = "evidence.md L646/L648 player log.wtlogin.qq.com, log1.wtlogin.qq.com (wtlogin SDK log)",
@@ -312,8 +312,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
     Rule(
         id = "bdsms.log-upload",
         packages = setOf("com.xiaomi.bdsms"),
-        title = Text("北斗短信日志", "BeiDou SMS logs"),
-        summary = Text("阻止北斗短信组件日志上传", "Block BeiDou SMS SDK log uploads"),
+        title = Text("卫星短信日志", "Satellite SMS logs"),
+        summary = Text("阻止卫星短信组件日志上传", "Block satellite SMS SDK log uploads"),
         payload = RulePayload.Urls(
             listOf(
                 UrlPrefix("sms.chinaspacetime.com.cn", "/scgateway/xwauth/bdmsg/sdk/v1/uploadBDLog"),

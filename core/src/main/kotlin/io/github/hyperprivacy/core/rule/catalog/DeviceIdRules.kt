@@ -36,8 +36,8 @@ internal val deviceIdRules: List<Rule> = listOf(
     Rule(
         id = "qimei.domains",
         packages = TENCENT_RDELIVERY_APPS,
-        title = Text("腾讯 QIMEI", "Tencent QIMEI"),
-        summary = Text("阻止腾讯设备指纹采集", "Block Tencent device fingerprinting"),
+        title = Text("第三方设备指纹", "Third-party fingerprinting"),
+        summary = Text("阻止第三方设备指纹采集", "Block third-party fingerprinting"),
         payload = RulePayload.Domains(listOf("snowflake.qq.com")),
         category = Category.DEVICE_ID,
         evidence = "traffic cap3 typing: sogou -> snowflake.qq.com x3 (/ola/v2); dex com/tencent/qimei, libqimei.so " +
@@ -46,19 +46,19 @@ internal val deviceIdRules: List<Rule> = listOf(
     Rule(
         id = "sofire.domains",
         packages = setOf("com.baidu.input_mi"),
-        title = Text("百度设备指纹", "Baidu device fingerprint"),
-        summary = Text("阻止百度安全设备指纹", "Block Baidu Sofire fingerprinting"),
+        title = Text("输入法设备指纹", "IME device fingerprint"),
+        summary = Text("阻止输入法安全指纹采集", "Block IME security fingerprinting"),
         payload = RulePayload.Domains(listOf("sofire.baidu.com")),
         category = Category.DEVICE_ID,
         evidence = "traffic cap2: baidu.input_mi -> sofire.baidu.com; dex com.baidu.sofire.* (device risk " +
             "fingerprint, sofire.ac.provider); Baidu Passport login uses Sofire risk tokens",
-        impact = Text("输入法内百度账号登录可能失败", "Baidu sign-in in the IME may fail"),
+        impact = Text("输入法内账号登录可能失败", "Account sign-in in the IME may fail"),
         highRisk = true,
     ),
     Rule(
         id = "getui.collect",
         packages = setOf("com.xiaomi.smarthome"),
-        title = Text("个推数据采集", "Getui data collection"),
+        title = Text("推送组件数据采集", "Push SDK data collection"),
         summary = Text("阻止设备与场景数据采集", "Block device and scene data collection"),
         payload = RulePayload.Domains(
             listOf(
@@ -97,7 +97,7 @@ internal val deviceIdRules: List<Rule> = listOf(
     Rule(
         id = "telecom-auth.report",
         packages = setOf("com.mi.car.mobile"),
-        title = Text("电信认证上报", "Telecom auth reports"),
+        title = Text("运营商认证上报", "Carrier auth reports"),
         summary = Text("阻止一键登录设备信息上报", "Block one-tap login device reports"),
         payload = RulePayload.Urls(
             listOf(
@@ -133,7 +133,7 @@ internal val deviceIdRules: List<Rule> = listOf(
     Rule(
         id = "systemhelper.firewall",
         packages = setOf("com.mobiletools.systemhelper"),
-        title = Text("联通终端管理", "Unicom device reporting"),
+        title = Text("运营商终端登记", "Carrier device registration"),
         summary = Text("禁止上报设备标识与位置", "Blocks device ID and location uploads"),
         payload = RulePayload.Firewall,
         category = Category.DEVICE_ID,
@@ -142,13 +142,13 @@ internal val deviceIdRules: List<Rule> = listOf(
             "signal logs (RegType R) over Wi-Fi or Unicom data; embeds Baidu LBS (loc/ofloc/daup/itsdata.map." +
             "baidu.com); traffic: loc.map.baidu.com x11 idle; appops: FINE_LOCATION, WIFI_SCAN, READ_CELL_INFO " +
             "while idle; own uid (sharedUserId with one package)",
-        impact = Text("联通终端登记将失败", "Unicom device registration fails"),
+        impact = Text("运营商终端登记将失败", "Carrier device registration fails"),
         highRisk = true,
     ),
     Rule(
         id = "ct-autoreg.http",
         packages = setOf("com.xiaomi.registration"),
-        title = Text("电信自注册", "Telecom auto-registration"),
+        title = Text("运营商入网登记", "Carrier network registration"),
         summary = Text("阻止上报设备与 SIM 卡标识", "Blocks device and SIM ID uploads"),
         payload = RulePayload.Domains(listOf("zzhc.vnet.cn", "typdm.tydevice.com")),
         category = Category.DEVICE_ID,
@@ -157,12 +157,12 @@ internal val deviceIdRules: List<Rule> = listOf(
             "MAC, BSSID, IPv4) on Wi-Fi-only SKUs; China Telecom terminal auto-registration; shared uid " +
             "android.uid.phone so no firewall",
         defaultOn = false,
-        impact = Text("电信入网登记将失败", "Telecom registration will fail"),
+        impact = Text("运营商入网登记将失败", "Carrier registration will fail"),
     ),
     Rule(
         id = "ct-autoreg.sms",
         packages = setOf("com.xiaomi.registration"),
-        title = Text("电信自注册短信", "Telecom registration SMS"),
+        title = Text("运营商入网短信", "Carrier registration SMS"),
         summary = Text("阻止发送设备登记短信", "Blocks device registration SMS"),
         payload = RulePayload.Method(
             className = "android.telephony.SmsManager",
@@ -173,7 +173,7 @@ internal val deviceIdRules: List<Rule> = listOf(
             "SW version; appops: SEND_SMS by com.xiaomi.registration; runs in its own process (no android:process), " +
             "so hooking SmsManager there does not affect the user's SMS",
         defaultOn = false,
-        impact = Text("电信入网登记将失败", "Telecom registration will fail"),
+        impact = Text("运营商入网登记将失败", "Carrier registration will fail"),
     ),
     Rule(
         id = "simactivate.activation-receipt",
