@@ -159,6 +159,16 @@ internal class TrackerController(
         }
     }
 
+    /**
+     * Forgets switch writes not yet visible in the preferences, after an import or a reset wrote
+     * over them; the next publish shows the stored values. Call on [worker].
+     */
+    fun clearPending() {
+        pending.clear()
+        pendingProtect.clear()
+        if (started) publishRequests.trySend(Unit)
+    }
+
     /** Asks LSPosed again for an app whose protection is on but which is not in the scope yet. */
     fun retryScope(packageName: String) {
         scope.launch(worker) {
