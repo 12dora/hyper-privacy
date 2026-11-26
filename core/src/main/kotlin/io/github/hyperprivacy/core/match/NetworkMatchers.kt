@@ -14,6 +14,9 @@ import java.net.InetAddress
  *   rules are included so stacks with native DNS/TLS (Cronet and forks) are still covered.
  * @property addresses IPv4 literals listed by DOMAIN rules (hard-coded HTTPDNS / reporting IPs),
  *   for the IP connect sink.
+ *
+ * Sinks look up through [findHost] and [findUrl], which honour keep hosts (see [of]); [hosts] and
+ * [urls] may then contain a keep marker and are exposed for tests only.
  */
 public class NetworkMatchers private constructor(
     public val hosts: HostMatcher<String>,
@@ -33,19 +36,43 @@ public class NetworkMatchers private constructor(
         if (port == DNS_PORT || !blocksConnects) return null
         addresses[address]?.let { return it }
         if (hosts.isEmpty) return null
-        return book.hostOf(address)?.let(hosts::find)
+        return book.hostOf(address)?.let(::findHost)
     }
+
+    /** Rule blocking [host] at host-only sinks, or `null` (allowed, or kept). */
+    public fun findHost(host: String?): String? = hosts.find(host)?.takeIf { it != KEEP }
+
+    /** Rule blocking [host] + decoded [path] at HTTP-client sinks, or `null` (allowed, or kept). */
+    public fun findUrl(host: String?, path: String?): String? = urls.find(host, path)?.takeIf { it != KEEP }
 
     public companion object {
         public const val DNS_PORT: Int = 53
 
         public val EMPTY: NetworkMatchers = NetworkMatchers(HostMatcher.empty(), UrlMatcher.empty(), emptyMap())
 
-        /** Builds matchers from the [rules] for which [isEnabled] holds; other payloads are ignored. */
-        public fun of(rules: List<Rule>, isEnabled: (String) -> Boolean): NetworkMatchers {
+        /** Marker value of a keep host; never a rule id (rule ids cannot contain NUL). */
+        private const val KEEP = "\u0000keep"
+
+        /**
+         * Builds matchers from the [rules] for which [isEnabled] holds; other payloads are ignored.
+         *
+         * [keepHosts] (exact or dot-suffix, like DOMAIN patterns) are never blocked at host level:
+         * the most specific pattern wins, so a block suffix above a kept host leaves the kept host
+         * alone, while a URL rule with a path on a kept host (or a block pattern below it) still applies.
+         */
+        public fun of(
+            rules: List<Rule>,
+            keepHosts: Collection<String> = emptyList(),
+            isEnabled: (String) -> Boolean,
+        ): NetworkMatchers {
             val hostEntries = ArrayList<Pair<String, String>>()
             val urlEntries = ArrayList<Pair<UrlPattern, String>>()
             val addresses = HashMap<InetAddress, String>()
+            // First value wins on duplicate patterns, so keep markers go in before any rule.
+            keepHosts.forEach { host ->
+                hostEntries += host to KEEP
+                urlEntries += UrlPattern(host) to KEEP
+            }
             for (rule in rules) {
                 if (!isEnabled(rule.id)) continue
                 when (val payload = rule.payload) {
@@ -62,7 +89,7 @@ public class NetworkMatchers private constructor(
                     else -> Unit
                 }
             }
-            if (hostEntries.isEmpty() && urlEntries.isEmpty()) return EMPTY
+            if (hostEntries.size == keepHosts.size && urlEntries.size == keepHosts.size) return EMPTY
             return NetworkMatchers(HostMatcher.of(hostEntries), UrlMatcher.of(urlEntries), addresses)
         }
     }
