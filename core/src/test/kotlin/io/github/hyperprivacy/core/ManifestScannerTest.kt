@@ -85,16 +85,76 @@ class ManifestScannerTest {
         val hints = ManifestAnalyzer.analyze(info)
         assertEquals(mapOf("a.b.c." to "bytedance-csj-pangle"), hints.relocated)
         assertTrue("bytedance-csj-pangle" in hints.detected && "tencent-gdt" in hints.detected)
-        assertEquals(setOf("$PKG.", "com.example.core.", "com.example.ui."), hints.own)
+        val apps = setOf("$PKG.", "com.example.core.", "com.example.ui.")
+        assertEquals(apps, hints.appRoots)
+        // Every other non-ad activity package no SDK claims is the app's too.
+        assertEquals(apps + "x.y.", hints.own)
         assertEquals(listOf(OriginHints.Suspect("x.y.ads.", listOf("RewardAdActivity"))), hints.suspects)
     }
 
     @Test
+    fun `derived roots never reach inside the app or share a package with its components`() {
+        val info = ManifestInfo(
+            packageName = PKG,
+            applicationClass = "$PKG.App",
+            components = listOf(
+                ManifestInfo.Component(Kind.ACTIVITY, "$PKG.Main", launcher = true),
+                // Inside the app's package: neither a relocated SDK nor a suspect.
+                ManifestInfo.Component(Kind.ACTIVITY, "$PKG.member.RewardVideoActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "$PKG.ads.csj.activity.TTRewardVideoActivity"),
+                // A package with ad-looking and ordinary pages is the app's: no suspect.
+                ManifestInfo.Component(Kind.ACTIVITY, "com.lib.pages.InterstitialActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.lib.pages.LoginActivity"),
+                // Providers and receivers do not make own roots (libraries declare them).
+                ManifestInfo.Component(Kind.PROVIDER, "com.squareup.picasso.PicassoProvider"),
+                ManifestInfo.Component(Kind.ACTIVITY, "z.w.ads.AdActivity"),
+            ),
+        )
+        val hints = ManifestAnalyzer.analyze(info)
+        assertTrue(hints.relocated.isEmpty(), "${hints.relocated}")
+        assertEquals(listOf(OriginHints.Suspect("z.w.ads.", listOf("AdActivity"))), hints.suspects)
+        assertTrue("com.lib.pages." in hints.own && "com.squareup.picasso." !in hints.own)
+        assertTrue(OriginHints.isInsideApp("$PKG.ads.", PKG, hints.appRoots))
+        assertFalse(OriginHints.isInsideApp("z.w.ads.", PKG, hints.appRoots))
+    }
+
+    @Test
     fun `ad-looking names`() {
-        listOf("RewardAdActivity", "ADActivity", "AdWebViewActivity", "InterstitialActivity", "SplashAdView")
-            .forEach { assertTrue(ManifestAnalyzer.looksLikeAd(it), it) }
-        listOf("AddressActivity", "AdminActivity", "ReadActivity", "HeadService", "UploadProvider", "MainActivity")
-            .forEach { assertFalse(ManifestAnalyzer.looksLikeAd(it), it) }
+        listOf(
+            "RewardAdActivity",
+            "ADActivity",
+            "AdWebViewActivity",
+            "InterstitialActivity",
+            "SplashAdView",
+            "RewardVideoActivity",
+            "TTRewardExpressVideoActivity",
+            "AdMobActivity",
+        ).forEach { assertTrue(ManifestAnalyzer.looksLikeAd(it), it) }
+        listOf(
+            "AddressActivity", "AdminActivity", "ReadActivity", "HeadService", "UploadProvider", "MainActivity",
+            // Loyalty pages and directory sign-in are not ads.
+            "RewardActivity", "DailyRewardActivity", "RewardCenterActivity", "ADLoginActivity",
+            "AzureAdLoginActivity", "AdAuthActivity",
+        ).forEach { assertFalse(ManifestAnalyzer.looksLikeAd(it), it) }
+    }
+
+    @Test
+    fun `elements deeper than the limit are skipped with their subtree`() {
+        val xml = Axml()
+        xml.start("manifest", "package" to (PKG to false))
+        xml.start("application", "name" to (".App" to true))
+        repeat(ManifestScanner.MAX_DEPTH + 8) { xml.start("meta-data") }
+        repeat(ManifestScanner.MAX_DEPTH + 8) { xml.end() }
+        xml.start("activity", "name" to (".Main" to true))
+        xml.start("intent-filter")
+        xml.leaf("action", "name" to ("android.intent.action.MAIN" to true))
+        xml.leaf("category", "name" to ("android.intent.category.LAUNCHER" to true))
+        xml.end()
+        xml.end()
+        xml.end()
+        xml.end()
+        val info = ManifestScanner.parse(xml.bytes())
+        assertEquals(listOf(ManifestInfo.Component(Kind.ACTIVITY, "$PKG.Main", launcher = true)), info?.components)
     }
 
     @Test
