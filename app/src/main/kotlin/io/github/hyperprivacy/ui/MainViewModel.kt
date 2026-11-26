@@ -161,6 +161,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         val prefs = service?.let { runCatching { it.getRemotePreferences(ConfigCodec.PREFS_GROUP) }.getOrNull() }
         remotePrefs.getAndSet(prefs)?.unregisterOnSharedPreferenceChangeListener(changeListener)
         prefs?.registerOnSharedPreferenceChangeListener(changeListener)
+        prefs?.let { viewModelScope.launch(worker) { ensureModuleSecret(it) } }
         framework = service?.let { runCatching { "${it.frameworkName} ${it.frameworkVersion}" }.getOrNull() }
         device.check()
         rebuildRequests.trySend(Unit)

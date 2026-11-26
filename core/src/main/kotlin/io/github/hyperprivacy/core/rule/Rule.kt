@@ -53,6 +53,13 @@ public enum class IdentifierSource {
      * callers see them as absent; see `core.system.SettingsDenyList`.
      */
     SETTINGS_KEYS,
+
+    /**
+     * `MediaDrm` property `deviceUniqueId` (Widevine), read by any app in its own process. Not hidden
+     * but replaced per app: each package gets a stable value derived from the real one and its
+     * package name, so the id can no longer link one app to another.
+     */
+    MEDIA_DRM_ID,
 }
 
 /**
@@ -141,6 +148,9 @@ public sealed interface RulePayload {
  * @property highRisk data so sensitive that the rule ships enabled even though [impact] describes a
  *   side effect. The side effect is still shown to the user. A high-risk rule must therefore be
  *   [defaultOn] and carry an [impact].
+ * @property preventive the rule targets every hooked package as a precaution rather than because
+ *   each target was seen using the channel, so a package where it never blocks anything is the
+ *   expected case and is never reported as idle.
  */
 public data class Rule(
     val id: String,
@@ -153,6 +163,7 @@ public data class Rule(
     val defaultOn: Boolean = true,
     val impact: Text? = null,
     val highRisk: Boolean = false,
+    val preventive: Boolean = false,
 ) {
     val kind: RuleKind get() = payload.kind
 

@@ -29,7 +29,8 @@ public object ConfigCodec {
     public fun isObserveEnabled(raw: Map<String, *>): Boolean = raw[OBSERVE_KEY] as? Boolean ?: OBSERVE_DEFAULT
 
     /** Whether a change of preference [key] can affect hooks (`null` means "everything changed"). */
-    public fun affectsHooks(key: String?): Boolean = key == null || key == OBSERVE_KEY || ruleIdOf(key) != null
+    public fun affectsHooks(key: String?): Boolean =
+        key == null || key == OBSERVE_KEY || key == ModuleSecret.KEY || ruleIdOf(key) != null
 
     /** Inverse of [key]; `null` for keys not owned by this codec. */
     public fun ruleIdOf(key: String?): String? = key?.takeIf { it.startsWith(KEY_PREFIX) }?.removePrefix(KEY_PREFIX)

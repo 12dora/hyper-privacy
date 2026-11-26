@@ -29,4 +29,6 @@ internal object Sinks {
 
     /** system_server: `AppsFilterBase#shouldFilterApplication`, reported under `Catalog.SYSTEM_SCOPE`. */
     const val APP_LIST_FILTER = "applist.filter"
+
+    const val MEDIA_DRM = "id.mediadrm"
 }
