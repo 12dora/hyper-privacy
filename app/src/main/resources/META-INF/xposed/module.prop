@@ -1,3 +1,6 @@
 minApiVersion=101
 targetApiVersion=102
-staticScope=true
+# false: tracker protection adds user-chosen apps to the scope at runtime (XposedService.requestScope).
+# With true, LSPosed refuses (and prunes) any package outside the generated scope.list, which stays
+# the recommended scope ("Select recommended") for the built-in catalog.
+staticScope=false

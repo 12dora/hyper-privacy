@@ -43,9 +43,15 @@ class ModuleMain : XposedModule() {
         // share the process and would otherwise install duplicate hooks.
         if (!param.isFirstPackage) return
         val pkg = param.packageName
-        // Indexed lookup; processes without in-process rules return before touching anything else.
+        // Indexed lookup; catalog targets never read the tracker config.
         val rules = PackageRules.catalog.inProcess(pkg)
-        if (rules.isEmpty()) return
-        log.guard("guards for $pkg") { AppGuards(this, log, pkg, param.classLoader, rules).install() }
+        if (rules.isNotEmpty()) {
+            log.guard("guards for $pkg") { AppGuards(this, log, pkg, param.classLoader, rules).install() }
+            return
+        }
+        // Any other app is in scope because the user turned on tracker protection for it (or added
+        // it by hand in LSPosed); without a stored scan result this returns after one preferences read.
+        if (systemGuards != null) return
+        log.guard("tracker guards for $pkg") { TrackerGuards.install(this, log, pkg, param.classLoader) }
     }
 }
