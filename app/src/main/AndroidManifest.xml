@@ -14,6 +14,8 @@
 
     <!-- Only used while a timed pause is pending: its receiver is disabled otherwise (PauseAlarm). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Normal permission (API 33+), granted at install: resumes a timed pause on time. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:name=".HyperPrivacyApp"
