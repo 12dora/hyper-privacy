@@ -1,42 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">隐私管控</string>
     <string name="xposed_description">仅拦截隐私上报，不影响系统服务</string>
 
     <string name="action_back">返回</string>
     <string name="action_settings">设置</string>
     <string name="action_cancel">取消</string>
+    <string name="action_search">搜索</string>
+    <string name="action_more">更多操作</string>
 
     <!-- 模块状态 -->
     <string name="module_checking">正在检查状态</string>
-    <string name="module_active">已生效</string>
-    <string name="module_inactive">未激活</string>
-    <string name="module_inactive_hint">在 LSPosed 中启用</string>
+    <string name="module_active">保护已生效</string>
+    <string name="module_inactive">模块未激活</string>
+    <string name="module_inactive_hint">请在 LSPosed 中启用 HyperPrivacy</string>
     <string name="module_unavailable">未连接</string>
     <string name="module_unavailable_hint">请重新打开应用</string>
     <string name="module_reboot">需要重启</string>
-    <string name="module_reboot_hint">重启设备后生效</string>
-    <string name="module_no_rules">未开启规则</string>
+    <string name="module_reboot_hint">重启设备后规则生效</string>
+    <string name="module_no_rules">未开启任何规则</string>
     <plurals name="summary_enabled">
-        <item quantity="other">%1$s 项已开启</item>
+        <item quantity="other">已开启 %1$s 项</item>
     </plurals>
     <plurals name="summary_blocked">
-        <item quantity="other">拦截 %1$s 次</item>
+        <item quantity="other">累计拦截 %1$s 次</item>
     </plurals>
+
+    <!-- 需要关注 -->
+    <plurals name="attention_rules">
+        <item quantity="other">%1$d 项规则需要关注</item>
+    </plurals>
+    <plurals name="attention_suspected">
+        <item quantity="other">发现 %1$d 个疑似上报</item>
+    </plurals>
+    <plurals name="attention_suspected_short">
+        <item quantity="other">%1$d 个疑似上报</item>
+    </plurals>
+    <plurals name="attention_broken">
+        <item quantity="other">%1$d 项已失效</item>
+    </plurals>
+    <plurals name="attention_review">
+        <item quantity="other">%1$d 项待复核</item>
+    </plurals>
+    <plurals name="attention_idle">
+        <item quantity="other">%1$d 项长期无拦截</item>
+    </plurals>
+    <string name="attention_suspected_hint">可导出诊断报告反馈</string>
 
     <!-- 首页 -->
     <string name="view_by_category">按类型</string>
     <string name="view_by_app">按应用</string>
-    <string name="group_common">通用</string>
     <string name="rules_empty">暂无可用规则</string>
     <plurals name="meta_apps">
         <item quantity="other">%1$d 个应用</item>
+    </plurals>
+    <string name="category_enabled">已开启 %1$d/%2$d</string>
+    <string name="category_enable_all">全部开启</string>
+    <string name="category_disable_all">全部关闭</string>
+    <string name="category_enable_title">开启全部%1$s规则？</string>
+    <string name="category_disable_title">关闭全部%1$s规则？</string>
+    <plurals name="category_enable_body">
+        <item quantity="other">将开启此类下的 %1$d 项规则。</item>
+    </plurals>
+    <plurals name="category_enable_body_impact">
+        <item quantity="other">将开启此类下的 %1$d 项规则。会影响功能的 %2$d 项保持不变，可单独开启。</item>
+    </plurals>
+    <plurals name="category_disable_body">
+        <item quantity="other">将关闭此类下的 %1$d 项规则，相关数据会恢复上报。</item>
+    </plurals>
+    <string name="category_enable_confirm">开启</string>
+    <string name="category_disable_confirm">关闭</string>
+    <plurals name="app_rule_count">
+        <item quantity="other">%1$d 项规则</item>
+    </plurals>
+    <plurals name="app_rules_off">
+        <item quantity="other">%1$d 项已关闭</item>
+    </plurals>
+    <plurals name="app_attention">
+        <item quantity="other">%1$d 项需要关注</item>
     </plurals>
 
     <!-- 分类 -->
     <string name="category_analytics">统计分析</string>
     <string name="category_diagnostics">日志诊断</string>
-    <string name="category_ads">广告监测</string>
+    <string name="category_ads">广告</string>
     <string name="category_device_id">设备标识</string>
     <string name="category_app_list">应用列表</string>
     <string name="category_personal_data">个人数据</string>
@@ -49,19 +95,50 @@
     <plurals name="rule_hits">
         <item quantity="other">已拦截 %1$s 次</item>
     </plurals>
-    <plurals name="rule_hits_short">
-        <item quantity="other">拦截 %1$s 次</item>
-    </plurals>
     <string name="rule_open_details">查看详情</string>
 
+    <!-- 规则健康 -->
+    <string name="health_broken">已失效</string>
+    <string name="health_review">待复核</string>
+    <string name="health_idle">长期无拦截</string>
+    <string name="health_ok">正常</string>
+    <string name="health_not_run">未运行</string>
+    <string name="health_not_installed">未安装</string>
+    <string name="health_broken_desc">应用接口已变化，规则未能生效</string>
+    <string name="health_review_desc">应用已更新，规则可能需要复核</string>
+    <string name="health_idle_desc">长期没有拦截记录，上报方式可能已变化</string>
+    <string name="health_title">规则健康</string>
+    <string name="health_all_ok">未发现问题</string>
+    <string name="list_separator">、</string>
+    <string name="health_section_suspected">疑似新上报</string>
+    <string name="health_suspected_note">诊断模式下发现、尚未被规则覆盖的请求</string>
+    <string name="health_export">导出诊断报告</string>
+    <string name="health_export_summary">不含个人信息，便于反馈规则问题</string>
+    <string name="health_export_failed">暂时无法生成报告</string>
+    <string name="health_report_subject">HyperPrivacy 诊断报告</string>
+
+    <!-- 应用 -->
+    <string name="app_not_found">该应用不可用</string>
+    <string name="app_section_rules">规则</string>
+
+    <!-- 搜索 -->
+    <string name="search_hint">搜索应用或规则</string>
+    <string name="search_clear">清除</string>
+    <string name="search_apps">应用</string>
+    <string name="search_rules">规则</string>
+    <string name="search_empty">没有找到相关结果</string>
+
     <!-- 规则详情 -->
-    <string name="detail_title">详情</string>
+    <string name="detail_title">规则详情</string>
     <string name="detail_enable">启用</string>
     <string name="detail_not_found">该规则不可用</string>
     <string name="detail_section_impact">影响</string>
     <string name="detail_section_method">拦截方式</string>
     <string name="detail_section_apps">涉及应用</string>
     <string name="detail_section_evidence">依据</string>
+    <plurals name="detail_show_all_apps">
+        <item quantity="other">显示全部 %1$d 个应用</item>
+    </plurals>
     <string name="state_expanded">已展开</string>
     <string name="state_collapsed">已收起</string>
     <string name="detail_evidence_toggle">展开或收起依据</string>
@@ -78,7 +155,21 @@
 
     <!-- 设置 -->
     <string name="settings_title">设置</string>
+    <string name="settings_appearance">外观</string>
+    <string name="appearance_mode_system">跟随系统</string>
+    <string name="appearance_mode_light">浅色</string>
+    <string name="appearance_mode_dark">深色</string>
+    <string name="appearance_theme">主题色</string>
+    <string name="palette_dynamic">动态取色</string>
+    <string name="palette_sea">海盐蓝</string>
+    <string name="palette_jade">松石绿</string>
+    <string name="palette_amber">琥珀</string>
+    <string name="palette_sakura">樱粉</string>
+    <string name="palette_graphite">石墨</string>
+    <string name="appearance_pure_black">纯黑背景</string>
+    <string name="appearance_pure_black_summary">深色模式下使用纯黑，适合 OLED 屏幕</string>
     <string name="settings_diagnostics">诊断</string>
+    <string name="settings_health_summary">查看失效或待复核的规则</string>
     <string name="settings_diag_mode">诊断模式</string>
     <string name="settings_diag_mode_summary">记录应用的网络请求，用于发现新的上报通道</string>
     <string name="settings_endpoints">已发现的端点</string>
@@ -97,7 +188,6 @@
     <string name="settings_reset_body">所有规则将恢复默认，并关闭诊断模式。</string>
     <string name="settings_reset_confirm">恢复</string>
     <string name="settings_about">关于</string>
-    <string name="about_version">版本</string>
     <string name="about_framework">框架</string>
     <string name="about_repository">开源仓库</string>
 </resources>
