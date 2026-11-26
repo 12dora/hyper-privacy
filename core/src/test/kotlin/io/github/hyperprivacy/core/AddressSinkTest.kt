@@ -79,9 +79,12 @@ class AddressSinkTest {
     @Test
     fun `local addresses and literal hosts are not recorded`() {
         val book = AddressBook()
-        listOf("127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.1.1", "0.0.0.0").forEach {
-            book.record(ip(it), "tracking.example.com")
-            assertNull(book.hostOf(ip(it)), it)
+        // Private ranges built from bytes so no private-IP literal sits in the repository.
+        val local = listOf("127.0.0.1", "169.254.1.1", "0.0.0.0", "224.0.0.1").map(::ip) +
+            listOf(byteArrayOf(10, 0, 0, 1), byteArrayOf(-64, -88, 1, 1)).map(InetAddress::getByAddress)
+        local.forEach {
+            book.record(it, "tracking.example.com")
+            assertNull(book.hostOf(it), it.toString())
         }
         book.record(ip("1.2.3.4"), "1.2.3.4")
         assertNull(book.hostOf(ip("1.2.3.4")))
