@@ -65,7 +65,7 @@ public object RuleHealth {
     private val IDLE_KINDS = setOf(RuleKind.DOMAIN, RuleKind.URL, RuleKind.METHOD)
 
     public fun evaluate(rule: Rule, signals: HealthSignals, clock: HealthClock): Health =
-        evaluate(rule.kind, signals, clock)
+        evaluate(rule.kind, signals, clock, idleApplies = !rule.preventive)
 
     /**
      * First match wins:
@@ -76,10 +76,15 @@ public object RuleHealth {
      * 3. [Health.NOT_APPLICABLE]: the target is missing this boot and never was active here;
      * 4. [Health.NEEDS_REVIEW]: the installed version and the [reviewReference] are known and differ;
      * 5. [Health.NOT_RUN]: nothing from this package since boot;
-     * 6. [Health.IDLE]: see [isIdle];
+     * 6. [Health.IDLE]: see [isIdle]; never when [idleApplies] is false ([Rule.preventive] rules);
      * 7. [Health.OK].
      */
-    public fun evaluate(kind: RuleKind, signals: HealthSignals, clock: HealthClock): Health {
+    public fun evaluate(
+        kind: RuleKind,
+        signals: HealthSignals,
+        clock: HealthClock,
+        idleApplies: Boolean = true,
+    ): Health {
         val ruleState = signals.ruleState.takeIf { isThisBoot(signals.ruleReportedAt, clock) }
         val missing = ruleState == HookState.MISSED || allSinksMissed(kind, signals.sinkStates)
         return when {
@@ -88,7 +93,7 @@ public object RuleHealth {
             missing -> Health.NOT_APPLICABLE
             versionChanged(signals) -> Health.NEEDS_REVIEW
             ruleState == null && !isThisBoot(signals.lastProcessSeenAt, clock) -> Health.NOT_RUN
-            ruleState == HookState.ACTIVE && isIdle(kind, signals, clock) -> Health.IDLE
+            idleApplies && ruleState == HookState.ACTIVE && isIdle(kind, signals, clock) -> Health.IDLE
             else -> Health.OK
         }
     }

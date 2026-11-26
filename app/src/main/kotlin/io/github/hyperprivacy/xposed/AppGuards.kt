@@ -1,8 +1,10 @@
 package io.github.hyperprivacy.xposed
 
+import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.status.HookState
+import io.github.hyperprivacy.xposed.drm.MediaDrmGuard
 import io.github.hyperprivacy.xposed.id.IdentifierGuard
 import io.github.libxposed.api.XposedInterface
 
@@ -38,9 +40,15 @@ internal class AppGuards(
 
     private fun installIdentifierRules(env: GuardEnv) {
         val guard by lazy { IdentifierGuard(env) }
+        val mediaDrm by lazy { MediaDrmGuard(env) }
         rules.forEach { rule ->
             val payload = rule.payload as? RulePayload.Identifiers ?: return@forEach
-            val count = log.guard(rule.id) { guard.install(rule, payload) } ?: 0
+            val count = log.guard(rule.id) {
+                when (payload.source) {
+                    IdentifierSource.MEDIA_DRM_ID -> mediaDrm.install(rule)
+                    else -> guard.install(rule, payload)
+                }
+            } ?: 0
             env.reporter.state(packageName, rule.id, if (count > 0) HookState.ACTIVE else HookState.MISSED)
         }
     }

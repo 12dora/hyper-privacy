@@ -2,6 +2,7 @@ package io.github.hyperprivacy.xposed
 
 import android.content.SharedPreferences
 import io.github.hyperprivacy.core.config.ConfigCodec
+import io.github.hyperprivacy.core.config.ModuleSecret
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.libxposed.api.XposedInterface
 import java.util.concurrent.CopyOnWriteArrayList
@@ -10,7 +11,7 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * Live, read-only view of the user's switches inside a hooked process: the [rules] that apply
  * here (only those are decoded, so work scales with this process's rules) and the global
- * diagnostics switch.
+ * diagnostics switch, plus the module secret used for per-app identifier derivation.
  *
  * Backed by libxposed remote preferences, whose change listener fires when the module app writes,
  * so toggles apply without restarting the target or hot-reloading the module.
@@ -20,7 +21,7 @@ internal class RuleSwitches private constructor(
     private val log: HookLog,
     private val rules: List<Rule>,
 ) {
-    private class Snapshot(val enabled: Map<String, Boolean>, val observe: Boolean)
+    private class Snapshot(val enabled: Map<String, Boolean>, val observe: Boolean, val secret: ByteArray?)
 
     private val snapshot = AtomicReference(read())
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
@@ -39,6 +40,9 @@ internal class RuleSwitches private constructor(
     /** Diagnostics mode; a single volatile read, cheap enough for every network call. */
     val observe: Boolean get() = snapshot.get().observe
 
+    /** The module secret ([ModuleSecret]), or `null` while the module app has not written it. */
+    val secret: ByteArray? get() = snapshot.get().secret
+
     /** Registers [listener] to run (on an arbitrary thread) after switches change. */
     fun addListener(listener: () -> Unit) {
         listeners += listener
@@ -51,7 +55,11 @@ internal class RuleSwitches private constructor(
 
     private fun read(): Snapshot {
         val raw = log.guard("read switches") { prefs?.all }.orEmpty()
-        return Snapshot(ConfigCodec.decode(raw, rules), ConfigCodec.isObserveEnabled(raw))
+        return Snapshot(
+            ConfigCodec.decode(raw, rules),
+            ConfigCodec.isObserveEnabled(raw),
+            ModuleSecret.parse(raw[ModuleSecret.KEY]),
+        )
     }
 
     companion object {

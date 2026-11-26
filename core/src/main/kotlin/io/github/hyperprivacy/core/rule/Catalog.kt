@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.rule.catalog.analyticsRules
 import io.github.hyperprivacy.core.rule.catalog.appListRules
 import io.github.hyperprivacy.core.rule.catalog.deviceIdRules
 import io.github.hyperprivacy.core.rule.catalog.diagnosticsRules
+import io.github.hyperprivacy.core.rule.catalog.mediaDrmRule
 import io.github.hyperprivacy.core.rule.catalog.personalDataRules
 
 /**
@@ -23,9 +24,12 @@ public object Catalog {
     /** LSPosed's virtual scope name for system_server. */
     public const val SYSTEM_SCOPE: String = "system"
 
-    /** Rules in a stable order: grouped by category, then in the order declared in each category file. */
-    public val rules: List<Rule> = analyticsRules + adRules + diagnosticsRules + deviceIdRules +
-        appListRules + personalDataRules
+    /**
+     * Rules in a stable order: grouped by category, then in the order declared in each category file.
+     * App-wide rules (`AppWideRules`) close their category and target every package the other
+     * in-process rules already inject into, so they never widen the scope.
+     */
+    public val rules: List<Rule> = buildRules()
 
     private val byId: Map<String, Rule> = rules.associateBy { it.id }
 
@@ -44,6 +48,13 @@ public object Catalog {
     public val scope: Set<String> = sortedSetOf(SYSTEM_SCOPE).apply { addAll(hookedPackages) }
 
     public fun byId(id: String): Rule? = byId[id]
+
+    private fun buildRules(): List<Rule> {
+        val targeted = analyticsRules + adRules + diagnosticsRules + deviceIdRules + appListRules + personalDataRules
+        val injected = targeted.filter { it.kind != RuleKind.FIREWALL }.flatMapTo(sortedSetOf()) { it.packages }
+        return analyticsRules + adRules + diagnosticsRules + deviceIdRules + mediaDrmRule(injected) +
+            appListRules + personalDataRules
+    }
 
     /** Rules applying to [packageName], in catalog order. */
     public fun rulesFor(packageName: String): List<Rule> = rules.filter { packageName in it.packages }
