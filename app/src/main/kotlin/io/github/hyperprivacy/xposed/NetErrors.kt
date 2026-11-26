@@ -75,6 +75,7 @@ internal object NetErrors {
         null
     }
 
+    // GaiException is libcore-internal; the real resolver error must carry it as its cause.
     @SuppressLint("BlockedPrivateApi", "PrivateApi")
     private fun findGaiConstructor(): Constructor<*>? = try {
         Class.forName("android.system.GaiException")
