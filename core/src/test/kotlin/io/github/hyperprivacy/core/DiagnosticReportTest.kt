@@ -131,4 +131,24 @@ class DiagnosticReportTest {
         assertTrue("- rom: -" in text)
         assertTrue("(none)" in text)
     }
+
+    @Test
+    fun `user-installed apps are left out unless included at export`() {
+        val userApp = "com.example.bank"
+        val userEndpoint = endpoint("stat.example.com", "/v1").copy(packageName = userApp)
+        val withUserApp = input.copy(
+            missedSinks = input.missedSinks + SinkReport(userApp, "url.okhttp", HookState.MISSED),
+            suspectedEndpoints = input.suspectedEndpoints + userEndpoint,
+        )
+        assertEquals(2, DiagnosticReport.userAppRows(withUserApp))
+        val redacted = DiagnosticReport.render(withUserApp)
+        assertFalse(userApp in redacted)
+        assertFalse("stat.example.com" in redacted)
+        assertTrue("2 rows about user-installed apps left out" in redacted)
+        assertTrue("com.xiaomi.market: url.okhttp" in redacted)
+        val included = DiagnosticReport.render(withUserApp.copy(includeUserApps = true))
+        assertTrue("$userApp: url.okhttp" in included)
+        assertTrue("$userApp stat.example.com/v1" in included)
+        assertFalse("left out" in included)
+    }
 }

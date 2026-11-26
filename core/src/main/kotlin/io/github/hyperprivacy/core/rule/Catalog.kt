@@ -9,6 +9,7 @@ import io.github.hyperprivacy.core.rule.catalog.diagnosticsRules
 import io.github.hyperprivacy.core.rule.catalog.httpDnsRule
 import io.github.hyperprivacy.core.rule.catalog.mediaDrmRule
 import io.github.hyperprivacy.core.rule.catalog.personalDataRules
+import io.github.hyperprivacy.core.rule.catalog.protectedHttpDnsRule
 
 /**
  * The built-in rule set. Adding a rule is a data-only change: append an entry to the list of its
@@ -49,8 +50,15 @@ public object Catalog {
      * Whoever selects the protected apps must leave out vendor-trusted packages
      * ([io.github.hyperprivacy.core.system.VendorTrust]), not only system apps: HyperOS ships many
      * vendor apps as updatable data apps.
+     *
+     * Inside one protected app each rule is bound to that package
+     * ([io.github.hyperprivacy.core.tracker.TrackerRules.appRules]); the app's own switch for it
+     * overrides the global `rule.<id>` value.
      */
-    public val protectedAppRules: List<Rule> = listOf(mediaDrmRule())
+    public val protectedAppRules: List<Rule> = listOf(mediaDrmRule(), protectedHttpDnsRule())
+
+    /** Ids of [protectedAppRules]. */
+    public val protectedAppRuleIds: Set<String> = protectedAppRules.mapTo(LinkedHashSet()) { it.id }
 
     private val byId: Map<String, Rule> = rules.associateBy { it.id }
 

@@ -1,8 +1,5 @@
 package io.github.hyperprivacy.ui
 
-import android.content.Context
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
@@ -113,6 +110,7 @@ internal fun AppNavigation(viewModel: MainViewModel) {
     val home = remember(viewHolder, expandedHolder, listState) { HomeMemory(viewHolder, expandedHolder, listState) }
     val snackbar = remember { SnackbarHostState() }
     ScopeMessages(viewModel, snackbar)
+    val apps = rememberAppsMemory(viewModel)
     if (home.expanded == null && state.loaded) {
         val keys = state.byCategory.map { it.key }
         home.expanded = if (state.rules.size <= EXPAND_ALL_MAX_RULES) keys else emptyList()
@@ -131,7 +129,7 @@ internal fun AppNavigation(viewModel: MainViewModel) {
 
     AnimatedContent(targetState = nav.stack, transitionSpec = { pageTransition() }, label = "route") { target ->
         val page = if (target.size > 1) Modifier.predictiveBack(backProgress) else Modifier
-        Page(target.last(), state, viewModel, nav, home, snackbar, page)
+        Page(target.last(), state, viewModel, nav, home, apps, snackbar, page)
     }
 }
 
@@ -142,6 +140,7 @@ private fun Page(
     viewModel: MainViewModel,
     nav: Navigator,
     home: HomeMemory,
+    apps: AppsMemory,
     snackbar: SnackbarHostState,
     modifier: Modifier,
 ) {
@@ -150,12 +149,7 @@ private fun Page(
     val toggleRule: (String, Boolean) -> Unit = { id, on -> viewModel.setRulesEnabled(listOf(id), on) }
     val openRule: (String) -> Unit = { nav.push(Route.RuleDetail(it)) }
     val openApp: (String) -> Unit = { nav.push(Route.App(it)) }
-    val export: () -> Unit = {
-        scope.launch {
-            val report = viewModel.diagnosticReport()
-            if (report == null) toast(context, R.string.health_export_failed) else share(context, report)
-        }
-    }
+    val export = rememberReportExport(viewModel)
     when (route) {
         Route.Home -> HomeScreen(
             state = state,
@@ -192,9 +186,9 @@ private fun Page(
             AppScreen(route.packageName, state, toggleRule, openRule, nav::pop, modifier)
         }
 
-        Route.Apps -> AppsPage(state, viewModel, nav, modifier)
+        Route.Apps -> AppsPage(state, viewModel, nav, apps, modifier)
 
-        is Route.UserApp -> UserAppPage(route.packageName, state, viewModel, nav, modifier)
+        is Route.UserApp -> UserAppPage(route.packageName, state, viewModel, nav, apps, modifier)
 
         is Route.RuleDetail -> if (state.loaded) {
             RuleDetailScreen(
@@ -275,20 +269,6 @@ internal fun ScopeResult.messageRes(): Int = when (this) {
     ScopeResult.DENIED -> R.string.scope_denied
     ScopeResult.NO_RESPONSE -> R.string.scope_no_response
     ScopeResult.UNSUPPORTED -> R.string.scope_unsupported
-}
-
-private fun share(context: Context, report: String) {
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.health_report_subject))
-        putExtra(Intent.EXTRA_TEXT, report)
-    }
-    runCatching { context.startActivity(Intent.createChooser(send, context.getString(R.string.health_export))) }
-        .onFailure { toast(context, R.string.health_export_failed) }
-}
-
-private fun toast(context: Context, message: Int) {
-    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
 /** Shrinks and rounds the page while the back gesture is in progress. */

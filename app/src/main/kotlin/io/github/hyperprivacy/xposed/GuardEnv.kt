@@ -32,5 +32,8 @@ internal object Sinks {
     /** system_server: `AppsFilterBase#shouldFilterApplication`, reported under `Catalog.SYSTEM_SCOPE`. */
     const val APP_LIST_FILTER = "applist.filter"
 
+    /** system_server: `SettingsProvider#call`, the status relay of protected apps; under `Catalog.SYSTEM_SCOPE`. */
+    const val STATUS_RELAY = "status.relay"
+
     const val MEDIA_DRM = "id.mediadrm"
 }

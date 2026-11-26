@@ -52,10 +52,15 @@ private fun currentBuild(): DeviceBuild = DeviceBuild(
 )
 
 /**
- * The shareable Markdown report ([DiagnosticReport]): device model and ROM build, rule health with
- * versions, sinks MISSED this boot and suspected endpoints. Contains no personal data.
+ * The inputs of the shareable Markdown report ([DiagnosticReport]): device model and ROM build,
+ * rule health with versions, sinks MISSED this boot and suspected endpoints. Rows about
+ * user-installed apps are left out unless [includeUserApps].
  */
-internal fun StatusStore.diagnosticReport(moduleVersion: String, isEnabled: (Rule) -> Boolean): String {
+internal fun StatusStore.diagnosticInput(
+    moduleVersion: String,
+    includeUserApps: Boolean,
+    isEnabled: (Rule) -> Boolean,
+): DiagnosticInput {
     val snapshot = HealthSnapshot(this)
     val input = DiagnosticInput(
         moduleVersion = moduleVersion,
@@ -67,8 +72,24 @@ internal fun StatusStore.diagnosticReport(moduleVersion: String, isEnabled: (Rul
         rules = Catalog.rules.map { snapshot.row(it, isEnabled(it)) },
         missedSinks = sinkStates(since = snapshot.clock.bootAt).filter { it.state == HookState.MISSED },
         suspectedEndpoints = suspectedEndpoints(),
+        includeUserApps = includeUserApps,
     )
-    return DiagnosticReport.render(input)
+    return input
+}
+
+/** The shareable report; see [diagnosticInput]. */
+internal fun StatusStore.diagnosticReport(
+    moduleVersion: String,
+    includeUserApps: Boolean,
+    isEnabled: (Rule) -> Boolean,
+): String = DiagnosticReport.render(diagnosticInput(moduleVersion, includeUserApps, isEnabled))
+
+/** Whether the report would hold rows about user-installed apps, which the user must opt in to share. */
+internal fun StatusStore.reportMentionsUserApps(): Boolean {
+    val bootAt = HealthSnapshot(this).clock.bootAt
+    val missed = sinkStates(since = bootAt).filter { it.state == HookState.MISSED }
+    return missed.any { !DiagnosticReport.isCatalogPackage(it.packageName) } ||
+        suspectedEndpoints().any { !DiagnosticReport.isCatalogPackage(it.packageName) }
 }
 
 /** The inputs of [RuleHealth] at one instant; package lookups are memoised for the pass. */

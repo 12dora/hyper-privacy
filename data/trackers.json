@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026.11.27c",
+  "version": "2026.11.27d",
   "trackers": [
     {
       "id": "aatkit",
@@ -112,6 +112,8 @@
       "id": "adobe-experience-platform",
       "name": "Adobe Experience Platform SDK",
       "nameEn": "Adobe Experience Platform Mobile SDK (Edge / Analytics / Launch)",
+      "displayName": "Adobe AEP SDK",
+      "displayNameEn": "Adobe Experience Platform",
       "vendor": "Adobe",
       "categories": [
         "ANALYTICS",
@@ -133,6 +135,8 @@
       "id": "adsuyi-tianmu",
       "name": "ADSuyi 聚合 / 天目广告",
       "nameEn": "ADSuyi Mediation / Tianmu Ads",
+      "displayName": "ADSuyi 天目广告",
+      "displayNameEn": "ADSuyi Tianmu Ads",
       "vendor": "艾狄墨搏 (ADmobile)",
       "categories": [
         "ADS"
@@ -385,7 +389,6 @@
         "a.apilocate.amap.com",
         "dualstack-a.apilocate.amap.com",
         "abroad.apilocate.amap.com",
-        "httpdns.apilocate.amap.com",
         "aps.amap.com",
         "restsdk.amap.com",
         "restapi.amap.com",
@@ -466,6 +469,7 @@
       "id": "appharbr",
       "name": "AppHarbr 广告质量",
       "nameEn": "AppHarbr ad quality / ad-blocking SDK",
+      "displayNameEn": "AppHarbr Ad Quality",
       "vendor": "AppHarbr",
       "categories": [
         "ADS"
@@ -501,6 +505,8 @@
       "id": "applovin",
       "name": "AppLovin 广告 (MAX)",
       "nameEn": "AppLovin SDK / MAX mediation",
+      "displayName": "AppLovin MAX 广告",
+      "displayNameEn": "AppLovin MAX",
       "vendor": "AppLovin",
       "categories": [
         "ADS"
@@ -596,6 +602,7 @@
       "id": "baidu-device-id",
       "name": "百度 CUID 设备标识",
       "nameEn": "Baidu CUID / Helios device ID",
+      "displayNameEn": "Baidu CUID device ID",
       "vendor": "Baidu",
       "categories": [
         "IDENTIFICATION"
@@ -655,6 +662,7 @@
       "id": "baidu-mobads",
       "name": "百度联盟 / 百青藤广告",
       "nameEn": "Baidu Mobile Ads (Baidu Union)",
+      "displayName": "百青藤广告",
       "vendor": "百度 (Baidu)",
       "categories": [
         "ADS"
@@ -729,6 +737,7 @@
       "id": "baidu-sofire",
       "name": "百度安全 Sofire 风控",
       "nameEn": "Baidu Sofire security / risk SDK",
+      "displayNameEn": "Baidu Sofire security SDK",
       "vendor": "Baidu",
       "categories": [
         "IDENTIFICATION"
@@ -744,12 +753,13 @@
         "apk: com.baidu.input_mi classes contain Lcom/baidu/sofire/ (ac, rp, jni, core)",
         "traffic: com.baidu.input_mi → sofire.baidu.com"
       ],
-      "notes": "Risk-control fingerprint. Blocking may cause extra verification or failures in Baidu account login / anti-fraud checks inside the protected app. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Risk-control fingerprint. Blocking may cause extra verification or failures in Baidu account login / risk-control checks inside the protected app. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "beizi-adscope",
       "name": "倍业 AdScope / BeiZi 聚合",
       "nameEn": "BeiZi (AdScope) Ads",
+      "displayName": "BeiZi 聚合广告",
       "vendor": "倍业科技 (AdScope)",
       "categories": [
         "ADS"
@@ -889,6 +899,8 @@
       "id": "bytedance-applog",
       "name": "火山引擎 DataRangers / AppLog",
       "nameEn": "ByteDance AppLog / Volcengine DataRangers",
+      "displayName": "火山引擎 DataRangers",
+      "displayNameEn": "Volcengine DataRangers",
       "vendor": "ByteDance (Volcengine)",
       "categories": [
         "ANALYTICS"
@@ -958,6 +970,8 @@
       "id": "bytedance-csj-pangle",
       "name": "穿山甲 / Pangle 广告（CN + 全球版）",
       "nameEn": "Pangle / CSJ (ByteDance Ads, CN + global builds)",
+      "displayName": "穿山甲广告",
+      "displayNameEn": "Pangle Ads",
       "vendor": "字节跳动 / 巨量引擎 (ByteDance)",
       "categories": [
         "ADS"
@@ -1019,6 +1033,7 @@
       "id": "bytedance-metasec",
       "name": "字节跳动 MetaSec 安全 SDK",
       "nameEn": "ByteDance MetaSec (metasec-ml)",
+      "displayName": "字节 MetaSec 安全 SDK",
       "vendor": "ByteDance (Volcengine)",
       "categories": [
         "IDENTIFICATION"
@@ -1032,12 +1047,12 @@
         "doc: public reverse-engineering notes https://github.com/hoanglongggggggggg/DOUYIN-40.2.0_metasec-ml-vmp_reverse-engineering (README: metasec SDK family 'ms.bd.c.* / com.bytedance.mobsec.metasec.ml')",
         "doc: public APK feature index https://github.com/LeonLin427/PRISM (apps whose dex packages include ms.bd.c, 112-126 classes, ship libmetasec_ml.so)"
       ],
-      "notes": "Unverified on this device survey and no vendor SDK binary could be downloaded (no public Maven coordinate), so prefixes rest on public analyses only. Anti-fraud/risk SDK (signature headers a_bogus/X-Gorgon style); endpoints unknown, detection only. No block rules, so no defaultBlock flag (CONTRACT); if endpoints are verified and added later, set defaultBlock=false because blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
+      "notes": "Unverified on this device survey and no vendor SDK binary could be downloaded (no public Maven coordinate), so prefixes rest on public analyses only. Risk-control SDK (signature headers a_bogus/X-Gorgon style); endpoints unknown, detection only. No block rules, so no defaultBlock flag (CONTRACT); if endpoints are verified and added later, set defaultBlock=false because blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
     },
     {
       "id": "bytedance-pgl-secsdk",
       "name": "字节跳动 SecSDK (com.pgl)",
-      "nameEn": "ByteDance Pangle SecSDK (device security / anti-fraud signals)",
+      "nameEn": "ByteDance Pangle SecSDK (device security signals)",
       "vendor": "ByteDance (Pangle)",
       "categories": [
         "IDENTIFICATION"
@@ -1056,7 +1071,7 @@
         "apk: com.mi.globalbrowser classes contain Lcom/pgl/ssdk/ and Lcom/pgl/ssdk/ces/",
         "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard section (-keep com.pgl.sys.ces.*)"
       ],
-      "notes": "ByteDance's security/anti-fraud module, bundled with Pangle/CSJ ads but also with other ByteDance SDKs, hence a separate entry. Token/risk requests (ssdk-*.pangle.io) can feed login/ad-fraud checks; blocking may cause extra verification or failures (拦截可能导致登录需要额外验证或失败), so defaultBlock=false."
+      "notes": "ByteDance's device security module, bundled with Pangle/CSJ ads but also with other ByteDance SDKs, hence a separate entry. Token/risk requests (ssdk-*.pangle.io) can feed login/ad risk-control checks; blocking may cause extra verification or failures (拦截可能导致登录需要额外验证或失败), so defaultBlock=false."
     },
     {
       "id": "chartboost",
@@ -1221,6 +1236,7 @@
       "id": "ctcc-quicklogin",
       "name": "中国电信 天翼账号一键登录 SDK",
       "nameEn": "China Telecom one-tap login",
+      "displayName": "中国电信 一键登录 SDK",
       "vendor": "中国电信 China Telecom",
       "categories": [
         "ANALYTICS"
@@ -1273,6 +1289,7 @@
       "id": "datadog-rum",
       "name": "Datadog RUM 监控",
       "nameEn": "Datadog RUM / Logs / Session Replay",
+      "displayNameEn": "Datadog RUM",
       "vendor": "Datadog",
       "categories": [
         "ANALYTICS",
@@ -1303,6 +1320,7 @@
       "id": "dingxiang-risk",
       "name": "顶象设备指纹/风控",
       "nameEn": "Dingxiang (DX) risk SDK",
+      "displayName": "顶象设备指纹",
       "vendor": "顶象技术 Dingxiang",
       "categories": [
         "IDENTIFICATION"
@@ -1348,6 +1366,7 @@
       "id": "dynatrace",
       "name": "Dynatrace 移动监控",
       "nameEn": "Dynatrace OneAgent for Android",
+      "displayNameEn": "Dynatrace OneAgent",
       "vendor": "Dynatrace",
       "categories": [
         "ANALYTICS",
@@ -1388,6 +1407,7 @@
       "id": "facebook-app-events",
       "name": "Facebook SDK 应用事件",
       "nameEn": "Facebook SDK App Events / Analytics",
+      "displayNameEn": "Facebook App Events",
       "vendor": "Meta Platforms",
       "categories": [
         "ANALYTICS",
@@ -1424,7 +1444,7 @@
         "doc: https://docs.fingerprint.com/docs/android-sdk.md and https://docs.fingerprint.com/docs/regions (api.fpjs.io, eu.api.fpjs.io, ap.api.fpjs.io)",
         "src: https://github.com/fingerprintjs/fingerprint-device-intelligence-android-demo (imports com.fingerprint.android)"
       ],
-      "notes": "Used for fraud/bot detection at login and payment — blocking may trigger extra verification or failed sign-in. Customers can proxy via custom endpointUrl. The open-source com.fingerprintjs.android.fingerprint library is offline (no network) and not matched; com.fingerprintjs.android.fpjs_pro is the older Pro package (unverified). defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Used for device verification and bot detection at login and payment — blocking may trigger extra verification or failed sign-in. Customers can proxy via custom endpointUrl. The open-source com.fingerprintjs.android.fingerprint library is offline (no network) and not matched; com.fingerprintjs.android.fpjs_pro is the older Pro package (unverified). defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "flurry",
@@ -1510,6 +1530,7 @@
       "id": "geetest-risk",
       "name": "极验 设备风控 (GT4 gtc4)",
       "nameEn": "Geetest device risk collection (gtc4)",
+      "displayNameEn": "Geetest device risk SDK",
       "vendor": "极验 Geetest",
       "categories": [
         "IDENTIFICATION"
@@ -1566,6 +1587,8 @@
       "id": "getui-gtc",
       "name": "个推 GTC 基础组件 / 个像 IDO",
       "nameEn": "Getui GTC component & IDO user profiling",
+      "displayName": "个推 GTC 基础组件",
+      "displayNameEn": "Getui GTC & IDO",
       "vendor": "每日互动 Getui",
       "categories": [
         "PROFILING"
@@ -1695,6 +1718,8 @@
       "id": "google-analytics-legacy",
       "name": "谷歌分析 (旧版 GA)",
       "nameEn": "Google Analytics (Universal / legacy Android SDK)",
+      "displayName": "谷歌分析 旧版",
+      "displayNameEn": "Google Analytics legacy",
       "vendor": "Google",
       "categories": [
         "ANALYTICS"
@@ -1763,6 +1788,7 @@
       "id": "google-firebase-analytics",
       "name": "Firebase 统计 (Google Analytics for Firebase)",
       "nameEn": "Google Analytics for Firebase",
+      "displayNameEn": "Firebase Analytics",
       "vendor": "Google",
       "categories": [
         "ANALYTICS",
@@ -1797,6 +1823,7 @@
       "id": "google-firebase-crashlytics",
       "name": "Firebase Crashlytics 崩溃上报",
       "nameEn": "Firebase Crashlytics",
+      "displayName": "Firebase Crashlytics",
       "vendor": "Google",
       "categories": [
         "CRASH"
@@ -1835,6 +1862,7 @@
       "id": "google-firebase-performance",
       "name": "Firebase 性能监控",
       "nameEn": "Firebase Performance Monitoring",
+      "displayNameEn": "Firebase Performance",
       "vendor": "Google",
       "categories": [
         "ANALYTICS"
@@ -1865,6 +1893,7 @@
       "id": "google-ima",
       "name": "谷歌互动媒体广告 (IMA)",
       "nameEn": "Google Interactive Media Ads SDK",
+      "displayNameEn": "Google IMA SDK",
       "vendor": "Google",
       "categories": [
         "ADS"
@@ -2027,6 +2056,8 @@
       "id": "huawei-agc-crash-apms",
       "name": "华为 AGC 崩溃服务/应用性能管理",
       "nameEn": "Huawei AppGallery Connect Crash & APM (APMS)",
+      "displayName": "华为 AGC 崩溃与性能",
+      "displayNameEn": "Huawei AGC Crash & APM",
       "vendor": "Huawei",
       "categories": [
         "CRASH",
@@ -2047,6 +2078,8 @@
       "id": "huawei-analytics",
       "name": "华为分析服务 Analytics Kit",
       "nameEn": "Huawei Analytics Kit / HiAnalytics",
+      "displayName": "华为分析服务",
+      "displayNameEn": "Huawei Analytics Kit",
       "vendor": "Huawei",
       "categories": [
         "ANALYTICS"
@@ -2198,7 +2231,7 @@
       "evidence": [
         "sdk: https://repo.incognia.com/android/ (incognia-core 6.34.1 AAR: packages com.incognia.core, com.inlocomedia.android; hosts service1-5.us/br.incognia.com)"
       ],
-      "notes": "Location-behaviour based device identity for fraud checks; blocking may trigger extra verification. In Loco (com.inlocomedia) was its earlier location-ads business. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Location-behaviour based device identity for risk-control checks; blocking may trigger extra verification. In Loco (com.inlocomedia) was its earlier location-ads business. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "inmobi",
@@ -2282,6 +2315,7 @@
       "id": "ironsource-levelplay",
       "name": "ironSource 广告 (LevelPlay)",
       "nameEn": "ironSource / Unity LevelPlay mediation",
+      "displayNameEn": "ironSource LevelPlay",
       "vendor": "Unity (ironSource)",
       "categories": [
         "ADS"
@@ -2426,7 +2460,7 @@
     },
     {
       "id": "kount",
-      "name": "Kount 反欺诈",
+      "name": "Kount 风控",
       "nameEn": "Kount Data Collector",
       "vendor": "Kount (Equifax)",
       "categories": [
@@ -2444,7 +2478,7 @@
       "evidence": [
         "src: https://github.com/Kount/kount-android-sdk (kount-data-collector-5.0.4.jar: package com.kount.api; hosts ssl/tst/mbl.kaptcha.com /m.html)"
       ],
-      "notes": "Payment fraud device collector; blocking may cause payment declines/step-up. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Payment risk-control device collector; blocking may cause payment declines/step-up. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "kuaishou-ads",
@@ -2535,7 +2569,7 @@
       "evidence": [
         "sdk: downloaded Kuaishou ad SDK binaries ksad-ads-3.3.75.aar and third-kuaishoubase-4.8.10.1.aar (175 classes under com/kuaishou/weapon/p0/, e.g. WeaponHI, IWeaponInitParams); the same package is bundled in oppo-sdk-7.4.0.aar (176 classes)"
       ],
-      "notes": "Risk-control/anti-cheat module bundled with Kuaishou ads and other Kuaishou SDKs; endpoints are encrypted/native and not verifiable, so detection only. No block rules, so no defaultBlock flag (CONTRACT); if endpoints are verified and added later, set defaultBlock=false because blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
+      "notes": "Risk-control/device security module bundled with Kuaishou ads and other Kuaishou SDKs; endpoints are encrypted/native and not verifiable, so detection only. No block rules, so no defaultBlock flag (CONTRACT); if endpoints are verified and added later, set defaultBlock=false because blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
     },
     {
       "id": "leanplum",
@@ -2714,6 +2748,7 @@
       "id": "microsoft-clarity",
       "name": "Microsoft Clarity 会话回放",
       "nameEn": "Microsoft Clarity (mobile session replay)",
+      "displayName": "微软 Clarity 会话回放",
       "vendor": "Microsoft",
       "categories": [
         "PROFILING",
@@ -2864,6 +2899,8 @@
       "id": "mobtech-sharesdk",
       "name": "MobTech 基础/ShareSDK",
       "nameEn": "MobTech MobCommons / ShareSDK",
+      "displayName": "MobTech ShareSDK",
+      "displayNameEn": "MobTech ShareSDK",
       "vendor": "MobTech 秒验 (Mob)",
       "categories": [
         "PROFILING",
@@ -2958,6 +2995,8 @@
       "id": "ms-appcenter",
       "name": "微软 App Center 统计/崩溃",
       "nameEn": "Microsoft App Center Analytics & Crashes",
+      "displayName": "微软 App Center",
+      "displayNameEn": "Microsoft App Center",
       "vendor": "Microsoft",
       "categories": [
         "ANALYTICS",
@@ -3038,9 +3077,11 @@
       "notes": "Collection host is obfuscated in the SDK; tracker-api.my.com / tracker-api.vk-analytics.ru are believed endpoints (unverified) — not blocked."
     },
     {
-      "id": "netease-yidun-anticheat",
-      "name": "网易易盾 反作弊/设备指纹",
-      "nameEn": "NetEase Yidun anti-cheat (mobsec)",
+      "id": "netease-yidun-mobsec",
+      "name": "网易易盾 设备安全/设备指纹",
+      "nameEn": "NetEase Yidun device security (mobsec)",
+      "displayName": "网易易盾 设备安全",
+      "displayNameEn": "NetEase Yidun security",
       "vendor": "网易易盾 NetEase Yidun",
       "categories": [
         "IDENTIFICATION"
@@ -3067,12 +3108,14 @@
         "doc: public decompiled sources (GitHub MeiloX/MeiloX app/src/main/java/com/netease/mobsec/p.java, o.java) — https://ac.dun.163.com/v2/m/b, /v2/m/d, /v2/config/android ; ac.dun.163yun.com mirror",
         "sdk: Maven Central io.github.yidun:captcha:3.7.1 — captcha also talks to ac-v6.dun.163yun.com and c-v6.dun.163.com"
       ],
-      "notes": "Only the data-report paths (/v2/m/) are blocked; /v2/config stays open. Yidun captcha/one-pass may require the anti-cheat token, so verification can fail in protected apps. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Only the data-report paths (/v2/m/) are blocked; /v2/config stays open. Yidun captcha/one-pass may require the device security token, so verification can fail in protected apps. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "netease-yidun-sdk-stats",
       "name": "网易易盾 SDK 统计/崩溃上报",
       "nameEn": "NetEase Yidun SDK stats & crash report",
+      "displayName": "网易易盾 SDK 统计",
+      "displayNameEn": "NetEase Yidun SDK stats",
       "vendor": "网易易盾 NetEase Yidun",
       "categories": [
         "ANALYTICS",
@@ -3225,6 +3268,7 @@
       "id": "oneapm",
       "name": "OneAPM",
       "nameEn": "OneAPM / Blueware mobile agent",
+      "displayNameEn": "OneAPM mobile agent",
       "vendor": "OneAPM",
       "categories": [
         "ANALYTICS",
@@ -3265,6 +3309,7 @@
       "id": "openinstall",
       "name": "openinstall 安装来源/深度链接",
       "nameEn": "openinstall Attribution",
+      "displayName": "openinstall 安装来源",
       "vendor": "openinstall（分骨科技）",
       "categories": [
         "ATTRIBUTION"
@@ -3311,6 +3356,7 @@
       "id": "oppo-push",
       "name": "OPPO 推送 (HeyTap MSP)",
       "nameEn": "OPPO / HeyTap Push",
+      "displayNameEn": "OPPO Push",
       "vendor": "OPPO",
       "categories": [
         "PUSH"
@@ -3481,6 +3527,7 @@
       "id": "salesforce-marketing-cloud",
       "name": "Salesforce Marketing Cloud 推送",
       "nameEn": "Salesforce Marketing Cloud (MobilePush)",
+      "displayName": "Salesforce 营销云推送",
       "vendor": "Salesforce",
       "categories": [
         "PUSH",
@@ -3607,11 +3654,11 @@
       ],
       "defaultBlock": false,
       "evidence": [
-        "sdk: Maven Central com.ishumei.smantifraud:smsdk:2.9.9_hy_build2 — com.ishumei.*; fp-it / fp-it-tracker / fp-na-it-acc / fp-na-it-tracker / fp-sa-it / fp-sa-it-tracker .fengkongcloud.com",
-        "apk: com.xiaomi.gamecenter.sdk.service classes contain Lcom/ishumei/smantifraud/; strings api-fp-retry-bj/na/sa.fengkongcloud.com",
+        "sdk: Maven Central smsdk 2.9.9_hy_build2 (group under com.ishumei.) — com.ishumei.*; fp-it / fp-it-tracker / fp-na-it-acc / fp-na-it-tracker / fp-sa-it / fp-sa-it-tracker .fengkongcloud.com",
+        "apk: com.xiaomi.gamecenter.sdk.service classes contain Lcom/ishumei/ (SDK package); strings api-fp-retry-bj/na/sa.fengkongcloud.com",
         "apk: com.xiaomi.smarthome classes contain Lcom/ishumei/dfp/"
       ],
-      "notes": "Risk-control SDK: apps send the Shumei deviceId to their backend for login/registration/activity anti-fraud. Blocking can trigger extra verification, “device abnormal” errors or failed sign-in in the protected app. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Risk-control SDK: apps send the Shumei deviceId to their backend for login/registration/activity risk control. Blocking can trigger extra verification, “device abnormal” errors or failed sign-in in the protected app. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "shuzilm",
@@ -3629,11 +3676,11 @@
         "sdk: Maven Central cn.shuzilm.core:dusdk:8.0.9 — cn.shuzilm.core.DUSDK",
         "doc: public decompiled sources (GitHub Gavinme/smid_project app/src/main/java/cn/shuzilm/core/Main.java)"
       ],
-      "notes": "Detection only: endpoints are resolved in native code and were not independently verified (ddi*.shuzilm.cn is commonly reported). Risk-control ID; blocking may affect sign-up anti-fraud."
+      "notes": "Detection only: endpoints are resolved in native code and were not independently verified (ddi*.shuzilm.cn is commonly reported). Risk-control ID; blocking may affect sign-up device verification."
     },
     {
       "id": "sift",
-      "name": "Sift 反欺诈",
+      "name": "Sift 风控",
       "nameEn": "Sift",
       "vendor": "Sift Science",
       "categories": [
@@ -3653,7 +3700,7 @@
       "evidence": [
         "src: https://github.com/SiftScience/sift-android/blob/master/sift/src/main/java/siftscience/android/Sift.java (https://api3.siftscience.com/v3/accounts/%s/mobile_events)"
       ],
-      "notes": "Device/behaviour signals for fraud scoring; blocking may raise risk scores (extra checks, declined orders). defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Device/behaviour signals for risk scoring; blocking may raise risk scores (extra checks, declined orders). defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "sigmob",
@@ -3687,6 +3734,7 @@
       "id": "sigmob-windmill",
       "name": "ToBid / WindMill 聚合 (Sigmob)",
       "nameEn": "ToBid (WindMill) Mediation",
+      "displayName": "ToBid 聚合",
       "vendor": "Sigmob（创智汇聚）",
       "categories": [
         "ADS"
@@ -3994,6 +4042,7 @@
       "id": "tencent-gdt",
       "name": "腾讯优量汇（广点通）",
       "nameEn": "Tencent GDT / Youlianghui Ads",
+      "displayNameEn": "Tencent GDT Ads",
       "vendor": "腾讯 (Tencent)",
       "categories": [
         "ADS"
@@ -4038,12 +4087,13 @@
         "apk: com.miui.player classes contain Lcom/qq/e/comm/ and Lcom/qq/e/tg/; strings rpt.gdt.qq.com, sdkreport.e.qq.com, tangram.e.qq.com",
         "apk: com.sohu.inputmethod.sogou.xiaomi classes contain Lcom/qq/e/comm/"
       ],
-      "notes": "com.android.gdt.* is GDT's bundled device-id/QIMEI module (shipped inside the union AAR). The union AAR also bundles com.tencent.turingfd.sdk (Turing anti-fraud, IDENTIFICATION; left to that slice). Not blocked (shared Tencent infra): e.qq.com (advertiser portal), qzs.qq.com, i.gtimg.cn, qzonestyle.gtimg.cn, snowflake.qq.com, tdid.m.qq.com. union.eff.qq.com seen in SDK strings, purpose unclear."
+      "notes": "com.android.gdt.* is GDT's bundled device-id/QIMEI module (shipped inside the union AAR). The union AAR also bundles com.tencent.turingfd.sdk (Turing device security, IDENTIFICATION; left to that slice). Not blocked (shared Tencent infra): e.qq.com (advertiser portal), qzs.qq.com, i.gtimg.cn, qzonestyle.gtimg.cn, snowflake.qq.com, tdid.m.qq.com. union.eff.qq.com seen in SDK strings, purpose unclear."
     },
     {
       "id": "tencent-gdt-action",
       "name": "腾讯广告用户行为数据源 SDK (GDTAction)",
       "nameEn": "Tencent Ads Conversion SDK (GDTAction)",
+      "displayName": "腾讯广告转化 SDK",
       "vendor": "腾讯 (Tencent)",
       "categories": [
         "ATTRIBUTION"
@@ -4156,6 +4206,7 @@
       "id": "tencent-rmonitor",
       "name": "腾讯 RMonitor 性能监控 (Bugly 专业版)",
       "nameEn": "Tencent RMonitor / Bugly Pro APM",
+      "displayNameEn": "Tencent RMonitor",
       "vendor": "Tencent",
       "categories": [
         "ANALYTICS",
@@ -4177,6 +4228,7 @@
       "id": "tencent-tpns",
       "name": "腾讯移动推送 TPNS (信鸽)",
       "nameEn": "Tencent Push Notification Service (TPNS/XG)",
+      "displayNameEn": "Tencent TPNS",
       "vendor": "Tencent",
       "categories": [
         "PUSH"
@@ -4202,6 +4254,7 @@
       "id": "tencent-turing",
       "name": "腾讯图灵盾 (TuringFD)",
       "nameEn": "Tencent Turing Shield device fingerprint",
+      "displayNameEn": "Tencent Turing Shield",
       "vendor": "Tencent",
       "categories": [
         "IDENTIFICATION"
@@ -4217,7 +4270,7 @@
         "apk: com.baidu.input_mi classes contain Lcom/tencent/turingfd/sdk/; string https://tdid.m.qq.com/tmf; native libturingau.so",
         "apk: com.miui.player classes contain Lcom/tencent/turingfd/; strings https://tdid.m.qq.com/tmf, https://tdid.m.qq.com?mc=2"
       ],
-      "notes": "Anti-fraud device ID (TAID/Turing ticket) mainly consumed by Tencent GDT ads. Blocking tdid.m.qq.com may make Tencent ad/anti-cheat checks treat the device as unknown. com.tencent.turingcam (face-verification camera guard inside Tencent Cloud KYC SDKs) is intentionally not listed. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Risk-control device ID (TAID/Turing ticket) mainly consumed by Tencent GDT ads. Blocking tdid.m.qq.com may make Tencent ad/risk-control checks treat the device as unknown. com.tencent.turingcam (face-verification camera guard inside Tencent Cloud KYC SDKs) is intentionally not listed. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "tencentmusic-ads",
@@ -4332,6 +4385,7 @@
       "id": "tingyun",
       "name": "听云",
       "nameEn": "Tingyun APM (NetworkBench)",
+      "displayName": "听云 APM",
       "vendor": "听云 Tingyun",
       "categories": [
         "ANALYTICS",
@@ -4353,6 +4407,7 @@
       "id": "tongdun",
       "name": "同盾设备指纹",
       "nameEn": "Tongdun / TrustDecision device fingerprint",
+      "displayNameEn": "Tongdun device fingerprint",
       "vendor": "同盾科技 Tongdun",
       "categories": [
         "IDENTIFICATION"
@@ -4369,12 +4424,13 @@
         "doc: https://en-doc.trustdecision.com/reference/bytedance-applet-2-0-en (fp.tongdun.net required device-fingerprint domain)",
         "doc: public decompiled app source (GitHub meltingscales/com.lenovo.anyshare.gps cn/tongdun/android/…, com/lenovo/anyshare/C2563Gde.java) — https://sgfp.tongdun.net/android3_8/profile.json"
       ],
-      "notes": "Fingerprint “blackBox” is used by the app backend for anti-fraud; blocking may cause login/payment risk challenges or rejections. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Fingerprint “blackBox” is used by the app backend for risk control; blocking may cause login/payment risk challenges or rejections. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "topon-anythink",
       "name": "TopOn 聚合 (AnyThink / Taku)",
       "nameEn": "TopOn / AnyThink Mediation",
+      "displayNameEn": "TopOn Mediation",
       "vendor": "TopOn（上海弧心）",
       "categories": [
         "ADS"
@@ -4455,6 +4511,7 @@
       "id": "uc-crashsdk",
       "name": "UC 崩溃 SDK (啄木鸟)",
       "nameEn": "UC CrashSDK / Woodpecker",
+      "displayNameEn": "UC CrashSDK",
       "vendor": "UC (Alibaba)",
       "categories": [
         "CRASH"
@@ -4550,6 +4607,7 @@
       "id": "umeng-apm",
       "name": "友盟应用性能监控 U-APM",
       "nameEn": "Umeng U-APM / crash",
+      "displayNameEn": "Umeng U-APM",
       "vendor": "友盟+ (Alibaba)",
       "categories": [
         "CRASH"
@@ -4580,6 +4638,8 @@
       "id": "umeng-link",
       "name": "友盟 U-Link 智能超链/归因",
       "nameEn": "Umeng U-Link deferred deep link & attribution",
+      "displayName": "友盟 U-Link",
+      "displayNameEn": "Umeng U-Link",
       "vendor": "友盟+ (Alibaba)",
       "categories": [
         "ATTRIBUTION"
@@ -4792,7 +4852,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/vivo-sdk/6.1.7.2/ (vendor SDK mirror; classes Lcom/vivo/mobilead/, Lcom/vivo/ad/, Lcom/vivo/advv/; hosts adsdk.vivo.com.cn, moni-*-stsdk.vivo.com.cn)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.vivo.mobilead.manager.VivoAdManager, com.vivo.mobad)"
       ],
-      "notes": "Bundles Shumei fingerprint (fp-*.fengkongcloud.com, IDENTIFICATION slice) and vivo httpdns. Uncertain: ssp.vivo.com.cn, vhs.vivo.com.cn, vhs.wwstat.com, risk-fp-openapi.vivo.com.cn (anti-fraud)."
+      "notes": "Bundles Shumei fingerprint (fp-*.fengkongcloud.com, IDENTIFICATION slice) and vivo httpdns. Uncertain: ssp.vivo.com.cn, vhs.vivo.com.cn, vhs.wwstat.com, risk-fp-openapi.vivo.com.cn (risk control)."
     },
     {
       "id": "vivo-push",
@@ -5036,6 +5096,7 @@
       "id": "xinstall",
       "name": "Xinstall 安装来源/深度链接",
       "nameEn": "Xinstall Attribution",
+      "displayName": "Xinstall 安装来源",
       "vendor": "Xinstall（舒宝）",
       "categories": [
         "ATTRIBUTION"

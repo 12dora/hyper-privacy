@@ -63,11 +63,9 @@ internal class PackageIndexer(
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        // Protected apps are exempt from module self-hiding, so turning protection on or off rebuilds too.
-        val protection = key?.startsWith(TrackerProtection.PROTECT_PREFIX) == true
-        if (AppListConfig.affects(key) || protection) {
-            handler.post { log.guard("rebuild app-list policy") { rebuildPolicy() } }
-        }
+        if (AppListConfig.affects(key)) handler.post { log.guard("rebuild app-list policy") { rebuildPolicy() } }
+        // The status relay only accepts protected apps.
+        if (TrackerProtection.affects(key)) handler.post { log.guard("read protected apps") { readProtected() } }
     }
 
     fun start() {
@@ -82,6 +80,7 @@ internal class PackageIndexer(
         // Sent by PackageManager when the default home (ROLE_HOME holder) or another preferred activity changes.
         registerForAllUsers(IntentFilter(ACTION_PREFERRED_ACTIVITY_CHANGED))
         prefs?.registerOnSharedPreferenceChangeListener(prefsListener)
+        readProtected()
         state.onUnknownApp = { handler.post(::scheduleRebuild) }
         rebuildIndex()
     }
@@ -160,14 +159,21 @@ internal class PackageIndexer(
     private fun rebuildPolicy() {
         val raw = log.guard("read app-list config") { prefs?.all }.orEmpty()
         val config = AppListConfig.decode(raw)
-        // Hooked apps report status to the module's provider, so they must keep seeing it.
-        val exempt = Catalog.scope + listOfNotNull(homeApp) + TrackerProtection.protectedPackages(raw)
+        // Catalog targets report status to the module's provider, so they must keep seeing it.
+        // Protected third-party apps never do: they report through system_server (StatusRelay).
+        val exempt = Catalog.scope + listOfNotNull(homeApp)
         val policy = AppListPolicy.resolve(config, state.index, BuildConfig.APPLICATION_ID, exempt)
         state.appList = policy
         // Apps cache PackageManager answers in-process; a new snapshot or config must not wait for the next install.
         log.guard("invalidate package caches") { invalidateClientCaches() }
         val counts = "${config.restricted.size} restricted, ${config.strict.size} strict"
         log.info("app-list: $counts, ${config.allowlist.size} allowlisted, self hidden: ${config.hideSelf}")
+    }
+
+    /** Protected third-party apps, the only callers [StatusRelayGuard] accepts. */
+    private fun readProtected() {
+        val raw = log.guard("read tracker config") { prefs?.all }.orEmpty()
+        state.protectedPackages = TrackerProtection.protectedPackages(raw)
     }
 
     /** `PackageManager.invalidatePackageInfoCache()` (hidden): bumps the cache nonce every client checks. */

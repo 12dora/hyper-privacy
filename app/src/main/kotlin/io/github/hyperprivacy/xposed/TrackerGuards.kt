@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.xposed
 
+import io.github.hyperprivacy.core.status.StatusRelay
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.libxposed.api.XposedInterface
@@ -12,9 +13,15 @@ import io.github.libxposed.api.XposedInterface
  *
  * The rule set is fixed for the life of the process (a new scan result applies on next start);
  * per-SDK switches and turning protection off apply live.
+ *
+ * Status goes through system_server ([StatusRelay]): this app never resolves the module package,
+ * which stays hidden from it.
  */
 internal object TrackerGuards {
     fun install(xposed: XposedInterface, log: HookLog, packageName: String, classLoader: ClassLoader) {
+        // This app's SDKs read its logcat: nothing about the module is written outside diagnostics mode.
+        log.quiet = true
+        log.verbose = { false }
         val prefs = RuleSwitches.openPrefs(xposed, log) ?: return
         val raw = log.guard("read tracker config") { prefs.all }.orEmpty()
         val detected = TrackerProtection.detected(raw, packageName) ?: return
@@ -23,9 +30,11 @@ internal object TrackerGuards {
             prefs = prefs,
             log = log,
             decode = { TrackerRules.resolve(it, packageName, rules) },
-            affects = TrackerProtection::affects,
+            affects = { TrackerProtection.affects(it, packageName) },
         )
+        log.verbose = { switches.observe }
         log.info("tracker protection for $packageName: ${detected.size} SDKs detected, ${rules.size} rules")
-        AppGuards(xposed, log, packageName, classLoader, rules, switches).install()
+        val relay = { switches.secret?.let(StatusRelay::method) }
+        AppGuards(xposed, log, packageName, classLoader, rules, switches, relay).install()
     }
 }

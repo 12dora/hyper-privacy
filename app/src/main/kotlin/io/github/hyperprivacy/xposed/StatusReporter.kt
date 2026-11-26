@@ -2,27 +2,25 @@ package io.github.hyperprivacy.xposed
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Bundle
 import android.os.Process
 import android.os.SystemClock
 import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
-import io.github.hyperprivacy.core.status.MetaCodec
-import io.github.hyperprivacy.core.status.ObservedCodec
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RetryBackoff
 import io.github.hyperprivacy.core.status.RuleReport
-import io.github.hyperprivacy.core.status.SinkCodec
 import io.github.hyperprivacy.core.status.SinkReport
-import io.github.hyperprivacy.core.status.StatusCodec
+import io.github.hyperprivacy.core.status.StatusBatch
 import io.github.hyperprivacy.status.StatusContract
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -39,20 +37,30 @@ import java.util.concurrent.atomic.AtomicLong
  * and process start time), and a heartbeat every [HEARTBEAT_HOURS] re-sends the state so the app
  * can tell a long-lived quiet process (a candidate for "idle rule") from one that is gone.
  *
+ * In system_server it also carries what protected third-party apps hand it through the status
+ * relay ([relay]); those apps pass [relayMethod] and never talk to the module app themselves.
+ *
  * @param context supplies a Context once one exists (returns `null` early in process start).
+ * @param relayMethod for a protected third-party app: the relay method name, `null` while unknown.
  */
-internal class StatusReporter(private val log: HookLog, private val context: () -> Context?) {
+internal class StatusReporter(
+    private val log: HookLog,
+    private val context: () -> Context?,
+    relayMethod: (() -> String?)? = null,
+) {
     private data class RuleKey(val packageName: String, val ruleId: String)
 
     private data class SinkKey(val packageName: String, val sink: String)
 
-    private val delivery = ReportDelivery(log, context)
+    private val delivery = ReportDelivery(log, context, relayMethod)
     private val backoff = RetryBackoff()
     private val states = ConcurrentHashMap<RuleKey, HookState>()
     private val sinks = ConcurrentHashMap<SinkKey, HookState>()
     private val hits = ConcurrentHashMap<RuleKey, AtomicLong>()
     private val endpoints = EndpointRecorder()
     private val loggedHits: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val relayedObserved = BoundedQueue<ObservedEndpoint>(MAX_RELAYED_OBSERVED)
+    private val relayedMeta = ConcurrentHashMap<String, ProcessMeta>()
     private val scheduled = AtomicBoolean(false)
     private val heartbeatStarted = AtomicBoolean(false)
 
@@ -102,6 +110,22 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
         markDirty()
     }
 
+    /**
+     * system_server: merges a batch a protected app relayed (already filtered by
+     * [io.github.hyperprivacy.core.status.StatusRelay.accept]); it goes out with the next flush.
+     */
+    fun relay(batch: StatusBatch) {
+        batch.reports.forEach { report ->
+            val key = RuleKey(report.packageName, report.ruleId)
+            states[key] = report.state
+            if (report.hits > 0) hits.getOrPut(key) { AtomicLong() }.addAndGet(report.hits)
+        }
+        batch.sinks.forEach { sinks[SinkKey(it.packageName, it.sink)] = it.state }
+        batch.observed.forEach(relayedObserved::offer)
+        batch.meta.forEach { if (relayedMeta.size < MAX_RELAYED_META) relayedMeta[it.packageName] = it }
+        markDirty()
+    }
+
     /** Diagnostics: records an endpoint; returns it if it was new (for one-time logging). */
     fun observe(packageName: String, host: String, path: String?, blocked: Boolean): ObservedEndpoint? {
         val fresh = endpoints.record(packageName, host, path, blocked, System.currentTimeMillis())
@@ -141,7 +165,8 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
         lastFlushAt = SystemClock.elapsedRealtime()
         dirty.set(false)
         val deltas = hits.mapValues { (_, count) -> count.getAndSet(0) }.filterValues { it > 0 }
-        val observed = endpoints.drain()
+        val relayed = relayedObserved.drain()
+        val observed = endpoints.drain() + relayed
         val outcome = log.guard("deliver status") { deliver(deltas, observed) } ?: ReportDelivery.Outcome.FAILED
         val delivered = outcome == ReportDelivery.Outcome.DELIVERED || outcome == ReportDelivery.Outcome.REJECTED
         if (delivered) {
@@ -149,6 +174,7 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
         } else {
             deltas.forEach { (key, count) -> hits.getOrPut(key) { AtomicLong() }.addAndGet(count) }
             endpoints.restore(observed)
+            relayed.forEach(relayedObserved::offer)
             failures++
         }
         scheduled.set(false)
@@ -161,13 +187,8 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
         }
         val sinkReports = sinks.map { (key, state) -> SinkReport(key.packageName, key.sink, state) }
         if (reports.isEmpty() && sinkReports.isEmpty() && observed.isEmpty()) return ReportDelivery.Outcome.DELIVERED
-        val extras = Bundle().apply {
-            if (reports.isNotEmpty()) putString(StatusContract.KEY_PAYLOAD, StatusCodec.encode(reports))
-            if (sinkReports.isNotEmpty()) putString(StatusContract.KEY_SINKS, SinkCodec.encode(sinkReports))
-            if (observed.isNotEmpty()) putString(StatusContract.KEY_OBSERVED, ObservedCodec.encode(observed))
-            readProcessMeta()?.let { putString(StatusContract.KEY_META, MetaCodec.encode(listOf(it))) }
-        }
-        return delivery.send(extras)
+        val meta = listOfNotNull(readProcessMeta()) + relayedMeta.values
+        return delivery.send(StatusContract.encode(StatusBatch(reports, sinkReports, observed, meta)))
     }
 
     /**
@@ -197,5 +218,31 @@ internal class StatusReporter(private val log: HookLog, private val context: () 
 
         /** Distinct (rule, target) pairs logged per process before first-hit logging goes quiet. */
         const val MAX_LOGGED_HITS = 256
+
+        /** system_server: relayed endpoints held between flushes, and relayed processes remembered. */
+        const val MAX_RELAYED_OBSERVED = 1_000
+        const val MAX_RELAYED_META = 512
+    }
+}
+
+/** A lock-free queue holding at most [capacity] items; offers beyond it are dropped. */
+private class BoundedQueue<T : Any>(private val capacity: Int) {
+    private val items = ConcurrentLinkedQueue<T>()
+    private val count = AtomicInteger()
+
+    fun offer(item: T) {
+        if (count.incrementAndGet() > capacity) {
+            count.decrementAndGet()
+            return
+        }
+        items.add(item)
+    }
+
+    fun drain(): List<T> = buildList {
+        while (true) {
+            val next = items.poll() ?: break
+            count.decrementAndGet()
+            add(next)
+        }
     }
 }

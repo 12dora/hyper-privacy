@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.xposed
 
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.scope.PackageRules
 import io.github.hyperprivacy.xposed.firewall.FirewallGuard
 import io.github.hyperprivacy.xposed.system.SystemServerGuards
@@ -22,7 +23,11 @@ class ModuleMain : XposedModule() {
     private var systemGuards: SystemServerGuards? = null
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        log.info("loaded in ${param.processName} (API $apiVersion, $frameworkName $frameworkVersion)")
+        // Not in other apps' processes: their logcat is read by their own SDKs (see HookLog).
+        val ownPackage = param.processName.substringBefore(':')
+        if (param.isSystemServer || ownPackage in Catalog.scope) {
+            log.info("loaded in ${param.processName} (API $apiVersion, $frameworkName $frameworkVersion)")
+        }
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
