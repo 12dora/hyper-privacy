@@ -1,4 +1,4 @@
-# 隐私管控（Hyper Privacy）
+# HyperPrivacy
 
 面向小米 HyperOS 的 LSPosed 模块：**只拦截隐私上报与遥测，不影响任何厂商服务**（应用商店、安全扫描、推送、云同步、查找设备、天气、系统更新等）。
 
