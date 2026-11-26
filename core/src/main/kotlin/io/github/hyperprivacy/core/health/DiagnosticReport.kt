@@ -3,12 +3,17 @@ package io.github.hyperprivacy.core.health
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.status.SinkReport
 
-/** Health of a rule in one package, with the installed and surveyed versions. */
+/**
+ * Health of a rule in one package, with the installed and surveyed versions.
+ *
+ * @property lastActiveVersionCode app version the rule was last ACTIVE with on this device.
+ */
 public data class PackageHealthRow(
     val packageName: String,
     val health: Health,
     val currentVersionCode: Long?,
     val baselineVersionCode: Long?,
+    val lastActiveVersionCode: Long? = null,
 )
 
 /** Health of one rule: [health] is the aggregate over [packages]. */
@@ -23,12 +28,19 @@ public data class RuleHealthRow(
  * Inputs of [DiagnosticReport.render]. Only these fields can ever reach the report.
  *
  * @property romIncremental `Build.VERSION.INCREMENTAL`, passed in so this stays pure.
+ * @property deviceModel `Build.MODEL`; a model name, not a serial or id.
+ * @property deviceCodename `Build.DEVICE`.
+ * @property onSurveyedDevice whether the static baseline applies to this device (else versions are
+ *   compared with device-local history).
  * @property missedSinks sinks that reported MISSED this boot.
  */
 public data class DiagnosticInput(
     val moduleVersion: String,
     val sdkInt: Int,
     val romIncremental: String,
+    val deviceModel: String = "",
+    val deviceCodename: String = "",
+    val onSurveyedDevice: Boolean = false,
     val rules: List<RuleHealthRow>,
     val missedSinks: List<SinkReport>,
     val suspectedEndpoints: List<ObservedEndpoint>,
@@ -38,8 +50,8 @@ public data class DiagnosticInput(
  * Renders a Markdown report a user can attach to an issue so the catalog can be updated.
  *
  * Privacy: the report contains only catalog-derived data (rule ids, vendor package names,
- * version codes, sink names) and endpoint host + path prefix. Free-text fields are reduced to
- * `[A-Za-z0-9._+-]`, invalid hosts are dropped, paths are cut to [ObservedEndpoint.pathPrefixOf]
+ * version codes, sink names), the device model and codename (never serials or ids), and endpoint
+ * host + path prefix. Free-text fields are reduced to `[A-Za-z0-9._+-]`, invalid hosts are dropped, paths are cut to [ObservedEndpoint.pathPrefixOf]
  * (no query or fragment), and path segments that look like ids (long digit runs, long hex) are
  * masked. No timestamps, device ids, accounts or user-installed app names are included.
  */
@@ -61,8 +73,11 @@ public object DiagnosticReport {
         appendLine("- module: ${field(input.moduleVersion)}")
         appendLine("- android sdk: ${input.sdkInt}")
         appendLine("- rom: ${field(input.romIncremental)}")
+        appendLine("- device: ${field(input.deviceModel)} (${field(input.deviceCodename)})")
+        appendLine("- baseline device: ${if (input.onSurveyedDevice) "yes" else "no"}")
         appendLine()
         appendRules(input.rules)
+        appendNotApplicable(input.rules)
         appendSinks(input.missedSinks)
         appendEndpoints(input.suspectedEndpoints)
     }
@@ -76,10 +91,24 @@ public object DiagnosticReport {
             appendLine("- ${field(rule.ruleId)} [$state] ${rule.health}")
             rule.packages.forEach { pkg ->
                 val current = pkg.currentVersionCode ?: NONE
-                val versions = "installed $current, baseline ${pkg.baselineVersionCode ?: NONE}"
+                val versions = "installed $current, baseline ${pkg.baselineVersionCode ?: NONE}, " +
+                    "last active ${pkg.lastActiveVersionCode ?: NONE}"
                 appendLine("  - ${packageName(pkg.packageName)}: ${pkg.health} ($versions)")
             }
         }
+        appendLine()
+    }
+
+    /** Per rule, how many target packages lack what it hooks: candidates for trimming the catalog. */
+    private fun StringBuilder.appendNotApplicable(rules: List<RuleHealthRow>) {
+        appendLine("## Not applicable")
+        appendLine()
+        val rows = rules.mapNotNull { rule ->
+            val count = rule.packages.count { it.health == Health.NOT_APPLICABLE }
+            Triple(rule.ruleId, count, rule.packages.size).takeIf { count > 0 }
+        }.sortedWith(compareBy({ -it.second }, { it.first }))
+        if (rows.isEmpty()) appendLine("(none)")
+        rows.forEach { (ruleId, count, total) -> appendLine("- ${field(ruleId)}: $count of $total packages") }
         appendLine()
     }
 

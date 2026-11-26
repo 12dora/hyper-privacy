@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core
 
+import io.github.hyperprivacy.core.health.ActivationHistory
 import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.health.HealthClock
 import io.github.hyperprivacy.core.health.HealthSignals
@@ -23,15 +24,23 @@ class RuleHealthTest {
     /** Long-running boot, for cases about the "seen within the window" edge. */
     private val longBoot = HealthClock(now = now, bootAt = now - 4 * window)
 
+    private val na = Health.NOT_APPLICABLE
     private val d = RuleKind.DOMAIN
     private val u = RuleKind.URL
     private val m = RuleKind.METHOD
 
-    /** Healthy baseline: installed, versions match, ACTIVE this boot, seen just now, hit recently. */
+    private val activeBefore = ActivationHistory(firstActiveAt = boot - day, lastActiveVersion = 100)
+
+    /**
+     * Healthy baseline: installed on the surveyed device, versions match, active here before and
+     * ACTIVE this boot, seen just now, hit recently.
+     */
     private val h = HealthSignals(
         installed = true,
         currentVersionCode = 100,
         baselineVersionCode = 100,
+        onSurveyedDevice = true,
+        history = activeBefore,
         ruleState = ACTIVE,
         ruleReportedAt = now - 1,
         lastProcessSeenAt = now - 1,
@@ -51,6 +60,9 @@ class RuleHealthTest {
     private fun quiet(quietFor: Long) = h.copy(lastHitAt = now - quietFor, activeSince = now - quietFor - day)
 
     private fun sinks(vararg pairs: Pair<String, HookState>) = h.copy(sinkStates = mapOf(*pairs))
+
+    /** Same package, but nothing was ever active here on this device. */
+    private val neverActive = h.copy(history = ActivationHistory.NEVER, ruleState = null, ruleReportedAt = null)
 
     private val notInstalledCases = listOf(
         Case("not installed wins", d, h.copy(installed = false, ruleState = MISSED), Health.NOT_INSTALLED),
@@ -75,6 +87,58 @@ class RuleHealthTest {
         Case("url: one url sink active", u, sinks("url.java" to ACTIVE, "url.okhttp" to MISSED), Health.OK),
         Case("url: no url sink reported", u, sinks("dns" to MISSED), Health.OK),
         Case("method ignores sinks", m, sinks("dns" to MISSED, "url.java" to MISSED), Health.OK),
+        Case(
+            "domain: sinks missed, one was active before",
+            d,
+            neverActive.copy(sinkStates = mapOf("dns" to MISSED, "tls" to MISSED), sinksEverActive = setOf("tls")),
+            Health.BROKEN,
+        ),
+    )
+
+    private val notApplicableCases = listOf(
+        Case("method class absent, never active", m, neverActive.copy(ruleState = MISSED, ruleReportedAt = now), na),
+        Case(
+            "not applicable beats version change",
+            m,
+            neverActive.copy(ruleState = MISSED, ruleReportedAt = now, currentVersionCode = 200),
+            na,
+        ),
+        Case(
+            "never active, stale miss is just not run",
+            m,
+            neverActive.copy(ruleState = MISSED, ruleReportedAt = boot - 1, lastProcessSeenAt = boot - 1),
+            Health.NOT_RUN,
+        ),
+        Case(
+            "firewall never eligible",
+            RuleKind.FIREWALL,
+            neverActive.copy(ruleState = MISSED, ruleReportedAt = now),
+            na,
+        ),
+        Case(
+            "domain: no sink ever active",
+            d,
+            neverActive.copy(sinkStates = mapOf("dns" to MISSED, "tls" to MISSED)),
+            na,
+        ),
+        Case(
+            "domain: only an unrelated sink was active",
+            d,
+            neverActive.copy(sinkStates = mapOf("dns" to MISSED), sinksEverActive = setOf("id.miui")),
+            na,
+        ),
+        Case(
+            "url: only a host sink was active",
+            u,
+            neverActive.copy(sinkStates = mapOf("url.java" to MISSED), sinksEverActive = setOf("dns")),
+            na,
+        ),
+        Case(
+            "not installed beats not applicable",
+            m,
+            neverActive.copy(installed = false, ruleState = MISSED),
+            Health.NOT_INSTALLED,
+        ),
     )
 
     private val reviewCases = listOf(
@@ -83,12 +147,61 @@ class RuleHealthTest {
         Case(
             "version changed, not run",
             RuleKind.FIREWALL,
-            HealthSignals(installed = true, currentVersionCode = 2, baselineVersionCode = 1),
+            HealthSignals(installed = true, currentVersionCode = 2, baselineVersionCode = 1, onSurveyedDevice = true),
             Health.NEEDS_REVIEW,
         ),
         Case("no baseline", d, h.copy(currentVersionCode = 5, baselineVersionCode = null), Health.OK),
         Case("unknown current version", d, h.copy(currentVersionCode = null), Health.OK),
         Case("version change beats idle", d, quiet(window).copy(currentVersionCode = 1), Health.NEEDS_REVIEW),
+        Case(
+            "surveyed device ignores history",
+            d,
+            h.copy(currentVersionCode = 200, history = activeBefore.copy(lastActiveVersion = 200)),
+            Health.NEEDS_REVIEW,
+        ),
+    )
+
+    /** Any other device: the baseline (100) means nothing, the version last seen active does. */
+    private val elsewhere = h.copy(
+        onSurveyedDevice = false,
+        currentVersionCode = 300,
+        history = activeBefore.copy(lastActiveVersion = 300),
+    )
+
+    private val historyReviewCases = listOf(
+        Case("other device, active with this version", d, elsewhere, Health.OK),
+        Case(
+            "updated, not yet active with the new version",
+            m,
+            elsewhere.copy(currentVersionCode = 301, ruleReportedAt = boot - 1, lastProcessSeenAt = boot - 1),
+            Health.NEEDS_REVIEW,
+        ),
+        Case(
+            "updated, old process still reported active",
+            m,
+            elsewhere.copy(currentVersionCode = 301),
+            Health.NEEDS_REVIEW,
+        ),
+        Case(
+            "updated, then missed: broken",
+            m,
+            elsewhere.copy(currentVersionCode = 301, ruleState = MISSED),
+            Health.BROKEN,
+        ),
+        Case("downgraded", d, elsewhere.copy(currentVersionCode = 299), Health.NEEDS_REVIEW),
+        Case(
+            "no history version yet",
+            d,
+            elsewhere.copy(history = activeBefore.copy(lastActiveVersion = null)),
+            Health.OK,
+        ),
+        Case(
+            "never active, no history",
+            d,
+            neverActive.copy(onSurveyedDevice = false, currentVersionCode = 300),
+            Health.OK,
+        ),
+        Case("unknown installed version", d, elsewhere.copy(currentVersionCode = null), Health.OK),
     )
 
     private val notRunCases = listOf(
@@ -140,7 +253,8 @@ class RuleHealthTest {
 
     @Test
     fun `evaluation table`() {
-        val all = notInstalledCases + brokenCases + reviewCases + notRunCases + idleCases +
+        val all = notInstalledCases + brokenCases + notApplicableCases + reviewCases + historyReviewCases +
+            notRunCases + idleCases +
             Case("healthy", d, h, Health.OK)
         val failures = all.mapNotNull { case ->
             val actual = RuleHealth.evaluate(case.kind, case.signals, case.clock ?: clock)
@@ -155,6 +269,23 @@ class RuleHealthTest {
         assertEquals(Health.OK, Health.worst(listOf(Health.NOT_INSTALLED, Health.NOT_RUN, Health.OK)))
         assertEquals(Health.IDLE, Health.worst(listOf(Health.OK, Health.IDLE)))
         assertEquals(Health.BROKEN, Health.worst(Health.entries))
+        assertEquals(Health.OK, Health.worst(listOf(Health.NOT_APPLICABLE, Health.OK, Health.NOT_APPLICABLE)))
+        assertEquals(Health.NOT_RUN, Health.worst(listOf(Health.NOT_APPLICABLE, Health.NOT_RUN)))
+        assertEquals(Health.NOT_APPLICABLE, Health.worst(listOf(Health.NOT_INSTALLED, Health.NOT_APPLICABLE)))
+    }
+
+    @Test
+    fun `ui order of states`() {
+        val expected = listOf(
+            Health.BROKEN,
+            Health.NEEDS_REVIEW,
+            Health.IDLE,
+            Health.OK,
+            Health.NOT_RUN,
+            Health.NOT_APPLICABLE,
+            Health.NOT_INSTALLED,
+        )
+        assertEquals(expected, Health.entries)
     }
 
     @Test

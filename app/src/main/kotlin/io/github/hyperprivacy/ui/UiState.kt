@@ -23,7 +23,7 @@ internal enum class ModuleState(val canEdit: Boolean) {
     ACTIVE(canEdit = true),
 }
 
-/** Health states the user should look at; the rest are fine or merely informational. */
+/** Health states the user should look at; the rest (including NOT_APPLICABLE) are fine or informational. */
 internal val Health.needsAttention: Boolean
     get() = this == Health.BROKEN || this == Health.NEEDS_REVIEW || this == Health.IDLE
 

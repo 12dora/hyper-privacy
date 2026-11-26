@@ -59,6 +59,7 @@ internal fun Health.labelRes(): Int = when (this) {
     Health.IDLE -> R.string.health_idle
     Health.OK -> R.string.health_ok
     Health.NOT_RUN -> R.string.health_not_run
+    Health.NOT_APPLICABLE -> R.string.health_not_applicable
     Health.NOT_INSTALLED -> R.string.health_not_installed
 }
 
