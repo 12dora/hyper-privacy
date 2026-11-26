@@ -1,0 +1,29 @@
+package io.github.hyperprivacy.ui.components
+
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.Composable
+
+/** The large, collapsing title bar of a bottom-bar destination; it has no back button. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TabTopBar(
+    title: String,
+    scrollBehavior: TopAppBarScrollBehavior,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    LargeTopAppBar(
+        title = { Text(title) },
+        actions = actions,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.background,
+            scrolledContainerColor = MaterialTheme.colorScheme.background,
+        ),
+        scrollBehavior = scrollBehavior,
+    )
+}

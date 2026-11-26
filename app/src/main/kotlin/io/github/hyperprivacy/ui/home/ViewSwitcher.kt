@@ -26,8 +26,8 @@ import io.github.hyperprivacy.ui.HyperPrivacyTheme
 
 /** A light two-option toggle, 36dp high: a quiet track with a tonal pill under the selected label. */
 @Composable
-internal fun ViewSwitcher(view: HomeView, onViewChange: (HomeView) -> Unit, modifier: Modifier = Modifier) {
-    val options = listOf(HomeView.CATEGORY to R.string.view_by_category, HomeView.APP to R.string.view_by_app)
+internal fun ViewSwitcher(view: SystemView, onViewChange: (SystemView) -> Unit, modifier: Modifier = Modifier) {
+    val options = listOf(SystemView.CATEGORY to R.string.view_by_category, SystemView.APP to R.string.view_by_app)
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -74,6 +74,6 @@ private fun SwitcherOption(label: String, selected: Boolean, onSelect: () -> Uni
 @Composable
 private fun ViewSwitcherPreview() {
     HyperPrivacyTheme {
-        ViewSwitcher(HomeView.CATEGORY, {}, Modifier.padding(Dimens.Gutter))
+        ViewSwitcher(SystemView.CATEGORY, {}, Modifier.padding(Dimens.Gutter))
     }
 }

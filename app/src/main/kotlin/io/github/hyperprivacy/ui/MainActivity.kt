@@ -18,12 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val onPackagesChanged = {
-            viewModel.device.refresh()
-            viewModel.trackers.refresh()
-            viewModel.conflicts.refresh()
-        }
-        lifecycle.addObserver(PackageWatcher(applicationContext, onPackagesChanged))
+        val model: UiModel = viewModel.also(::watchPackages)
         setContent {
             val appearance by AppearanceStore.appearance.collectAsStateWithLifecycle()
             // Loading takes a frame or two; showing nothing beats flashing the wrong palette.
@@ -35,8 +30,17 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             HyperPrivacyTheme(current) {
-                AppNavigation(viewModel)
+                AppNavigation(model)
             }
         }
+    }
+
+    private fun watchPackages(live: MainViewModel) {
+        val onPackagesChanged = {
+            live.device.refresh()
+            live.trackers.refresh()
+            live.conflicts.refresh()
+        }
+        lifecycle.addObserver(PackageWatcher(applicationContext, onPackagesChanged))
     }
 }

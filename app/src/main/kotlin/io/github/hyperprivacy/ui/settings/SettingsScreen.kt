@@ -65,14 +65,15 @@ internal fun SettingsScreen(
     onDiagnosticChange: (Boolean) -> Unit,
     onSelfHideChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
+    onOpenEndpoints: () -> Unit,
     onRefreshObserved: () -> Unit,
-    onClearObserved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val repository = stringResource(R.string.repository_url)
-    ObservedRefresh(polling = state.diagnosticMode, onRefresh = onRefreshObserved)
+    // Only for the count on the endpoints row; the endpoints page keeps the list fresh.
+    ObservedRefresh(polling = false, onRefresh = onRefreshObserved)
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -85,11 +86,9 @@ internal fun SettingsScreen(
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             appearanceSection(appearance, onAppearanceChange)
-            stealthSection(state, onSelfHideChange)
-            backupSection(state.module.canEdit, backup)
-            diagnosticsSection(state, onOpenHealth, onExport, onDiagnosticChange)
-            endpointsSection(state, onClearObserved)
-            dataSection(state.module.canEdit) { confirmReset = true }
+            privacySection(state, onSelfHideChange)
+            backupSection(state.module.canEdit, backup) { confirmReset = true }
+            diagnosticsSection(state, DiagnosticsActions(onOpenHealth, onExport, onDiagnosticChange, onOpenEndpoints))
             aboutSection(state, repository, onOpenRepository = { runCatching { uriHandler.openUri(repository) } })
         }
     }
@@ -104,9 +103,9 @@ internal fun SettingsScreen(
     }
 }
 
-/** Loads the endpoint list when the page is shown, and keeps it fresh while diagnostic mode is on. */
+/** Loads the endpoint list when the page is shown, and with [polling] keeps it fresh. */
 @Composable
-private fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
+internal fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val currentRefresh by rememberUpdatedState(onRefresh)
     LaunchedEffect(lifecycle, polling) {
@@ -120,9 +119,9 @@ private fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
     }
 }
 
-private fun LazyListScope.stealthSection(state: UiState, onSelfHideChange: (Boolean) -> Unit) {
-    item(key = "stealth-title") { SectionHeader(stringResource(R.string.settings_stealth)) }
-    item(key = "stealth") {
+private fun LazyListScope.privacySection(state: UiState, onSelfHideChange: (Boolean) -> Unit) {
+    item(key = "privacy-title") { SectionHeader(stringResource(R.string.settings_privacy)) }
+    item(key = "privacy") {
         SingleCard {
             SwitchRow(
                 title = stringResource(R.string.settings_self_hide),
@@ -135,9 +134,9 @@ private fun LazyListScope.stealthSection(state: UiState, onSelfHideChange: (Bool
     }
 }
 
-private enum class BackupRow { EXPORT, IMPORT }
+private enum class BackupRow { EXPORT, IMPORT, RESET }
 
-private fun LazyListScope.backupSection(canEdit: Boolean, backup: BackupActions) {
+private fun LazyListScope.backupSection(canEdit: Boolean, backup: BackupActions, onReset: () -> Unit) {
     item(key = "backup-title") { SectionHeader(stringResource(R.string.settings_backup)) }
     groupedItems(BackupRow.entries, key = { "backup/$it" }) { row ->
         when (row) {
@@ -154,49 +153,8 @@ private fun LazyListScope.backupSection(canEdit: Boolean, backup: BackupActions)
                 onClick = { if (canEdit) backup.onImport() },
                 modifier = Modifier.alpha(if (canEdit) 1f else DISABLED_ALPHA),
             )
-        }
-    }
-}
 
-private enum class DiagnosticsRow { HEALTH, EXPORT, MODE }
-
-private fun LazyListScope.diagnosticsSection(
-    state: UiState,
-    onOpenHealth: () -> Unit,
-    onExport: () -> Unit,
-    onDiagnosticChange: (Boolean) -> Unit,
-) {
-    item(key = "diag-title") { SectionHeader(stringResource(R.string.settings_diagnostics)) }
-    groupedItems(DiagnosticsRow.entries, key = { "diag/$it" }) { row ->
-        when (row) {
-            DiagnosticsRow.HEALTH -> NavRow(
-                title = stringResource(R.string.health_title),
-                summary = stringResource(R.string.settings_health_summary),
-                onClick = onOpenHealth,
-            )
-
-            DiagnosticsRow.EXPORT -> NavRow(
-                title = stringResource(R.string.health_export),
-                summary = stringResource(R.string.health_export_summary),
-                onClick = onExport,
-            )
-
-            DiagnosticsRow.MODE -> SwitchRow(
-                title = stringResource(R.string.settings_diag_mode),
-                summary = stringResource(R.string.settings_diag_mode_summary),
-                checked = state.diagnosticMode,
-                enabled = state.module.canEdit,
-                onCheckedChange = onDiagnosticChange,
-            )
-        }
-    }
-}
-
-private fun LazyListScope.dataSection(canEdit: Boolean, onReset: () -> Unit) {
-    item(key = "data-title") { SectionHeader(stringResource(R.string.settings_data)) }
-    item(key = "data") {
-        SingleCard {
-            TitleSummary(
+            BackupRow.RESET -> TitleSummary(
                 title = stringResource(R.string.settings_reset),
                 summary = stringResource(R.string.settings_reset_summary),
                 modifier = Modifier
@@ -205,6 +163,48 @@ private fun LazyListScope.dataSection(canEdit: Boolean, onReset: () -> Unit) {
                     .heightIn(min = Dimens.RowMinHeight)
                     .clickable(enabled = canEdit, role = Role.Button, onClick = onReset)
                     .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
+            )
+        }
+    }
+}
+
+private enum class DiagnosticsRow { HEALTH, EXPORT, MODE, ENDPOINTS }
+
+private class DiagnosticsActions(
+    val onOpenHealth: () -> Unit,
+    val onExport: () -> Unit,
+    val onDiagnosticChange: (Boolean) -> Unit,
+    val onOpenEndpoints: () -> Unit,
+)
+
+private fun LazyListScope.diagnosticsSection(state: UiState, actions: DiagnosticsActions) {
+    item(key = "diag-title") { SectionHeader(stringResource(R.string.settings_diagnostics)) }
+    groupedItems(DiagnosticsRow.entries, key = { "diag/$it" }) { row ->
+        when (row) {
+            DiagnosticsRow.HEALTH -> NavRow(
+                title = stringResource(R.string.health_title),
+                summary = stringResource(R.string.settings_health_summary),
+                onClick = actions.onOpenHealth,
+            )
+
+            DiagnosticsRow.EXPORT -> NavRow(
+                title = stringResource(R.string.health_export),
+                summary = stringResource(R.string.health_export_summary),
+                onClick = actions.onExport,
+            )
+
+            DiagnosticsRow.MODE -> SwitchRow(
+                title = stringResource(R.string.settings_diag_mode),
+                summary = stringResource(R.string.settings_diag_mode_summary),
+                checked = state.diagnosticMode,
+                enabled = state.module.canEdit,
+                onCheckedChange = actions.onDiagnosticChange,
+            )
+
+            DiagnosticsRow.ENDPOINTS -> NavRow(
+                title = stringResource(R.string.settings_endpoints),
+                summary = endpointsSummary(state),
+                onClick = actions.onOpenEndpoints,
             )
         }
     }
@@ -258,8 +258,8 @@ private fun SettingsPreview() {
             onDiagnosticChange = {},
             onSelfHideChange = {},
             onResetDefaults = {},
+            onOpenEndpoints = {},
             onRefreshObserved = {},
-            onClearObserved = {},
         )
     }
 }

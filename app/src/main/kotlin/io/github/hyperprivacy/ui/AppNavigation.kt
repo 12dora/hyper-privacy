@@ -1,6 +1,5 @@
 package io.github.hyperprivacy.ui
 
-import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
@@ -9,12 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -22,13 +18,10 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,15 +33,13 @@ import io.github.hyperprivacy.R
 import io.github.hyperprivacy.ui.app.AppScreen
 import io.github.hyperprivacy.ui.detail.RuleDetailScreen
 import io.github.hyperprivacy.ui.health.HealthScreen
-import io.github.hyperprivacy.ui.home.HomeActions
-import io.github.hyperprivacy.ui.home.HomeScreen
-import io.github.hyperprivacy.ui.home.HomeView
 import io.github.hyperprivacy.ui.search.SearchScreen
-import io.github.hyperprivacy.ui.settings.BackupActions
+import io.github.hyperprivacy.ui.settings.EndpointsScreen
 import io.github.hyperprivacy.ui.settings.SettingsScreen
 import io.github.hyperprivacy.ui.settings.rememberBackupActions
 import io.github.hyperprivacy.ui.theme.Appearance
 import io.github.hyperprivacy.ui.theme.AppearanceStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 private const val SLIDE_DIVISOR = 4
@@ -65,12 +56,6 @@ private fun AnimatedContentTransitionScope<List<Route>>.pageTransition(): Conten
         (slideOutHorizontally { -direction * it / SLIDE_DIVISOR } + fadeOut())
 }
 
-/** Saves the unfolded category keys; `null` (not yet defaulted) is simply not saved. */
-private val KeysSaver = Saver<List<String>?, ArrayList<String>>(
-    save = { keys -> keys?.let { ArrayList(it) } },
-    restore = { it },
-)
-
 /** The back stack, root first. Pushing the current top again is a no-op (double taps). */
 @Stable
 internal class Navigator(private val holder: MutableState<List<Route>>) {
@@ -85,121 +70,100 @@ internal class Navigator(private val holder: MutableState<List<Route>>) {
     }
 }
 
-/** Home state that must outlive the Home page while a deeper page is shown. */
+/** Everything the pages share: the model, the back stack, the selected tab and each tab's state. */
 @Stable
-private class HomeMemory(
-    view: MutableState<HomeView>,
-    expanded: MutableState<List<String>?>,
-    val listState: LazyListState,
+internal class Shell(
+    val model: UiModel,
+    val nav: Navigator,
+    tab: MutableState<Tab>,
+    val overview: TabScroll,
+    val system: SystemMemory,
+    val apps: AppsMemory,
+    val snackbar: SnackbarHostState,
 ) {
-    var view by view
+    var tab by tab
 
-    // Null until the first state arrives, then defaulted by catalog size; afterwards the user's choice.
-    var expanded by expanded
+    /** Selecting the current tab again scrolls it back to the top. */
+    fun select(target: Tab, scope: CoroutineScope) {
+        if (target != tab) {
+            tab = target
+            return
+        }
+        val scroll = when (target) {
+            Tab.OVERVIEW -> overview
+            Tab.SYSTEM -> system.scroll
+            Tab.APPS -> apps.scroll
+        }
+        scope.launch { scroll.reset() }
+    }
 
-    fun toggle(key: String) {
-        val current = expanded.orEmpty()
-        expanded = if (key in current) current - key else current + key
+    /** Back: a deeper page first, then from another tab to Overview; on Overview the system takes it (exit). */
+    val canGoBack: Boolean get() = nav.stack.size > 1 || tab != Tab.OVERVIEW
+
+    fun back() {
+        if (nav.stack.size > 1) nav.pop() else tab = Tab.OVERVIEW
     }
 }
 
 @Composable
-internal fun AppNavigation(viewModel: MainViewModel) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val stackHolder = rememberSaveable(stateSaver = Route.StackSaver) { mutableStateOf(listOf<Route>(Route.Home)) }
-    val nav = remember(stackHolder) { Navigator(stackHolder) }
-    val viewHolder = rememberSaveable { mutableStateOf(HomeView.CATEGORY) }
-    val expandedHolder = rememberSaveable(stateSaver = KeysSaver) { mutableStateOf<List<String>?>(null) }
-    val listState = rememberLazyListState()
-    val home = remember(viewHolder, expandedHolder, listState) { HomeMemory(viewHolder, expandedHolder, listState) }
+internal fun AppNavigation(model: UiModel) {
+    val state by model.state.collectAsStateWithLifecycle()
+    val stackHolder = rememberSaveable(stateSaver = Route.StackSaver) { mutableStateOf(listOf<Route>(Route.Tabs)) }
+    val tabHolder = rememberSaveable { mutableStateOf(Tab.OVERVIEW) }
+    val overview = rememberTabScroll()
+    val system = rememberSystemMemory()
+    val apps = rememberAppsMemory(model.trackers)
     val snackbar = remember { SnackbarHostState() }
-    ScopeMessages(viewModel, snackbar)
-    val apps = rememberAppsMemory(viewModel)
-    if (home.expanded == null && state.loaded) {
+    val shell = remember(model, stackHolder, tabHolder, overview, system, apps, snackbar) {
+        Shell(model, Navigator(stackHolder), tabHolder, overview, system, apps, snackbar)
+    }
+    ScopeMessages(model.device, snackbar)
+    if (system.expanded == null && state.loaded) {
         val keys = state.byCategory.map { it.key }
-        home.expanded = if (state.rules.size <= EXPAND_ALL_MAX_RULES) keys else emptyList()
+        system.expanded = if (state.rules.size <= EXPAND_ALL_MAX_RULES) keys else emptyList()
     }
 
     val backState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
         state = backState,
-        isBackEnabled = nav.stack.size > 1,
+        isBackEnabled = shell.canGoBack,
         onBackCancelled = {},
-        onBackCompleted = nav::pop,
+        onBackCompleted = shell::back,
     )
     val backProgress = {
         (backState.transitionState as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress ?: 0f
     }
 
-    AnimatedContent(targetState = nav.stack, transitionSpec = { pageTransition() }, label = "route") { target ->
-        val page = if (target.size > 1) Modifier.predictiveBack(backProgress) else Modifier
-        Page(target.last(), state, viewModel, nav, home, apps, snackbar, page)
+    AnimatedContent(targetState = shell.nav.stack, transitionSpec = { pageTransition() }, label = "route") { target ->
+        when (val route = target.last()) {
+            Route.Tabs -> TabsPage(state, shell)
+            else -> Page(route, state, shell, Modifier.predictiveBack(backProgress))
+        }
     }
 }
 
+/** A page pushed over the tabs. */
 @Composable
-private fun Page(
-    route: Route,
-    state: UiState,
-    viewModel: MainViewModel,
-    nav: Navigator,
-    home: HomeMemory,
-    apps: AppsMemory,
-    snackbar: SnackbarHostState,
-    modifier: Modifier,
-) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val toggleRule: (String, Boolean) -> Unit = { id, on -> viewModel.setRulesEnabled(listOf(id), on) }
+private fun Page(route: Route, state: UiState, shell: Shell, modifier: Modifier) {
+    val model = shell.model
+    val nav = shell.nav
+    val toggleRule: (String, Boolean) -> Unit = { id, on -> model.setRulesEnabled(listOf(id), on) }
     val openRule: (String) -> Unit = { nav.push(Route.RuleDetail(it)) }
-    val openApp: (String) -> Unit = { nav.push(Route.App(it)) }
-    val export = rememberReportExport(viewModel)
-    val backup = rememberBackupActions(viewModel)
     when (route) {
-        Route.Home -> HomeScreen(
-            state = state,
-            view = home.view,
-            expanded = home.expanded.orEmpty().toSet(),
-            actions = HomeActions(
-                onViewChange = {
-                    home.view = it
-                    scope.launch { if (home.listState.firstVisibleItemIndex > 1) home.listState.scrollToItem(1) }
-                },
-                onToggleExpanded = home::toggle,
-                onToggleRule = toggleRule,
-                onSetRules = viewModel::setRulesEnabled,
-                onOpenRule = openRule,
-                onOpenApp = openApp,
-                onOpenSearch = { nav.push(Route.Search) },
-                onOpenSettings = { nav.push(Route.Settings) },
-                onOpenHealth = { nav.push(Route.Health) },
-                onEnableScope = viewModel.device::request,
-                onOpenApps = { nav.push(Route.Apps) },
-                onPause = viewModel.pause::pause,
-                onResume = viewModel.pause::resume,
-                onDisableAppListHiding = {
-                    scope.launch { disableAppListHiding(viewModel, snackbar, context) }
-                },
-                onDismissConflict = viewModel.conflicts::dismiss,
-            ),
-            listState = home.listState,
-            snackbarHostState = snackbar,
-        )
+        Route.Settings -> SettingsPage(state, shell, modifier)
 
-        Route.Settings -> SettingsPage(state, viewModel, nav, export, backup, modifier)
+        Route.Search -> SearchPage(state, toggleRule, openRule, nav, modifier)
 
-        Route.Search -> SearchPage(state, toggleRule, openRule, openApp, nav, modifier)
+        Route.Health -> HealthScreen(state, openRule, rememberReportExport(model), nav::pop, modifier)
 
-        Route.Health -> HealthScreen(state, openRule, export, nav::pop, modifier)
+        Route.Endpoints -> EndpointsScreen(state, model::refreshObserved, model::clearObserved, nav::pop, modifier)
 
         // Until the first state arrives there is nothing to show, and "not found" would flash.
         is Route.App -> if (state.loaded) {
             AppScreen(route.packageName, state, toggleRule, openRule, nav::pop, modifier)
         }
 
-        Route.Apps -> AppsPage(state, viewModel, nav, apps, modifier)
-
-        is Route.UserApp -> UserAppPage(route.packageName, state, viewModel, nav, apps, modifier)
+        is Route.UserApp -> UserAppPage(route.packageName, state, model.trackers, nav, shell.apps, modifier)
 
         is Route.RuleDetail -> if (state.loaded) {
             RuleDetailScreen(
@@ -210,18 +174,16 @@ private fun Page(
                 modifier = modifier,
             )
         }
+
+        // The root is shown by TabsPage, never as a pushed page.
+        Route.Tabs -> Unit
     }
 }
 
 @Composable
-private fun SettingsPage(
-    state: UiState,
-    viewModel: MainViewModel,
-    nav: Navigator,
-    onExport: () -> Unit,
-    backup: BackupActions,
-    modifier: Modifier,
-) {
+private fun SettingsPage(state: UiState, shell: Shell, modifier: Modifier) {
+    val model = shell.model
+    val nav = shell.nav
     val appearance by AppearanceStore.appearance.collectAsStateWithLifecycle()
     SettingsScreen(
         state = state,
@@ -229,13 +191,13 @@ private fun SettingsPage(
         onAppearanceChange = { next -> AppearanceStore.update { next } },
         onBack = nav::pop,
         onOpenHealth = { nav.push(Route.Health) },
-        onExport = onExport,
-        backup = backup,
-        onDiagnosticChange = { viewModel.setSwitch(ModuleSwitch.DIAGNOSTICS, it) },
-        onSelfHideChange = { viewModel.setSwitch(ModuleSwitch.SELF_HIDE, it) },
-        onResetDefaults = viewModel::resetDefaults,
-        onRefreshObserved = viewModel::refreshObserved,
-        onClearObserved = viewModel::clearObserved,
+        onExport = rememberReportExport(model),
+        backup = rememberBackupActions(model.config),
+        onDiagnosticChange = { model.setSwitch(ModuleSwitch.DIAGNOSTICS, it) },
+        onSelfHideChange = { model.setSwitch(ModuleSwitch.SELF_HIDE, it) },
+        onResetDefaults = model::resetDefaults,
+        onOpenEndpoints = { nav.push(Route.Endpoints) },
+        onRefreshObserved = model::refreshObserved,
         modifier = modifier,
     )
 }
@@ -245,7 +207,6 @@ private fun SearchPage(
     state: UiState,
     onToggleRule: (String, Boolean) -> Unit,
     onOpenRule: (String) -> Unit,
-    onOpenApp: (String) -> Unit,
     nav: Navigator,
     modifier: Modifier,
 ) {
@@ -257,30 +218,18 @@ private fun SearchPage(
         onQueryChange = { query = it },
         onToggleRule = onToggleRule,
         onOpenRule = onOpenRule,
-        onOpenApp = onOpenApp,
+        onOpenApp = { nav.push(Route.App(it)) },
         onBack = nav::pop,
         modifier = modifier,
     )
 }
 
-/** Turns off app-list hiding for the overlap hint, and offers to take it back for a while. */
-private suspend fun disableAppListHiding(viewModel: MainViewModel, snackbar: SnackbarHostState, context: Context) {
-    val restore = viewModel.conflicts.disableAppListHiding() ?: return
-    snackbar.currentSnackbarData?.dismiss()
-    val result = snackbar.showSnackbar(
-        message = context.getString(R.string.conflict_applist_off),
-        actionLabel = context.getString(R.string.action_undo),
-        duration = SnackbarDuration.Long,
-    )
-    if (result == SnackbarResult.ActionPerformed) viewModel.conflicts.restoreAppListHiding(restore)
-}
-
-/** Shows each scope request outcome once, on Home's snackbar host (requests are only made from Home). */
+/** Shows each scope request outcome once, on Overview's snackbar host (requests are only made there). */
 @Composable
-private fun ScopeMessages(viewModel: MainViewModel, snackbar: SnackbarHostState) {
+private fun ScopeMessages(device: ScopeModel, snackbar: SnackbarHostState) {
     val resources = LocalResources.current
-    LaunchedEffect(viewModel, snackbar, resources) {
-        viewModel.device.messages.collect { result ->
+    LaunchedEffect(device, snackbar, resources) {
+        device.messages.collect { result ->
             snackbar.currentSnackbarData?.dismiss()
             // Launched so a newer outcome can replace one still on screen.
             launch { snackbar.showSnackbar(resources.getString(result.messageRes()), duration = SnackbarDuration.Long) }

@@ -34,7 +34,7 @@ internal class ConflictController(
     private val prefs: () -> SharedPreferences?,
     private val pendingWrites: PendingWrites,
     private val onChange: () -> Unit,
-) {
+) : ConflictModel {
     private val appContext = context.applicationContext
     private val scanner by lazy { ModuleScanner(appContext) }
     private val dismissedStore by lazy { appContext.getSharedPreferences(DISMISSED_FILE, Context.MODE_PRIVATE) }
@@ -70,7 +70,7 @@ internal class ConflictController(
     }
 
     /** Hides the hint for the modules it names now. */
-    fun dismiss() {
+    override fun dismiss() {
         scope.launch(worker) {
             val all = dismissed() + hits.map { it.packageName }
             dismissedStore.edit { putStringSet(DISMISSED_KEY, all) }
@@ -94,7 +94,7 @@ internal class ConflictController(
     }
 
     /** Turns off every app-list hiding setting of this module; the result undoes it ([restoreAppListHiding]). */
-    suspend fun disableAppListHiding(): AppListRestore? = withContext(worker) {
+    override suspend fun disableAppListHiding(): AppListRestore? = withContext(worker) {
         val target = prefs() ?: return@withContext null
         val raw = runCatching { target.all }.getOrNull() ?: return@withContext null
         val hidden = raw.filter { (key, value) -> key.startsWith(AppListConfig.HIDE_PREFIX) && value == true }.keys
@@ -116,7 +116,7 @@ internal class ConflictController(
     }
 
     /** Puts back exactly what [disableAppListHiding] changed, the self-hiding value included. */
-    fun restoreAppListHiding(restore: AppListRestore) {
+    override fun restoreAppListHiding(restore: AppListRestore) {
         scope.launch(worker) {
             val target = prefs() ?: return@launch
             pendingWrites.put(AppListConfig.SELF_HIDE_KEY, restore.selfHide ?: AppListConfig.EMPTY.hideSelf)

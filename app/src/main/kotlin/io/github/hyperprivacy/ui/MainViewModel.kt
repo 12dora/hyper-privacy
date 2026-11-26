@@ -36,11 +36,13 @@ import java.util.concurrent.atomic.AtomicReference
  * Owns the UI state. Everything that touches preferences, the status store or the package manager runs
  * on a single background thread; state is rebuilt on request, at most once per [THROTTLE_MS].
  */
-internal class MainViewModel(application: Application) : AndroidViewModel(application) {
+internal class MainViewModel(application: Application) :
+    AndroidViewModel(application),
+    UiModel {
     private val worker = Dispatchers.Default.limitedParallelism(1)
     private val rebuildRequests = Channel<Unit>(Channel.CONFLATED)
     private val mutableState = MutableStateFlow(UiState())
-    val state: StateFlow<UiState> = mutableState.asStateFlow()
+    override val state: StateFlow<UiState> = mutableState.asStateFlow()
 
     private val pendingWrites = PendingWrites()
     private val changeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
@@ -62,7 +64,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     private var observed: List<ObservedEndpointUi> = emptyList()
 
     /** Installed apps and LSPosed scope: refreshed on resume, scope requested on a user tap. */
-    val device = ScopeSync(
+    override val device = ScopeSync(
         scope = viewModelScope,
         worker = worker,
         rebootFlag = RebootFlag(application),
@@ -73,7 +75,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     )
 
     /** User-installed apps and tracker protection; starts when an Apps page is first shown. */
-    val trackers = TrackerController(
+    override val trackers = TrackerController(
         context = application,
         scope = viewModelScope,
         worker = worker,
@@ -83,7 +85,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     )
 
     /** The global pause switch. */
-    val pause = PauseController(
+    override val pause = PauseController(
         context = application,
         scope = viewModelScope,
         worker = worker,
@@ -92,7 +94,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     )
 
     /** Other Xposed modules that overlap with this one. */
-    val conflicts = ConflictController(
+    override val conflicts = ConflictController(
         context = application,
         scope = viewModelScope,
         worker = worker,
@@ -102,7 +104,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     )
 
     /** Configuration export and import. */
-    val config = ConfigTransfer(
+    override val config = ConfigTransfer(
         context = application,
         scope = viewModelScope,
         worker = worker,
@@ -135,14 +137,17 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     }
 
     /** Switches one or more rules in a single preferences commit (a row switch, or a category bulk switch). */
-    fun setRulesEnabled(ruleIds: Collection<String>, enabled: Boolean) = write(ruleIds.map(ConfigCodec::key), enabled)
+    override fun setRulesEnabled(ruleIds: Collection<String>, enabled: Boolean) = write(
+        ruleIds.map(ConfigCodec::key),
+        enabled,
+    )
 
     /**
      * The Markdown diagnostic report; built on the worker, which reads preferences and the package
      * manager. Rows about user-installed apps are only included when the user chose so at export:
      * with [includeUserApps] `null` and such rows present, the answer is [ReportOutcome.AskUserApps].
      */
-    suspend fun diagnosticReport(includeUserApps: Boolean?): ReportOutcome = withContext(worker) {
+    override suspend fun diagnosticReport(includeUserApps: Boolean?): ReportOutcome = withContext(worker) {
         val loaded = backend ?: return@withContext ReportOutcome.Failed
         val health = loaded.health
         if (includeUserApps == null && runCatching { health.reportMentionsUserApps() }.getOrDefault(false)) {
@@ -156,9 +161,9 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         }.map(ReportOutcome::Ready).getOrDefault(ReportOutcome.Failed)
     }
 
-    fun setSwitch(switch: ModuleSwitch, enabled: Boolean) = write(listOf(switch.key), enabled)
+    override fun setSwitch(switch: ModuleSwitch, enabled: Boolean) = write(listOf(switch.key), enabled)
 
-    fun resetDefaults() {
+    override fun resetDefaults() {
         viewModelScope.launch(worker) {
             val prefs = remotePrefs.get() ?: return@launch
             pause.resume()
@@ -179,14 +184,14 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     }
 
     /** Reloads the endpoint list; only the list changes, so no full rebuild is needed. */
-    fun refreshObserved() {
+    override fun refreshObserved() {
         viewModelScope.launch(worker) {
             val current = backend?.let { runCatching { it.endpoints.observed() }.getOrNull() } ?: return@launch
             publishObserved(current)
         }
     }
 
-    fun clearObserved() {
+    override fun clearObserved() {
         viewModelScope.launch(worker) {
             backend?.let { runCatching { it.store.clearObserved() } }
             publishObserved(emptyList())
@@ -252,7 +257,8 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         pause.track(until)
         val selfHidden = pendingWrites.resolve(stored, AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
         val hidingApps = selfHidden || AppListConfig.decode(stored).restricted.isNotEmpty()
-        val otherProtectionOn = hidingApps || TrackerProtection.protectedPackages(stored).isNotEmpty()
+        val protectedApps = TrackerProtection.protectedPackages(stored).size
+        val otherProtectionOn = hidingApps || protectedApps > 0
         val suspected = runCatching { backend.health.suspected() }.getOrDefault(emptyList())
             .sortedByDescending { it.lastSeen }
             .map { it.toUi(backend.view.apps) }
@@ -281,6 +287,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             rebootReason = rebootReason,
             pausedUntil = until,
             otherProtectionOn = otherProtectionOn,
+            protectedApps = protectedApps,
             conflict = conflicts.ui(appListHidingOn = hidingApps),
         )
     }

@@ -25,14 +25,16 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarState
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -46,12 +48,12 @@ import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.components.AppIcon
-import io.github.hyperprivacy.ui.components.BackButton
+import io.github.hyperprivacy.ui.components.TabTopBar
 import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
 
 /**
- * User-installed apps outside the catalog: icon, name, one line on what the offline scan found,
+ * The Apps tab: user-installed apps outside the catalog: icon, name, one line on what the offline scan found,
  * and the protection switch. The list fills in while apps are checked; [onlyTrackers] narrows it to
  * apps with at least one detected SDK.
  */
@@ -64,20 +66,16 @@ internal fun AppsScreen(
     actions: AppsActions,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    barState: TopAppBarState = rememberTopAppBarState(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
     val shown = remember(state.apps, onlyTrackers) {
         if (onlyTrackers) state.apps.filter { it.sdkCount > 0 } else state.apps
     }
     Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.apps_title)) },
-                navigationIcon = { BackButton(actions.onBack) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-            )
-        },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = { TabTopBar(stringResource(R.string.apps_title), scrollBehavior) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(inner)) {
@@ -260,6 +258,6 @@ internal fun sampleApps(): AppsUi {
 @Composable
 private fun AppsScreenPreview() {
     HyperPrivacyTheme {
-        AppsScreen(sampleApps(), canEdit = true, onlyTrackers = false, actions = AppsActions({}, { _, _ -> }, {}, {}))
+        AppsScreen(sampleApps(), canEdit = true, onlyTrackers = false, actions = AppsActions({}, { _, _ -> }, {}))
     }
 }

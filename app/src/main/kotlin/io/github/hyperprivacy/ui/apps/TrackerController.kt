@@ -17,6 +17,7 @@ import io.github.hyperprivacy.trackers.AppScanner
 import io.github.hyperprivacy.trackers.ScanKey
 import io.github.hyperprivacy.trackers.TrackerStore
 import io.github.hyperprivacy.trackers.UserApp
+import io.github.hyperprivacy.ui.AppsModel
 import io.github.hyperprivacy.ui.PendingWrites
 import io.github.hyperprivacy.ui.ScopeResult
 import io.github.libxposed.service.XposedService
@@ -57,7 +58,7 @@ internal class TrackerController(
     private val prefs: () -> SharedPreferences?,
     private val status: () -> StatusStore?,
     service: () -> XposedService?,
-) {
+) : AppsModel {
     private val appContext = context.applicationContext
 
     // SharedPreferences are opened on first use, on a background thread.
@@ -77,10 +78,10 @@ internal class TrackerController(
         onChange = { publishRequests.trySend(Unit) },
     )
 
-    val state: StateFlow<AppsUi> = mutableState.asStateFlow()
+    override val state: StateFlow<AppsUi> = mutableState.asStateFlow()
 
     /** One-shot scope request outcomes, shown on the Apps pages. */
-    val messages: Flow<ScopeResult> get() = scopes.messages
+    override val messages: Flow<ScopeResult> get() = scopes.messages
 
     /** A scan result for one app build. */
     private class Scan(val key: ScanKey, val result: AppScan)
@@ -122,6 +123,8 @@ internal class TrackerController(
         }
     }
 
+    override fun start() = refresh(start = true)
+
     /**
      * Re-publishes after the remote preferences changed (called from the view model's rebuild).
      * With [overwritten] (an import or a reset wrote over the per-app switches), switch writes not
@@ -137,7 +140,7 @@ internal class TrackerController(
         }
     }
 
-    fun setProtected(packageName: String, on: Boolean) {
+    override fun setProtected(packageName: String, on: Boolean) {
         scope.launch(worker) {
             val target = prefs() ?: return@launch
             pendingProtect[packageName] = on
@@ -173,7 +176,7 @@ internal class TrackerController(
     }
 
     /** Writes one per-app switch (SDK, app-level rule, app-list hiding). */
-    fun set(switch: AppSwitch, on: Boolean) {
+    override fun set(switch: AppSwitch, on: Boolean) {
         scope.launch(worker) {
             val target = prefs() ?: return@launch
             val key = switch.key
@@ -187,7 +190,7 @@ internal class TrackerController(
     }
 
     /** Asks LSPosed again for an app whose protection is on but which is not in the scope yet. */
-    fun retryScope(packageName: String) {
+    override fun retryScope(packageName: String) {
         scope.launch(worker) {
             scopes.request(packageName)
             publish()
@@ -232,7 +235,7 @@ internal class TrackerController(
     private fun scanMissing() {
         if (scanJob?.isActive == true) return
         scanJob = scope.launch(worker) {
-            var app = nextToScan()
+            var app = nextToScan
             while (app != null) {
                 val found = withContext(scanner) { runCatching { appScanner.scan(app) }.getOrNull() }
                 // An app updated or removed while it was scanned is taken again (or dropped) by the next pick.
@@ -245,13 +248,14 @@ internal class TrackerController(
                     }
                     publishRequests.trySend(Unit)
                 }
-                app = nextToScan()
+                app = nextToScan
             }
             publish()
         }
     }
 
-    private fun nextToScan(): UserApp? = apps.firstOrNull { it.packageName !in detected && it.packageName !in failed }
+    private val nextToScan: UserApp?
+        get() = apps.firstOrNull { it.packageName !in detected && it.packageName !in failed }
 
     private fun publish() {
         val raw = prefs()?.let { runCatching { it.all }.getOrNull() }.orEmpty()

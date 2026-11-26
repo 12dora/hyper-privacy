@@ -23,13 +23,13 @@ import kotlinx.coroutines.launch
  * default, so nothing about those apps is shared without an explicit choice for this export.
  */
 @Composable
-internal fun rememberReportExport(viewModel: MainViewModel): () -> Unit {
+internal fun rememberReportExport(model: UiModel): () -> Unit {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var asking by remember { mutableStateOf(false) }
     val run: (Boolean?) -> Unit = { includeUserApps ->
         scope.launch {
-            when (val outcome = viewModel.diagnosticReport(includeUserApps)) {
+            when (val outcome = model.diagnosticReport(includeUserApps)) {
                 is ReportOutcome.Ready -> share(context, outcome.text)
                 ReportOutcome.AskUserApps -> asking = true
                 ReportOutcome.Failed -> toast(context, R.string.health_export_failed)

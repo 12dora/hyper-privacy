@@ -9,6 +9,21 @@
     <string name="action_search">Search</string>
     <string name="action_more">More options</string>
 
+    <!-- Navigation -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_system">System</string>
+    <string name="tab_apps">Apps</string>
+    <string name="system_title">System apps</string>
+    <string name="system_locked">Module inactive; rules can\'t be changed</string>
+    <string name="overview_coverage">Coverage</string>
+    <string name="overview_rules_summary">Rules on: %1$d/%2$d</string>
+    <plurals name="overview_apps_protected">
+        <item quantity="one">%1$d app protected</item>
+        <item quantity="other">%1$d apps protected</item>
+    </plurals>
+    <string name="overview_apps_none">No apps protected yet</string>
+    <string name="overview_blocked">Blocked</string>
+
     <!-- Module state -->
     <string name="module_checking">Checking status</string>
     <string name="module_active">Protection is on</string>
@@ -19,10 +34,6 @@
     <string name="module_reboot">Restart required</string>
     <string name="module_reboot_hint">Restart your device to apply rules</string>
     <string name="module_no_rules">No rules turned on</string>
-    <plurals name="summary_enabled">
-        <item quantity="one">%1$s rule on</item>
-        <item quantity="other">%1$s rules on</item>
-    </plurals>
     <plurals name="summary_blocked">
         <item quantity="one">%1$s blocked in total</item>
         <item quantity="other">%1$s blocked in total</item>
@@ -148,9 +159,9 @@
     <string name="app_section_rules">Rules</string>
 
     <!-- Search -->
-    <string name="search_hint">Search apps or rules</string>
+    <string name="search_hint">Search system apps or rules</string>
     <string name="search_clear">Clear</string>
-    <string name="search_apps">Apps</string>
+    <string name="search_apps">System apps</string>
     <string name="search_rules">Rules</string>
     <string name="search_empty">No results</string>
 
@@ -196,16 +207,20 @@
     <string name="palette_graphite">Graphite</string>
     <string name="appearance_pure_black">Pure black</string>
     <string name="appearance_pure_black_summary">Use a black background in dark mode, for OLED screens</string>
-    <string name="settings_stealth">Stealth</string>
-    <string name="settings_self_hide">Hide this module from other apps</string>
-    <string name="settings_self_hide_summary">Third-party apps can\'t detect it. Turn off if an installer needs to update it</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_self_hide">Hide this module</string>
+    <string name="settings_self_hide_summary">Hidden from other apps; turn off before updating</string>
     <string name="settings_diagnostics">Diagnostics</string>
     <string name="settings_health_summary">See rules that stopped working or need review</string>
     <string name="settings_diag_mode">Diagnostic mode</string>
-    <string name="settings_diag_mode_summary">Records app network requests to find new reporting channels</string>
+    <string name="settings_diag_mode_summary">Logs app requests to find new reporting channels</string>
     <string name="settings_endpoints">Discovered endpoints</string>
     <string name="settings_endpoints_clear">Clear</string>
-    <string name="settings_endpoints_off">Captured requests appear here when diagnostic mode is on</string>
+    <string name="settings_endpoints_off">Turn on diagnostic mode to record</string>
+    <plurals name="settings_endpoints_count">
+        <item quantity="one">%1$d recorded</item>
+        <item quantity="other">%1$d recorded</item>
+    </plurals>
     <string name="settings_endpoints_empty">Nothing recorded yet</string>
     <string name="endpoint_blocked">Blocked</string>
     <string name="endpoint_allowed">Not blocked</string>
@@ -213,7 +228,6 @@
         <item quantity="one">%1$s time</item>
         <item quantity="other">%1$s times</item>
     </plurals>
-    <string name="settings_data">Data</string>
     <string name="settings_reset">Restore defaults</string>
     <string name="settings_reset_summary">Reset rules, app options and app-list settings</string>
     <string name="settings_reset_title">Restore defaults?</string>
@@ -224,10 +238,10 @@
     <string name="about_repository">Source code</string>
     <string name="common_separator" translatable="false">" · "</string>
     <plurals name="scope_missing_apps">
-        <item quantity="one">%1$d app not protected</item>
-        <item quantity="other">%1$d apps not protected</item>
+        <item quantity="one">%1$d system app not enabled</item>
+        <item quantity="other">%1$d system apps not enabled</item>
     </plurals>
-    <string name="scope_missing_system">System framework not protected</string>
+    <string name="scope_missing_system">System framework not enabled</string>
     <string name="scope_missing_hint">Not in the LSPosed scope yet</string>
     <string name="scope_missing_system_hint">Includes system framework; restart after enabling</string>
     <string name="scope_requesting">Confirm in the LSPosed notification</string>
@@ -245,8 +259,7 @@
     <string name="repository_url" translatable="false">https://github.com/12dora/hyper-privacy</string>
 
     <!-- Apps (tracker protection for installed apps) -->
-    <string name="apps_title">Apps</string>
-    <string name="action_apps">App protection</string>
+    <string name="apps_title">Installed apps</string>
     <string name="apps_intro">Finds tracker SDKs in your installed apps. Turn on protection to block what they report.</string>
     <string name="apps_filter_trackers">With trackers</string>
     <string name="apps_scanning">Checking %1$d of %2$d</string>
@@ -261,23 +274,22 @@
     <string name="apps_awaiting_scope">Waiting for LSPosed</string>
     <string name="apps_empty">No apps to show</string>
     <string name="apps_empty_filtered">No apps with tracker SDKs</string>
-    <string name="apps_protect_description">Tracker protection for %1$s</string>
-    <string name="app_protection">Tracker protection</string>
+    <string name="apps_protect_description">Protection for %1$s</string>
+    <string name="app_protection">Protect this app</string>
     <string name="app_protection_summary">Applies after the app restarts</string>
     <string name="app_scope_pending">Confirm in the LSPosed notification</string>
     <string name="app_scope_retry">Ask again</string>
     <string name="app_section_privacy">App list</string>
-    <string name="app_protection_rules">App protections</string>
+    <string name="app_section_sdk">Tracker SDKs</string>
+    <string name="app_section_hardening">Privacy hardening</string>
     <string name="app_hide_apps">Hide installed apps</string>
     <string name="app_hide_apps_summary">This app can\'t see your other apps</string>
     <string name="app_strict">Strict mode</string>
     <string name="app_strict_summary">Also hides common share, sign-in and pay apps</string>
     <string name="app_note_checking">Checking this app…</string>
-    <string name="app_note_failed">Couldn\'t read this app\'s package.</string>
-    <string name="app_note_no_sdk">No tracker SDKs found in this app. Some packed apps can\'t be analyzed; the app protections below still apply.</string>
-    <string name="app_note_suspects_only">No known tracker SDKs found. Suspected ad components are listed below and stay off unless you turn them on; the app protections still apply.</string>
-    <string name="app_note_detect_only">The SDKs found here can be detected but not blocked; the app protections below still apply.</string>
-    <string name="app_note_protection">Blocks reporting by the SDKs below; the app protections below apply as well.</string>
+    <string name="app_note_failed">Couldn\'t read this app\'s package</string>
+    <string name="app_note_no_sdk">No known tracker SDKs found</string>
+    <string name="app_note_detect_only">These SDKs can be detected, not blocked</string>
     <string name="sdk_detect_only">Detected only, not blocked</string>
     <string name="sdk_impact_verification">Sign-in or payment may need extra checks</string>
     <string name="sdk_impact_updates">In-app updates may stop working</string>
@@ -324,13 +336,13 @@
     <string name="action_undo">Undo</string>
 
     <!-- Settings: backup -->
-    <string name="settings_backup">Backup</string>
+    <string name="settings_backup">Backup &amp; restore</string>
     <string name="backup_export">Export configuration</string>
     <string name="backup_export_summary">Rules, app options and appearance; no secrets</string>
     <string name="backup_import">Import configuration</string>
     <string name="backup_import_summary">Restore settings from an exported file</string>
     <string name="backup_import_title">Import this configuration?</string>
-    <string name="backup_import_body">This replaces your rule switches, app options, app-list settings and appearance. Apps already protected stay protected and take the file\'s options. Apps newly protected by the file need approval on the Apps page. Only third-party apps installed on this device are configured.</string>
+    <string name="backup_import_body">This replaces your rule switches, app options, app-list settings and appearance. Apps already protected stay protected and take the file\'s options. Apps newly protected by the file need approval in the Apps tab. Only third-party apps installed on this device are configured.</string>
     <string name="backup_import_confirm">Import</string>
     <plurals name="backup_summary_rules">
         <item quantity="one">%1$d rule switch</item>

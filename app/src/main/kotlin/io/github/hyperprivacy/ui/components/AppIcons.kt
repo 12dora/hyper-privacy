@@ -38,6 +38,23 @@ internal object AppIcons {
             "M15 14 H19 A1 1 0 0 1 20 15 V19 A1 1 0 0 1 19 20 H15 A1 1 0 0 1 14 19 V15 A1 1 0 0 1 15 14 Z",
         )
     }
+
+    /** A chip: the system apps the built-in rules cover. */
+    val System: ImageVector by lazy {
+        outline(
+            "System",
+            "M8 6 H16 A2 2 0 0 1 18 8 V16 A2 2 0 0 1 16 18 H8 A2 2 0 0 1 6 16 V8 A2 2 0 0 1 8 6 Z",
+            "M10 10 H14 V14 H10 Z",
+            "M10 3 V6",
+            "M14 3 V6",
+            "M10 18 V21",
+            "M14 18 V21",
+            "M3 10 H6",
+            "M3 14 H6",
+            "M18 10 H21",
+            "M18 14 H21",
+        )
+    }
     val Shield: ImageVector by lazy {
         outline(
             "Shield",

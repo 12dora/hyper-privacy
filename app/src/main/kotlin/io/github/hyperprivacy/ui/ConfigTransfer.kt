@@ -67,19 +67,19 @@ internal class ConfigTransfer(
     private val clearAppsPending: () -> Unit,
     private val moduleVersion: () -> String,
     private val onChange: () -> Unit,
-) {
+) : BackupModel {
     private val appContext = context.applicationContext
     private val mutablePending = MutableStateFlow<ConfigBackup?>(null)
     private val mutableImporting = MutableStateFlow(false)
 
     /** A file read and checked, waiting for the user to confirm. */
-    val pendingImport: StateFlow<ConfigBackup?> = mutablePending.asStateFlow()
+    override val pendingImport: StateFlow<ConfigBackup?> = mutablePending.asStateFlow()
 
     /** An import is being applied (apps may be scanned first, which takes a moment). */
-    val importing: StateFlow<Boolean> = mutableImporting.asStateFlow()
+    override val importing: StateFlow<Boolean> = mutableImporting.asStateFlow()
 
     /** The file text of the current configuration, or `null` when the preferences cannot be read. */
-    suspend fun export(): String? = withContext(worker) {
+    override suspend fun export(): String? = withContext(worker) {
         val raw = prefs()?.let { runCatching { it.all }.getOrNull() } ?: return@withContext null
         val look = AppearanceStore.appearance.value ?: Appearance()
         val appearance = AppearanceBackup(look.mode.name, look.palette.name, look.pureBlack)
@@ -87,7 +87,7 @@ internal class ConfigTransfer(
     }
 
     /** Reads the file the user picked: a valid one waits in [pendingImport], anything else is reported. */
-    fun read(uri: Uri) {
+    override fun read(uri: Uri) {
         scope.launch {
             when (val parsed = withContext(Dispatchers.IO) { readConfig(uri) }) {
                 is ParsedBackup.Ok -> mutablePending.value = parsed.backup
@@ -97,12 +97,12 @@ internal class ConfigTransfer(
         }
     }
 
-    fun dismiss() {
+    override fun dismiss() {
         mutablePending.value = null
     }
 
     /** Applies [pendingImport]; ignored while another import runs. */
-    fun confirm() {
+    override fun confirm() {
         val backup = mutablePending.value ?: return
         if (!mutableImporting.compareAndSet(expect = false, update = true)) return
         mutablePending.value = null
