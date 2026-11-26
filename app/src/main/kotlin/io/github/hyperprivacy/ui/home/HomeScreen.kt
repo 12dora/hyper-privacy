@@ -18,7 +18,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -73,10 +72,6 @@ internal fun HomeScreen(
             )
         },
     ) { inner ->
-        // Switching the view replaces every group; start the new list at its first group.
-        LaunchedEffect(view) {
-            if (listState.firstVisibleItemIndex > 1) listState.scrollToItem(1)
-        }
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),

@@ -50,7 +50,7 @@ internal class RuleSnapshot(val rules: List<RuleItem>, val byCategory: List<Rule
  * Builds [RuleSnapshot]s. Rules whose target apps are all missing from the device are left out,
  * so the list only shows protections that can matter here.
  */
-internal class RuleCatalogView(private val statusStore: StatusStore, private val apps: InstalledApps) {
+internal class RuleCatalogView(private val statusStore: StatusStore, val apps: InstalledApps) {
     private val packagesByRule: Map<String, List<AppLabel>> = Catalog.rules.associate { rule ->
         rule.id to apps.ordered.filter { it.packageName in rule.packages }
     }

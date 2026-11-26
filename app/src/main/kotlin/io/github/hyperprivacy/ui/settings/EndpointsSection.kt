@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +34,18 @@ private const val MAX_ENDPOINTS = 100
 
 private fun ObservedEndpointUi.key() = "$appLabel|$host|${path.orEmpty()}"
 
-internal fun LazyListScope.endpointsSection(state: UiState) {
+internal fun LazyListScope.endpointsSection(state: UiState, onClear: () -> Unit) {
     val endpoints = state.observed.distinctBy { it.key() }.take(MAX_ENDPOINTS)
-    item(key = "endpoints-title") { SectionHeader(stringResource(R.string.settings_endpoints)) }
+    item(key = "endpoints-title") {
+        SectionHeader(
+            text = stringResource(R.string.settings_endpoints),
+            trailing = if (endpoints.isEmpty()) {
+                null
+            } else {
+                { TextButton(onClick = onClear) { Text(stringResource(R.string.settings_endpoints_clear)) } }
+            },
+        )
+    }
     if (endpoints.isEmpty()) {
         item(key = "endpoints-empty") { EmptyEndpoints(state.diagnosticMode) }
     } else {

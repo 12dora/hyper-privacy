@@ -69,7 +69,12 @@ internal fun SingleCard(modifier: Modifier = Modifier, content: @Composable Colu
 
 /** A 36dp group label above a card; [leading] is an optional 20dp icon. */
 @Composable
-internal fun SectionHeader(text: String, modifier: Modifier = Modifier, leading: @Composable (() -> Unit)? = null) {
+internal fun SectionHeader(
+    text: String,
+    modifier: Modifier = Modifier,
+    trailing: @Composable (() -> Unit)? = null,
+    leading: @Composable (() -> Unit)? = null,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -81,7 +86,13 @@ internal fun SectionHeader(text: String, modifier: Modifier = Modifier, leading:
         verticalAlignment = Alignment.CenterVertically,
     ) {
         leading?.invoke()
-        Text(text = text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        trailing?.invoke()
     }
 }
 
