@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.core.rule.catalog
 
 import io.github.hyperprivacy.core.rule.Category
+import io.github.hyperprivacy.core.rule.MethodPattern
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
@@ -72,5 +73,34 @@ internal val appListRules: List<Rule> = listOf(
             "statisticstask), RecorderController UsageRecord; traffic cap4: api.vip.miui.com x20",
         defaultOn = false,
         impact = Text("社区成长任务无法完成", "Community tasks cannot complete"),
+    ),
+    Rule(
+        id = "guard.apk-collect",
+        packages = setOf("com.miui.guardprovider"),
+        title = Text("远程 APK 收集", "Remote APK collection"),
+        summary = Text("阻止上传本机应用安装包", "Blocks uploads of installed APKs"),
+        payload = RulePayload.Method(
+            className = "com.miui.guardprovider.action.impl.CollectPackagesAction",
+            method = MethodPattern.parse("a"),
+            allowNullReturn = true,
+        ),
+        category = Category.APP_LIST,
+        evidence = "dex: push action collect_package → CollectPackagesAction.a(Context, Object) checks a " +
+            "server-supplied checkUrl then PackageUploadWorker uploads the full APK + certs to a server-supplied " +
+            "uploadUrl (hosts unknown, so method-level); returning null is safe: ActionDispatcher wraps a() in " +
+            "try/catch(Exception) and reports error -3",
+    ),
+    Rule(
+        id = "guard.app-detect",
+        packages = setOf("com.miui.guardprovider"),
+        title = Text("反诈应用检测", "Fraud app detection"),
+        summary = Text("阻止上传已装应用列表", "Blocks installed app list uploads"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("flash.sec.miui.com", "/detect/app"))),
+        category = Category.APP_LIST,
+        evidence = "dex: guardprovider POST https://flash.sec.miui.com/detect/app with uuid, OS and every " +
+            "non-system package with version, signature MD5 and app name (anti-fraud cloud app check after AV " +
+            "updates)",
+        defaultOn = false,
+        impact = Text("无法识别涉诈应用", "Fraud apps won't be flagged"),
     ),
 )
