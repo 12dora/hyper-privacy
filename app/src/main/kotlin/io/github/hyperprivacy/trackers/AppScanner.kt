@@ -33,13 +33,21 @@ internal data class AppScan(val ids: Set<String>, val hints: OriginHints = Origi
  * base APK's binary manifest ([ManifestScanner]); no code is loaded. Callers run it on a background
  * dispatcher.
  */
-internal class AppScanner(private val pm: PackageManager, private val store: TrackerStore) {
+internal class AppScanner(
+    private val pm: PackageManager,
+    private val store: TrackerStore,
+    private val systemTrustedSigners: () -> Set<String>,
+) {
     /**
      * Third-party apps this app can see (the manifest queries launcher activities), sorted by label.
      * Left out: the module itself, catalog targets and every vendor-trusted app ([VendorTrust], the
      * same test system_server applies: system apps and apps sharing a vendor system app's
      * certificate, such as HyperOS data apps shipped without the system flag). Protection may never
      * select those ([io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]).
+     *
+     * This app does not see every vendor system package, so the trusted certificates are those it
+     * sees plus the ones system_server derived from all packages ([systemTrustedSigners]); apps in
+     * a vendor namespace are left out as well, whatever their certificate.
      */
     // Visibility comes from the manifest's launcher <queries>; QUERY_ALL_PACKAGES is not needed.
     // Other <queries> (known modules, the module settings intent) make more packages visible: only
@@ -50,18 +58,19 @@ internal class AppScanner(private val pm: PackageManager, private val store: Tra
         val launchable = pm.queryIntentActivities(launcher, PackageManager.ResolveInfoFlags.of(0))
             .mapNotNullTo(HashSet()) { it.activityInfo?.packageName }
         val flags = PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
-        val packages = pm.getInstalledPackages(flags).mapNotNull { info ->
-            if (info.packageName !in launchable) return@mapNotNull null
-            info.installedApp()?.let { info to it }
-        }
-        val trusted = VendorTrust.trustedSigners(packages.map { it.second })
+        val installed = pm.getInstalledPackages(flags).mapNotNull { info -> info.installedApp()?.let { info to it } }
+        // Trust is derived from every visible package; only launcher apps are listed.
+        val trusted = VendorTrust.trustedSigners(installed.map { it.second }) + systemTrustedSigners()
+        val packages = installed.filter { (info, _) -> info.packageName in launchable }
         val collator = Collator.getInstance(Locale.getDefault())
         return packages.mapNotNull { (info, installed) ->
             val app = info.applicationInfo ?: return@mapNotNull null
             if (info.packageName == BuildConfig.APPLICATION_ID || info.packageName in Catalog.allPackages) {
                 return@mapNotNull null
             }
-            if (VendorTrust.isVendorTrusted(installed, trusted)) return@mapNotNull null
+            if (VendorTrust.isVendorNamespace(info.packageName) || VendorTrust.isVendorTrusted(installed, trusted)) {
+                return@mapNotNull null
+            }
             val apks = listOfNotNull(app.sourceDir) + app.splitSourceDirs.orEmpty()
             UserApp(
                 packageName = info.packageName,
@@ -102,7 +111,7 @@ internal class AppScanner(private val pm: PackageManager, private val store: Tra
 
     private fun PackageInfo.installedApp(): InstalledApp? {
         val app = applicationInfo ?: return null
-        return InstalledApp(packageName, app.uid, app.flags and SYSTEM_FLAGS != 0, SignerDigests.of(this))
+        return SignerDigests.installedApp(this, app.uid, app.flags and SYSTEM_FLAGS != 0)
     }
 
     private companion object {

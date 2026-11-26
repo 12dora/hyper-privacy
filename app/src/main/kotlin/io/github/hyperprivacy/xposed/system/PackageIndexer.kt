@@ -130,13 +130,15 @@ internal class PackageIndexer(
         val packages = context.packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags))
         state.index = AppIndex.build(packages.mapNotNull(::installedApp))
         state.settleRefreshRequests()
+        // The module app sees fewer packages; it classifies vendor apps with this set (StatusContract.KEY_TRUST).
+        state.reporter?.trust(state.index.trustedSigners)
         homeApp = log.guard("resolve home app") { resolveHome() }
         rebuildPolicy()
     }
 
     private fun installedApp(info: PackageInfo): InstalledApp? {
         val app = info.applicationInfo ?: return null
-        return InstalledApp(info.packageName, app.uid, app.flags and SYSTEM_FLAGS != 0, SignerDigests.of(info))
+        return SignerDigests.installedApp(info, app.uid, app.flags and SYSTEM_FLAGS != 0)
     }
 
     private fun refreshHome() {

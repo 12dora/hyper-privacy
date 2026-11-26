@@ -16,6 +16,7 @@ import io.github.hyperprivacy.core.config.ConfigBackup
 import io.github.hyperprivacy.core.config.ParsedBackup
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.status.StatusStore
 import io.github.hyperprivacy.trackers.AppScan
 import io.github.hyperprivacy.trackers.AppScanner
 import io.github.hyperprivacy.trackers.TrackerStore
@@ -62,6 +63,7 @@ internal class ConfigTransfer(
     private val worker: CoroutineDispatcher,
     private val prefs: () -> SharedPreferences?,
     private val pendingWrites: PendingWrites,
+    private val status: () -> StatusStore?,
     private val clearAppsPending: () -> Unit,
     private val moduleVersion: () -> String,
     private val onChange: () -> Unit,
@@ -118,7 +120,7 @@ internal class ConfigTransfer(
     private suspend fun import(backup: ConfigBackup): ImportOutcome = withContext(worker) {
         val target = prefs() ?: return@withContext ImportOutcome.Failed
         val raw = runCatching { target.all }.getOrNull() ?: return@withContext ImportOutcome.Failed
-        val device = withContext(Dispatchers.IO) { DeviceApps.load(appContext) }
+        val device = withContext(Dispatchers.IO) { DeviceApps.load(appContext) { status()?.trust?.signers().orEmpty() } }
         val scans = withContext(Dispatchers.IO) { scansFor(backup, raw, device) }
         val plan = backup.plan(raw, BuildConfig.APPLICATION_ID, { it in device.configurable }) { scans[it]?.ids }
         val written = runCatching {
@@ -204,9 +206,10 @@ private class DeviceApps(val scanner: AppScanner, val apps: Map<String, UserApp>
     companion object {
         // The home intent resolves through the launcher <queries>; no package visibility is widened.
         @SuppressLint("QueryPermissionsNeeded")
-        fun load(context: Context): DeviceApps {
+        fun load(context: Context, systemTrustedSigners: () -> Set<String>): DeviceApps {
             val pm = context.packageManager
-            val scanner = AppScanner(pm, TrackerStore(context))
+            // Same vendor classification as the Apps page: with the signers system_server reported.
+            val scanner = AppScanner(pm, TrackerStore(context), systemTrustedSigners)
             val listed = runCatching { scanner.installedUserApps() }.getOrDefault(emptyList())
                 .associateBy { it.packageName }
             val home = runCatching {

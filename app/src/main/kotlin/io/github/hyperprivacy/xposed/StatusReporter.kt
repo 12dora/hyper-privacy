@@ -9,19 +9,20 @@ import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.status.ProcessMeta
+import io.github.hyperprivacy.core.status.RelayBuffer
+import io.github.hyperprivacy.core.status.RelayKeys
+import io.github.hyperprivacy.core.status.RelayPayload
 import io.github.hyperprivacy.core.status.RetryBackoff
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.SinkPerf
 import io.github.hyperprivacy.core.status.SinkReport
 import io.github.hyperprivacy.core.status.StatusBatch
-import io.github.hyperprivacy.status.StatusContract
+import io.github.hyperprivacy.core.status.StatusRelay
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -31,18 +32,24 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Recording is lock-free and safe on hot paths; delivery never runs on the caller's thread, so a
  * slow or absent module app cannot stall the host. When delivery fails, counts are kept and the
- * next attempt follows [RetryBackoff] (5 s doubling to 5 min). Once the attempt budget is spent
- * the reporter stops trying for the life of the process but keeps counting locally.
+ * next attempt follows [backoff] (5 s doubling to 5 min, then slower); it never gives up, so
+ * status arrives once the receiver is back (e.g. after the user unlocks a phone that rebooted
+ * unattended).
  *
  * Every batch from an app process also carries its [ProcessMeta] (own versionCode, read once,
  * and process start time), and a heartbeat every [HEARTBEAT_HOURS] re-sends the state so the app
- * can tell a long-lived quiet process (a candidate for "idle rule") from one that is gone.
+ * can tell a long-lived quiet process (a candidate for "idle rule") from one that is gone. One
+ * batch holds at most [StatusRelay.MAX_PAYLOAD_BYTES] (relay) or [OWN_BUDGET_BYTES] of this
+ * process's encoded rows ([RelayPayload.fit]); counts that do not fit stay for the next flush.
  *
  * In system_server it also carries what protected third-party apps hand it through the status
- * relay ([relay]); those apps pass [relayMethod] and never talk to the module app themselves.
+ * relay ([relay]), held in a bounded [RelayBuffer] until forwarded (at most
+ * [RELAYED_BUDGET_BYTES] per batch, so a batch stays far below the Binder transaction limit), and
+ * the vendor-trusted signers of its package snapshot ([trust]). Protected apps pass [relayKeys]
+ * and never talk to the module app themselves.
  *
  * @param context supplies a Context once one exists (returns `null` early in process start).
- * @param relayMethod for a protected third-party app: the relay method name, `null` while unknown.
+ * @param relayKeys for a protected third-party app: its relay credentials, `null` while unknown.
  * @param systemServer set only by the guards started from `onSystemServerStarting`: this reporter
  *   then speaks for system_server ([ProcessMeta.MODULE]). Never derived from the uid, which vendor
  *   apps sharing `android.uid.system` also run as.
@@ -50,22 +57,17 @@ import java.util.concurrent.atomic.AtomicLong
 internal class StatusReporter(
     private val log: HookLog,
     private val context: () -> Context?,
-    relayMethod: (() -> String?)? = null,
+    relayKeys: (() -> RelayKeys?)? = null,
+    private val backoff: RetryBackoff = RetryBackoff(),
     private val systemServer: Boolean = false,
 ) {
-    private data class RuleKey(val packageName: String, val ruleId: String)
-
-    private data class SinkKey(val packageName: String, val sink: String)
-
-    private val delivery = ReportDelivery(log, context, relayMethod)
-    private val backoff = RetryBackoff()
+    private val delivery = ReportDelivery(log, context, relayKeys)
     private val states = ConcurrentHashMap<RuleKey, HookState>()
     private val sinks = ConcurrentHashMap<SinkKey, HookState>()
     private val hits = ConcurrentHashMap<RuleKey, AtomicLong>()
     private val endpoints = EndpointRecorder()
     private val loggedHits: MutableSet<String> = ConcurrentHashMap.newKeySet()
-    private val relayedObserved = BoundedQueue<ObservedEndpoint>(MAX_RELAYED_OBSERVED)
-    private val relayedMeta = ConcurrentHashMap<String, ProcessMeta>()
+    private val relayed by lazy { RelayBuffer() }
     private val scheduled = AtomicBoolean(false)
     private val heartbeatStarted = AtomicBoolean(false)
 
@@ -73,6 +75,14 @@ internal class StatusReporter(
         // Diagnostics mode just turned off: ship the last sink costs instead of leaving them unsent.
         SinkStats.addDisabledListener { if (SinkStats.hasSamples()) markDirty() }
     }
+
+    /** system_server: whether [relay] was ever called (so [relayed] exists). */
+    @Volatile
+    private var relaying = false
+
+    /** system_server: vendor-trusted signers forwarded with every batch. */
+    @Volatile
+    private var trustedSigners: Set<String> = emptySet()
 
     /** This process's facts; read once on the executor thread. */
     private var processMeta: ProcessMeta? = null
@@ -84,9 +94,6 @@ internal class StatusReporter(
     /** Consecutive failed deliveries; touched only on the executor thread. */
     @Volatile
     private var failures = 0
-
-    @Volatile
-    private var gaveUp = false
 
     @Volatile
     private var lastFlushAt = 0L
@@ -121,20 +128,22 @@ internal class StatusReporter(
     }
 
     /**
-     * system_server: merges a batch a protected app relayed (already filtered by
-     * [io.github.hyperprivacy.core.status.StatusRelay.accept]); it goes out with the next flush.
+     * system_server: holds a batch a protected app relayed (already filtered by
+     * [StatusRelay.accept]) until it is forwarded; see [RelayBuffer] for its bounds.
      */
     fun relay(batch: StatusBatch) {
-        batch.reports.forEach { report ->
-            val key = RuleKey(report.packageName, report.ruleId)
-            states[key] = report.state
-            if (report.hits > 0) hits.getOrPut(key) { AtomicLong() }.addAndGet(report.hits)
-        }
-        batch.sinks.forEach { sinks[SinkKey(it.packageName, it.sink)] = it.state }
-        batch.observed.forEach(relayedObserved::offer)
-        batch.meta.forEach { if (relayedMeta.size < MAX_RELAYED_META) relayedMeta[it.packageName] = it }
-        // Per sink name only; folded into this process's counters and sent with its own next flush.
+        relayed.add(batch)
+        // Per sink name only (known sinks, capped by StatusRelay.accept): folded into this
+        // process's counters and sent with its own next flush.
         SinkStats.restore(batch.perf)
+        relaying = true
+        markDirty()
+    }
+
+    /** system_server: the vendor-trusted signers of the current package snapshot. */
+    fun trust(signers: Set<String>) {
+        if (signers == trustedSigners) return
+        trustedSigners = signers
         markDirty()
     }
 
@@ -148,26 +157,19 @@ internal class StatusReporter(
     private fun markDirty() {
         dirty.set(true)
         schedule()
-        if (heartbeatStarted.compareAndSet(false, true)) startHeartbeat()
-    }
-
-    private fun startHeartbeat() {
-        log.guard("schedule status heartbeat") {
-            executor.scheduleWithFixedDelay(::markDirty, HEARTBEAT_HOURS, HEARTBEAT_HOURS, TimeUnit.HOURS)
+        if (heartbeatStarted.compareAndSet(false, true)) {
+            log.guard("schedule status heartbeat") {
+                executor.scheduleWithFixedDelay(::markDirty, HEARTBEAT_HOURS, HEARTBEAT_HOURS, TimeUnit.HOURS)
+            }
         }
     }
 
     private fun schedule() {
-        if (gaveUp || !scheduled.compareAndSet(false, true)) return
+        if (!scheduled.compareAndSet(false, true)) return
         val delay = if (failures == 0) {
             maxOf(INITIAL_DELAY_MS, FLUSH_INTERVAL_MS - (SystemClock.elapsedRealtime() - lastFlushAt))
         } else {
             backoff.delayAfter(failures)
-        }
-        if (delay == null) {
-            gaveUp = true
-            log.warn("status delivery failed $failures times; giving up for this process, counting locally")
-            return
         }
         log.guard("schedule status flush") { executor.schedule(::flush, delay, TimeUnit.MILLISECONDS) }
             ?: scheduled.set(false)
@@ -177,37 +179,32 @@ internal class StatusReporter(
         lastFlushAt = SystemClock.elapsedRealtime()
         dirty.set(false)
         val deltas = hits.mapValues { (_, count) -> count.getAndSet(0) }.filterValues { it > 0 }
-        val relayed = relayedObserved.drain()
-        val observed = endpoints.drain() + relayed
-        val perf = SinkStats.drain()
-        val outcome = log.guard("deliver status") { deliver(deltas, observed, perf) } ?: ReportDelivery.Outcome.FAILED
+        val mine = ownRows(states, sinks, deltas, endpoints.drain(), readProcessMeta(), SinkStats.drain())
+        val budget = if (delivery.relayed) StatusRelay.MAX_PAYLOAD_BYTES else OWN_BUDGET_BYTES
+        val (own, left) = RelayPayload.fit(mine, budget)
+        val forwarded = if (relaying) relayed.take(RELAYED_BUDGET_BYTES) else StatusBatch()
+        val outcome = log.guard("deliver status") { deliver(own, forwarded) } ?: ReportDelivery.Outcome.FAILED
         val delivered = outcome == ReportDelivery.Outcome.DELIVERED || outcome == ReportDelivery.Outcome.REJECTED
+        // Rows that did not fit wait for the next flush (states and sinks are re-sent anyway).
+        restoreCounts(left, hits, endpoints)
         if (delivered) {
             failures = 0
         } else {
-            SinkStats.restore(perf)
-            deltas.forEach { (key, count) -> hits.getOrPut(key) { AtomicLong() }.addAndGet(count) }
-            endpoints.restore(observed)
-            relayed.forEach(relayedObserved::offer)
+            restoreCounts(own, hits, endpoints)
+            if (relaying) relayed.restore(forwarded)
             failures++
         }
+        val leftCounts = left.reports.any { it.hits > 0 } || left.observed.isNotEmpty() || left.perf.isNotEmpty()
+        if (leftCounts || (relaying && !relayed.isEmpty)) dirty.set(true)
         scheduled.set(false)
         if (!delivered || dirty.get()) schedule()
     }
 
-    private fun deliver(
-        deltas: Map<RuleKey, Long>,
-        observed: List<ObservedEndpoint>,
-        perf: List<SinkPerf>,
-    ): ReportDelivery.Outcome {
-        val reports = (states.keys + deltas.keys).mapNotNull { key ->
-            states[key]?.let { RuleReport(key.packageName, key.ruleId, it, deltas[key] ?: 0) }
-        }
-        val sinkReports = sinks.map { (key, state) -> SinkReport(key.packageName, key.sink, state) }
-        val nothingToSend = reports.isEmpty() && sinkReports.isEmpty() && observed.isEmpty()
-        if (nothingToSend && perf.isEmpty()) return ReportDelivery.Outcome.DELIVERED
-        val meta = listOfNotNull(readProcessMeta()) + relayedMeta.values
-        return delivery.send(StatusContract.encode(StatusBatch(reports, sinkReports, observed, meta, perf)))
+    private fun deliver(own: StatusBatch, forwarded: StatusBatch): ReportDelivery.Outcome {
+        val nothing = own.reports.isEmpty() && own.sinks.isEmpty() && own.observed.isEmpty() &&
+            own.perf.isEmpty() && forwarded.isEmpty
+        if (nothing) return ReportDelivery.Outcome.DELIVERED
+        return delivery.send(own + forwarded, trustedSigners)
     }
 
     /**
@@ -241,30 +238,44 @@ internal class StatusReporter(
         /** Distinct (rule, target) pairs logged per process before first-hit logging goes quiet. */
         const val MAX_LOGGED_HITS = 256
 
-        /** system_server: relayed endpoints held between flushes, and relayed processes remembered. */
-        const val MAX_RELAYED_OBSERVED = 1_000
-        const val MAX_RELAYED_META = 512
+        /** Encoded size of this process's own rows in one batch (UTF-8 bytes, so at least as many as chars). */
+        const val OWN_BUDGET_BYTES = 64 * 1024
+
+        /** system_server: encoded size of relayed rows forwarded in one batch. */
+        const val RELAYED_BUDGET_BYTES = 64 * 1024
     }
 }
 
-/** A lock-free queue holding at most [capacity] items; offers beyond it are dropped. */
-private class BoundedQueue<T : Any>(private val capacity: Int) {
-    private val items = ConcurrentLinkedQueue<T>()
-    private val count = AtomicInteger()
+private data class RuleKey(val packageName: String, val ruleId: String)
 
-    fun offer(item: T) {
-        if (count.incrementAndGet() > capacity) {
-            count.decrementAndGet()
-            return
-        }
-        items.add(item)
-    }
+private data class SinkKey(val packageName: String, val sink: String)
 
-    fun drain(): List<T> = buildList {
-        while (true) {
-            val next = items.poll() ?: break
-            count.decrementAndGet()
-            add(next)
-        }
+/** One process's own rows: every known state with its hit delta, sinks, [observed], its [meta] and sink costs. */
+private fun ownRows(
+    states: Map<RuleKey, HookState>,
+    sinks: Map<SinkKey, HookState>,
+    deltas: Map<RuleKey, Long>,
+    observed: List<ObservedEndpoint>,
+    meta: ProcessMeta?,
+    perf: List<SinkPerf>,
+): StatusBatch {
+    val reports = (states.keys + deltas.keys).mapNotNull { key ->
+        states[key]?.let { RuleReport(key.packageName, key.ruleId, it, deltas[key] ?: 0) }
     }
+    val sinkReports = sinks.map { (key, state) -> SinkReport(key.packageName, key.sink, state) }
+    return StatusBatch(reports, sinkReports, observed, listOfNotNull(meta), perf)
+}
+
+/** Gives the hit deltas, endpoint counts and sink costs of an unsent [batch] back to the local tallies. */
+private fun restoreCounts(
+    batch: StatusBatch,
+    hits: ConcurrentHashMap<RuleKey, AtomicLong>,
+    endpoints: EndpointRecorder,
+) {
+    batch.reports.forEach { report ->
+        if (report.hits <= 0) return@forEach
+        hits.getOrPut(RuleKey(report.packageName, report.ruleId)) { AtomicLong() }.addAndGet(report.hits)
+    }
+    endpoints.restore(batch.observed)
+    SinkStats.restore(batch.perf)
 }

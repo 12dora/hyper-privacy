@@ -67,7 +67,8 @@ internal class CronetSink(private val sinks: SinkContext) {
         return (methods + constructors).count { executable ->
             val indices = urlArgumentIndices(executable)
             if (indices.isNotEmpty()) {
-                sinks.xposed.hook(executable).intercept(FailOpenHooker(sinks.log, "cronet") { rewrite(it, indices) })
+                val hooker = FailOpenHooker(sinks.log, Sinks.CRONET_REWRITE) { rewrite(it, indices) }
+                sinks.xposed.hook(executable).intercept(hooker)
             }
             indices.isNotEmpty()
         }

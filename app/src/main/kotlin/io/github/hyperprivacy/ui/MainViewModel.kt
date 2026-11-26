@@ -108,6 +108,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         worker = worker,
         prefs = { remotePrefs.get() },
         pendingWrites = pendingWrites,
+        status = { backend?.store },
         clearAppsPending = { trackers.clearPending() },
         moduleVersion = { backend?.versionName.orEmpty() },
         onChange = { rebuildRequests.trySend(Unit) },

@@ -12,6 +12,11 @@ package io.github.hyperprivacy.core.system
  * Notes, Weather, Gallery, Xiaomi Shop, the security manager …) as updatable data apps without the
  * system flag, and they must keep reading vendor keys and identifiers.
  *
+ * Certificates count with their APK v3 rotation lineage ([InstalledApp.pastSigners], verified by
+ * PackageManager at install): a vendor package that rotated its key still trusts, and is trusted
+ * through, the certificate it rotated away from, and so does an app that rotated away from a vendor
+ * certificate (which only the vendor could sign off).
+ *
  * Only system packages define trust, so a sideloaded app cannot add a certificate by its package
  * name. Certificates of other `com.android.*` system packages (mainline modules, Google apps on
  * global builds) are not trusted: they are shared with ordinary store apps.
@@ -28,9 +33,12 @@ public object VendorTrust {
     /** Signer digests that make a package vendor-trusted, from the installed [apps]. */
     public fun trustedSigners(apps: Iterable<InstalledApp>): Set<String> = apps
         .filter { it.isSystem && (it.packageName == PLATFORM_PACKAGE || isVendorNamespace(it.packageName)) }
-        .flatMapTo(HashSet()) { it.signers }
+        .flatMapTo(HashSet()) { it.signers + it.pastSigners }
 
-    /** Whether [app] is a system app or shares a signer with [trusted] (see [trustedSigners]). */
+    /**
+     * Whether [app] is a system app or shares a signer, current or past, with [trusted] (see
+     * [trustedSigners]).
+     */
     public fun isVendorTrusted(app: InstalledApp, trusted: Set<String>): Boolean =
-        app.isSystem || app.signers.any { it in trusted }
+        app.isSystem || app.signers.any { it in trusted } || app.pastSigners.any { it in trusted }
 }

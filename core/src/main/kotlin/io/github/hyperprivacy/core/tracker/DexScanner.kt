@@ -105,6 +105,8 @@ public object DexScanner {
             var read = 0
             var failure: Exception? = null
             for (entry in dexEntries) {
+                // The APK budget is spent: later entries could only be opened, not read.
+                if (budget.remaining <= 0) break
                 // Any failure (a corrupt deflate stream, a bad entry) loses only this entry.
                 try {
                     zip.getInputStream(entry).use { scanDex(it, matcher, found, budget) }
