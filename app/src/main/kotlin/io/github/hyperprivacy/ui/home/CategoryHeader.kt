@@ -39,6 +39,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.rule.Category
+import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.ui.CategoryGroup
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.components.IconBadge
@@ -141,9 +142,15 @@ private fun BulkMenu(onBulk: (Boolean) -> Unit) {
     }
 }
 
+/** A rule with a side effect that is not a high-risk leak: bulk "turn on" leaves it to a deliberate choice. */
+private val Rule.skippedByBulkEnable: Boolean get() = impact != null && !highRisk
+
+private fun targetsSkipped(group: CategoryGroup): Int =
+    group.entries.count { entry -> !entry.item.enabled && entry.item.rule.skippedByBulkEnable }
+
 /**
- * Confirms a bulk switch. Turning on skips rules with a side effect: those stay a deliberate,
- * one-by-one choice. [onConfirm] receives the rule ids to switch.
+ * Confirms a bulk switch. Turning on skips rules with a side effect unless they are high-risk leaks:
+ * those stay a deliberate, one-by-one choice. [onConfirm] receives the rule ids to switch.
  */
 @Composable
 internal fun BulkToggleDialog(
@@ -154,9 +161,9 @@ internal fun BulkToggleDialog(
 ) {
     val name = stringResource(request.category.labelRes())
     val targets = group.entries.map { it.item }.filter { item ->
-        item.enabled != request.enable && (!request.enable || item.rule.impact == null)
+        item.enabled != request.enable && (!request.enable || !item.rule.skippedByBulkEnable)
     }
-    val skipped = if (request.enable) group.entries.count { !it.item.enabled && it.item.rule.impact != null } else 0
+    val skipped = if (request.enable) targetsSkipped(group) else 0
     val body = when {
         !request.enable -> pluralStringResource(R.plurals.category_disable_body, targets.size, targets.size)
         skipped > 0 -> pluralStringResource(R.plurals.category_enable_body_impact, targets.size, targets.size, skipped)

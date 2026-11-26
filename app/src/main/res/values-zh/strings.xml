@@ -134,6 +134,7 @@
     <string name="detail_enable">启用</string>
     <string name="detail_not_found">该规则不可用</string>
     <string name="detail_section_impact">影响</string>
+    <string name="detail_high_risk">高风险数据，默认阻止</string>
     <string name="detail_section_method">拦截方式</string>
     <string name="detail_section_apps">涉及应用</string>
     <string name="detail_section_evidence">依据</string>

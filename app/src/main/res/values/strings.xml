@@ -151,6 +151,7 @@
     <string name="detail_enable">Enable</string>
     <string name="detail_not_found">This rule is not available</string>
     <string name="detail_section_impact">Impact</string>
+    <string name="detail_high_risk">High-risk data, blocked by default</string>
     <string name="detail_section_method">How it works</string>
     <string name="detail_section_apps">Apps</string>
     <string name="detail_section_evidence">Evidence</string>

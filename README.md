@@ -8,7 +8,7 @@
 ![LSPosed API 101+](https://img.shields.io/badge/LSPosed-API%20101%2B-7E57C2)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-在设置里关掉「用户体验计划」，系统应用就停止上报了吗？并没有。HyperPrivacy 在一台 HyperOS 4 真机上把 318 个系统应用挨个排查了一遍，将能找到的统计、日志、广告、设备标识和应用列表上报通道整理成 99 条规则，帮你一键拦住。而日常离不开的应用商店、推送、云同步、查找设备、天气和系统更新，全部照常工作。
+在设置里关掉「用户体验计划」，系统应用就停止上报了吗？并没有。HyperPrivacy 在一台 HyperOS 4 真机上把 318 个系统应用挨个排查了一遍，将能找到的统计、日志、广告、设备标识和应用列表上报通道整理成 100 条规则，帮你一键拦住。而日常离不开的应用商店、推送、云同步、查找设备、天气和系统更新，全部照常工作。
 
 <p align="center">
   <img src="docs/images/screenshots/home.png" width="23%" alt="首页">
@@ -31,8 +31,8 @@
 
 ## 功能
 
-- **99 条规则，覆盖 119 个系统应用**：按用途整理为统计分析、日志诊断、广告、设备标识、应用列表、个人数据 6 类，一目了然。
-- **默认配置足够省心**：76 条纯上报和广告规则默认开启，装好即用；另外 15 条会影响具体功能的规则（如云查杀、问题反馈）默认关闭，每条都写明了影响，需要时可以手动开启。
+- **100 条规则，覆盖 120 个系统应用**：按用途整理为统计分析、日志诊断、广告、设备标识、应用列表、个人数据 6 类，一目了然。
+- **默认配置足够省心**：100 条规则里 88 条默认开启，装好即用。其中通讯录、短信原文、应用列表、设备指纹、短信链接这类高风险泄露，即使拦截会带来一点副作用也默认阻止，并在规则里写明影响；另外 12 条拦了会影响安全、支付、账号、定位等功能的规则默认关闭，需要时可以手动开启。
 - **隐藏设备标识**：第三方应用读取 OAID / VAID / AAID 时只会拿到全零结果（符合 MSA 规范的「限制广告追踪」值），小米自家服务不受影响。
 - **规则健康检测**：系统更新后如果厂商改了接口，会自动提示「已失效」「待复核」或「长期无拦截」；在其他机型上本来就不存在的 SDK 会显示为「不适用」，不会误报。
 - **诊断模式**：记录系统应用的网络请求，标出疑似新的上报通道；支持一键导出不含个人信息的诊断报告，方便反馈。
@@ -86,7 +86,10 @@
 放心，不会。账号、推送、云服务、系统与应用更新、天气、定位查询、云输入这些日常服务的端点都不在拦截范围内，排查文档里也逐项列出了保留的服务。
 
 **为什么有些规则默认关闭？**
-因为这些通道和具体功能共用接口，比如云查杀需要上传应用特征，拦掉之后对应功能也会失效。所以我们默认把它们关上，并在规则里写明影响，把选择权交给你。
+现在默认关闭的只剩 12 条。它们和具体功能共用接口，拦掉之后会影响安全、支付、账号或定位，比如云查杀需要上传应用特征，支付收银台、查找设备的定位也可能受牵连；还有几条是你主动参与的项目，比如问题反馈和地震监测志愿者。所以我们把它们默认关上，并在规则里写明影响，把选择权交给你。
+
+**拦掉通讯录、短信这类数据，会不会也有副作用？**
+会有一点，所以每条规则都写明了影响，比如「无法识别诈骗链接」「无法提交流量纠错」。但这类数据泄露的代价更大，所以我们选择默认阻止；觉得影响不划算，随时可以在规则详情里单独关掉。
 
 **提示「已失效」「待复核」「不适用」是什么意思？**
 - 「已失效」：这条规则之前在本机生效过，现在找不到拦截点了，通常是应用更新后厂商改了接口。
@@ -120,7 +123,7 @@ scripts/privacy-scan.sh    # 防止仓库中出现本机路径、主机名、个
 
 Turning off Xiaomi's "User Experience Program" doesn't stop system apps from reporting back. **HyperPrivacy** is an LSPosed module for Xiaomi HyperOS that blocks system telemetry, ad SDKs, device-ID collection, and installed-app-list uploads — without breaking any of the vendor services you rely on (app store, push, cloud sync, Find Device, weather, OTA).
 
-- **Grounded in real-device evidence**: 99 evidence-backed rules covering 119 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
+- **Grounded in real-device evidence**: 100 evidence-backed rules covering 120 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
 - **Six precise enforcement layers**: kernel firewall per uid, DNS, TLS SNI (defeats HTTPDNS and hard-coded IPs), HTTP client and WebView (path-level, so services sharing the same host keep working), SDK method no-op, and zeroed OAID/VAID/AAID for third-party apps.
 - **Stays reliable across updates**: rule health detection flags rules broken by vendor updates, while diagnostics mode helps discover new reporting channels.
 - **Lightweight and private**: uses no VPN slot, needs no root at runtime, and requests no network permission in the app itself. Rule changes apply right away without a reboot.

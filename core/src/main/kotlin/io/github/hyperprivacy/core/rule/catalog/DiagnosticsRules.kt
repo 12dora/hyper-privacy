@@ -361,7 +361,10 @@ internal val diagnosticsRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("tz.sec.xiaomi.com", "/session"))),
         category = Category.DIAGNOSTICS,
         evidence = "dex: SIM activation service POST https://tz.sec.xiaomi.com/session with OAID, deviceId and " +
-            "cpuId when TEE checks fail (telemetry only)",
+            "cpuId when TEE checks fail (telemetry only); review: /session may back a Passport fallback when TEE " +
+            "is unavailable — unproven, so default off",
+        defaultOn = false,
+        impact = Text("可能影响小米账号登录", "Xiaomi account sign-in may fail"),
     ),
     Rule(
         id = "guard.scan-result-report",

@@ -81,9 +81,15 @@ class CatalogTest {
     }
 
     @Test
-    fun `rules that affect a service ship disabled`() {
-        val offenders = Catalog.rules.filter { it.impact != null && it.defaultOn }
-        assertTrue(offenders.isEmpty(), "Rules with impact must not default on: ${offenders.map { it.id }}")
+    fun `rules with impact that default on are high risk`() {
+        val offenders = Catalog.rules.filter { it.impact != null && it.defaultOn && !it.highRisk }
+        assertTrue(offenders.isEmpty(), "Impact rules must default off unless highRisk: ${offenders.map { it.id }}")
+    }
+
+    @Test
+    fun `high risk rules ship enabled`() {
+        val offenders = Catalog.rules.filter { it.highRisk && !it.defaultOn }
+        assertTrue(offenders.isEmpty(), "highRisk rules must default on: ${offenders.map { it.id }}")
     }
 
     @Test

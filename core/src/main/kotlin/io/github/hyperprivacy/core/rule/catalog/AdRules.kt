@@ -126,8 +126,8 @@ internal val adRules: List<Rule> = listOf(
         evidence = "jadx securitycenter: 9 callers of adv.sec.miui.com/info/layout (scan result, home, phone-manage, " +
             "notification, app manager cards; BatterySaveIdeaLoadTask posts installed pkgNames); traffic: " +
             "adv.sec.miui.com from uid 1000 x5",
-        defaultOn = false,
         impact = Text("结果页不再显示推荐", "Hides result page suggestions"),
+        highRisk = true,
     ),
     Rule(
         id = "ime.promo",
