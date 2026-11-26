@@ -4,6 +4,7 @@ import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
+import io.github.hyperprivacy.core.rule.Text
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -52,8 +53,8 @@ class ConfigCodecTest {
     private fun rule(id: String, defaultOn: Boolean) = Rule(
         id = id,
         packages = setOf("com.example.app"),
-        title = id,
-        summary = id,
+        title = Text(id, id),
+        summary = Text(id, id),
         payload = RulePayload.Domains(listOf("example.com")),
         category = Category.ANALYTICS,
         evidence = "test",

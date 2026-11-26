@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.rule.MethodPattern
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
+import io.github.hyperprivacy.core.rule.Text
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -62,5 +63,5 @@ class RuleModelTest {
         packages: Set<String> = setOf("com.example"),
         payload: RulePayload = RulePayload.Firewall,
         evidence: String = "test",
-    ) = Rule(id, packages, "t", "s", payload, Category.ANALYTICS, evidence)
+    ) = Rule(id, packages, Text("t", "t"), Text("s", "s"), payload, Category.ANALYTICS, evidence)
 }

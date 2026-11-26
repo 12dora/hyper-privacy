@@ -72,12 +72,14 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             RuleGroup(key, if (key == MULTI_APP_KEY) null else labels[key] ?: key, rules.map { it.toItem(switches) })
         }
 
+    private val languageTag: String get() = java.util.Locale.getDefault().toLanguageTag()
+
     private fun Rule.toItem(switches: Map<String, Boolean>): RuleItem {
         val statuses = packages.mapNotNull { statusStore.get(it, id) }.filter { it.isFromCurrentBoot }
         return RuleItem(
             id = id,
-            title = title,
-            summary = summary,
+            title = title.resolve(languageTag),
+            summary = summary.resolve(languageTag),
             enabled = switches[id] ?: defaultOn,
             status = DisplayStatus.of(statuses.map { it.state }),
             hits = packages.sumOf { statusStore.get(it, id)?.totalHits ?: 0 },

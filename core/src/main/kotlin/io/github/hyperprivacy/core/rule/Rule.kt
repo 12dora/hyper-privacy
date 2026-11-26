@@ -28,6 +28,42 @@ public enum class RuleKind {
 
     /** No-op a named public SDK method inside the target process. */
     METHOD,
+
+    /** Host + path-prefix block at the HTTP client layer inside the target process. */
+    URL,
+
+    /** Hide device identifiers served by the target process from third-party callers. */
+    IDENTIFIER,
+}
+
+/** Where a device identifier is served from; each source has one enforcement point. */
+public enum class IdentifierSource {
+    /** OAID / VAID / AAID / UDID served by `content://com.miui.idprovider` (hosted by the security center). */
+    MIUI_ID_PROVIDER,
+}
+
+/**
+ * A URL block entry: [host] matches exactly or as a dot-suffix (same rules as DOMAIN), and the
+ * request path must start with [pathPrefix]. Used where one host serves both a vendor service
+ * and a reporting endpoint, so blocking the whole host would break the service.
+ */
+public data class UrlPrefix(val host: String, val pathPrefix: String) {
+    init {
+        require(host.isNotBlank()) { "host must not be blank" }
+        require(pathPrefix.startsWith('/') && pathPrefix.length > 1) {
+            "pathPrefix must be a non-root path: $pathPrefix"
+        }
+    }
+}
+
+/** User-facing text in the two shipped languages. */
+public data class Text(val zh: String, val en: String) {
+    init {
+        require(zh.isNotBlank() && en.isNotBlank()) { "Text needs both zh and en" }
+    }
+
+    /** Picks [zh] for Chinese locales, [en] otherwise. */
+    public fun resolve(languageTag: String): String = if (languageTag.startsWith("zh")) zh else en
 }
 
 /** Kind-specific data of a rule. The rule's [RuleKind] is derived from it, so they cannot disagree. */
@@ -62,6 +98,20 @@ public sealed interface RulePayload {
             require(className.isNotBlank()) { "className must not be blank" }
         }
     }
+
+    /** Fail requests whose URL matches any of [prefixes] (HTTP client layer). */
+    public data class Urls(val prefixes: List<UrlPrefix>) : RulePayload {
+        override val kind: RuleKind get() = RuleKind.URL
+
+        init {
+            require(prefixes.isNotEmpty()) { "Urls payload needs at least one prefix" }
+        }
+    }
+
+    /** Return an opted-out (all-zero) identifier from [source] to callers that are not system apps. */
+    public data class Identifiers(val source: IdentifierSource) : RulePayload {
+        override val kind: RuleKind get() = RuleKind.IDENTIFIER
+    }
 }
 
 /**
@@ -75,8 +125,8 @@ public sealed interface RulePayload {
 public data class Rule(
     val id: String,
     val packages: Set<String>,
-    val title: String,
-    val summary: String,
+    val title: Text,
+    val summary: Text,
     val payload: RulePayload,
     val category: Category,
     val evidence: String,
