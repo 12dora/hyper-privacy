@@ -120,6 +120,7 @@ internal class PackageIndexer(
             PackageManager.GET_SIGNING_CERTIFICATES.toLong()
         val packages = context.packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags))
         state.index = AppIndex.build(packages.mapNotNull(::installedApp))
+        state.settleRefreshRequests()
         homeApp = log.guard("resolve home app") { resolveHome() }
         rebuildPolicy()
     }

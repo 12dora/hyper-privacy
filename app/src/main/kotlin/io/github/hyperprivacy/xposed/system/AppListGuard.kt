@@ -111,7 +111,8 @@ internal class AppListGuard(
         }
         hidden.incrementAndGet()
         val index = state.index
-        if (!index.isKnown(caller) || !index.isKnown(target)) state.requestIndexRefresh()
+        if (!index.isKnown(caller)) state.requestIndexRefresh(caller)
+        if (!index.isKnown(target)) state.requestIndexRefresh(target)
         if (loggedCallers.size < MAX_LOGGED_CALLERS && loggedCallers.add(caller)) {
             val pair = "${index.packageOf(target)} from ${index.packageOf(caller)}"
             log.info("app-list: hiding $pair (logged once per caller)")
