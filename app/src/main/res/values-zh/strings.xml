@@ -119,6 +119,10 @@
     <string name="health_export">导出诊断报告</string>
     <string name="health_export_summary">不含个人信息，便于反馈规则问题</string>
     <string name="health_export_failed">暂时无法生成报告</string>
+    <string name="health_export_apps_title">包含你的应用？</string>
+    <string name="health_export_apps_body">报告可以列出受保护的应用及其连接过的服务器。如不需要分享这些信息，请选择不包含。</string>
+    <string name="health_export_apps_omit">不包含</string>
+    <string name="health_export_apps_include">包含</string>
     <string name="health_report_subject">HyperPrivacy 诊断报告</string>
 
     <!-- 应用 -->
@@ -232,20 +236,22 @@
     <string name="apps_awaiting_scope">待 LSPosed 确认</string>
     <string name="apps_empty">没有可显示的应用</string>
     <string name="apps_empty_filtered">未发现含追踪 SDK 的应用</string>
-    <string name="apps_protect_description">为 %1$s 开启追踪防护</string>
+    <string name="apps_protect_description">%1$s 的追踪防护</string>
     <string name="app_protection">追踪防护</string>
     <string name="app_protection_summary">应用重新启动后生效</string>
     <string name="app_scope_pending">需在 LSPosed 通知中确认</string>
     <string name="app_scope_retry">重新请求</string>
     <string name="app_section_privacy">应用列表</string>
+    <string name="app_protection_rules">应用防护</string>
     <string name="app_hide_apps">隐藏已安装应用</string>
     <string name="app_hide_apps_summary">该应用将看不到你安装的其他应用</string>
     <string name="app_strict">严格模式</string>
     <string name="app_strict_summary">常用的分享、登录和支付应用也一并隐藏</string>
     <string name="app_note_checking">正在检查此应用…</string>
     <string name="app_note_failed">无法读取此应用的安装包。</string>
-    <string name="app_note_no_sdk">未在此应用中发现追踪 SDK。部分加固应用无法识别；开启防护后，仍会隔离 DRM 设备号并强制使用系统 DNS。</string>
-    <string name="app_note_protection">开启后拦截下列 SDK 的上报，并隔离 DRM 设备号、强制使用系统 DNS。</string>
+    <string name="app_note_no_sdk">未在此应用中发现追踪 SDK。部分加固应用无法识别；下方的应用防护仍会生效。</string>
+    <string name="app_note_detect_only">此应用中的 SDK 只能识别、无法拦截；下方的应用防护仍会生效。</string>
+    <string name="app_note_protection">开启后拦截下列 SDK 的上报，下方的应用防护同时生效。</string>
     <string name="sdk_detect_only">仅识别，不拦截</string>
     <string name="sdk_impact_verification">拦截后登录或支付可能需要额外验证</string>
     <string name="sdk_impact_updates">拦截后应用内更新可能失效</string>

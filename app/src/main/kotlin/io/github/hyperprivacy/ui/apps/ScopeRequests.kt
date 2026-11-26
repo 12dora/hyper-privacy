@@ -5,6 +5,7 @@ import io.github.hyperprivacy.ui.ScopeResult
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -15,12 +16,18 @@ import kotlinx.coroutines.launch
  * Per-app LSPosed scope for tracker protection: which apps the module is injected into, requests
  * for single apps (only ever on a user tap) and removal when protection is turned off. Requires
  * `staticScope=false` in module.prop: with a static scope LSPosed refuses packages outside
- * scope.list. State is confined to [worker]; binder callbacks hop onto it.
+ * scope.list.
+ *
+ * The scope is derived state: whether protection is on lives only in the remote preferences, and
+ * [isProtected] reads them. Every answer from LSPosed, however late (after the request timed out,
+ * or after protection was turned off again), re-reads the scope and reconciles: an app whose
+ * protection is off is taken back out. State is confined to [worker]; binder callbacks hop onto it.
  */
 internal class ScopeRequests(
     private val scope: CoroutineScope,
     private val worker: CoroutineDispatcher,
     private val service: () -> XposedService?,
+    private val isProtected: (String) -> Boolean,
     private val onChange: () -> Unit,
 ) {
     private val results = Channel<ScopeResult>(Channel.BUFFERED)
@@ -28,55 +35,90 @@ internal class ScopeRequests(
     /** One-shot request outcomes. */
     val messages: Flow<ScopeResult> = results.receiveAsFlow()
 
-    /** Packages in the module scope as last read; empty when unknown. */
+    /** Packages in the module scope as last read successfully; empty until then. */
     var granted: Set<String> = emptySet()
         private set
 
-    /** Packages with a request awaiting LSPosed's answer. */
-    val requesting: MutableSet<String> = HashSet()
+    /** Whether [granted] comes from a successful read. */
+    private var known = false
 
+    /** Open requests by package: each awaits LSPosed's answer or its timeout. */
+    private val pending = HashMap<String, Request>()
+
+    /** Packages with a request awaiting LSPosed's answer. */
+    val requesting: Set<String> get() = pending.keys
+
+    /** Re-reads the scope; a failed read keeps the previous answer. */
     fun check() {
-        granted = service()?.let { runCatching { it.scope.toSet() }.getOrNull() }.orEmpty()
+        val read = service()?.let { runCatching { it.scope.toSet() }.getOrNull() } ?: return
+        granted = read
+        known = true
+    }
+
+    /**
+     * Takes every app in [candidates] (the listed user apps) whose protection is off back out of
+     * the scope, e.g. one left behind by a request approved after protection was turned off.
+     */
+    fun reconcile(candidates: Collection<String>) {
+        if (!known) return
+        candidates.filter { it in granted && it !in pending && !isProtected(it) }.forEach(::remove)
     }
 
     fun request(packageName: String) {
         val target = service() ?: return
-        if (packageName in granted || !requesting.add(packageName)) return
-        val listener = Listener(packageName)
-        runCatching { target.requestScope(listOf(packageName), listener) }
+        if (packageName in granted || packageName in pending) return
+        val request = Request(packageName)
+        pending[packageName] = request
+        runCatching { target.requestScope(listOf(packageName), request) }
             .onSuccess {
-                scope.launch(worker) {
+                request.timeout = scope.launch(worker) {
                     delay(REQUEST_TIMEOUT_MS)
-                    listener.finish(ScopeResult.NO_RESPONSE)
+                    request.finish(ScopeResult.NO_RESPONSE)
                 }
             }
-            .onFailure { listener.finish(ScopeResult.UNSUPPORTED) }
+            .onFailure { request.finish(ScopeResult.UNSUPPORTED) }
     }
 
-    /** Takes a user app back out of the scope; catalog targets keep theirs. */
+    /** Takes a user app back out of the scope (catalog targets keep theirs) and drops its open request. */
     fun remove(packageName: String) {
-        if (packageName in Catalog.scope || packageName !in granted) return
+        if (packageName in Catalog.scope) return
+        pending.remove(packageName)?.cancel()
         val target = service() ?: return
         if (runCatching { target.removeScope(listOf(packageName)) }.isSuccess) granted = granted - packageName
     }
 
-    private inner class Listener(private val packageName: String) : XposedService.OnScopeEventListener {
+    private inner class Request(private val packageName: String) : XposedService.OnScopeEventListener {
         // Worker only.
+        var timeout: Job? = null
         private var answered = false
+        private var cancelled = false
+
+        fun cancel() {
+            cancelled = true
+            timeout?.cancel()
+        }
 
         fun finish(result: ScopeResult) {
-            if (answered) return
+            if (pending[packageName] === this) pending.remove(packageName)
+            timeout?.cancel()
+            val first = !answered
             answered = true
-            requesting -= packageName
-            val before = granted
             check()
-            if (result == ScopeResult.APPROVED && granted.isEmpty()) granted = before + packageName
-            results.trySend(result)
+            // LSPosed's own answer wins over a scope read that may predate it.
+            if (result == ScopeResult.APPROVED) granted = granted + packageName
+            // Protection was turned off meanwhile: whatever LSPosed did, the app leaves the scope again.
+            if (cancelled || !isProtected(packageName)) {
+                if (packageName in granted) remove(packageName)
+            } else if (first) {
+                results.trySend(result)
+            }
             onChange()
         }
 
         override fun onScopeRequestApproved(approved: List<String>) {
-            scope.launch(worker) { finish(ScopeResult.APPROVED) }
+            scope.launch(worker) {
+                finish(if (packageName in approved) ScopeResult.APPROVED else ScopeResult.DENIED)
+            }
         }
 
         override fun onScopeRequestFailed(message: String) {

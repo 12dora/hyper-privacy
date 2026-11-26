@@ -22,6 +22,10 @@ internal data class SdkUi(
     val hits: Long,
 )
 
+/** One app-level protection ([io.github.hyperprivacy.core.rule.Catalog.protectedAppRules]) in one app. */
+@Immutable
+internal data class AppRuleUi(val id: String, val title: Text, val summary: Text, val enabled: Boolean, val hits: Long)
+
 /** A user-installed app on the Apps page. */
 @Immutable
 internal data class UserAppUi(
@@ -29,6 +33,7 @@ internal data class UserAppUi(
     val label: String,
     val scan: ScanState,
     val sdks: List<SdkUi>,
+    val appRules: List<AppRuleUi>,
     val protected: Boolean,
     /** The module is in this app's LSPosed scope (required for protection to take effect). */
     val scoped: Boolean,
@@ -37,6 +42,9 @@ internal data class UserAppUi(
     val strict: Boolean,
 ) {
     val sdkCount: Int get() = sdks.size
+
+    /** Every detected SDK can only be detected, not blocked. */
+    val detectionOnly: Boolean get() = sdks.isNotEmpty() && sdks.none { it.blockable }
 
     /** Protection is on but LSPosed has not (yet) added the app to the scope. */
     val awaitingScope: Boolean get() = protected && !scoped
@@ -67,6 +75,7 @@ internal class UserAppActions(
     val onProtect: (Boolean) -> Unit,
     val onRetryScope: () -> Unit,
     val onSdk: (String, Boolean) -> Unit,
+    val onAppRule: (String, Boolean) -> Unit,
     val onHideApps: (Boolean) -> Unit,
     val onStrict: (Boolean) -> Unit,
     val onBack: () -> Unit,
