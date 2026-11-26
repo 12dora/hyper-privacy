@@ -128,7 +128,7 @@ internal class SettingsKeyGuard(
             if (appId < 0) return Verdict.Proceed
             val index = state.index
             // An app id missing from the snapshot is third-party (installed since): fail closed, and rebuild.
-            if (!index.isKnown(appId) && !index.isEmpty) state.requestIndexRefresh()
+            if (!index.isKnown(appId) && !index.isEmpty) state.requestIndexRefresh(appId)
             if (!index.isThirdParty(appId)) return Verdict.Proceed
             val hide = denied && switches.isEnabled(RULE_ID)
             if (observe) observe(chain.thisObject, index, appId, key, hide)
