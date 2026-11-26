@@ -2,6 +2,8 @@ package io.github.hyperprivacy.core
 
 import io.github.hyperprivacy.core.match.HostMatcher
 import io.github.hyperprivacy.core.match.HostNames
+import io.github.hyperprivacy.core.rule.Text
+import io.github.hyperprivacy.core.rule.catalog.HttpDnsResolvers
 import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerData
 import io.github.hyperprivacy.core.tracker.Trackers
@@ -89,7 +91,21 @@ class TrackerDataTest {
     }
 
     @Test
-    fun `sdk display names stay short`() {
+    fun `no keep host exempts an httpdns resolver`() {
+        // Most specific pattern wins, so a kept parent (apilocate.amap.com) leaves a resolver below it
+        // blocked; a kept host equal to or below a resolver host would exempt it.
+        val resolvers = HttpDnsResolvers.hosts.mapNotNull(HostNames::normalize)
+        val addresses = HttpDnsResolvers.addresses.toSet()
+        val offenders = Trackers.all.flatMap { sdk ->
+            sdk.keepHosts.mapNotNull(HostNames::normalize).filter { keep ->
+                keep in addresses || resolvers.any { keep == it || keep.endsWith(".$it") }
+            }.map { "${sdk.id} keeps $it" }
+        }
+        assertTrue(offenders.isEmpty(), "Keep hosts covering HTTPDNS resolvers:\n" + offenders.joinToString("\n"))
+    }
+
+    @Test
+    fun `sdk display names fit a list row`() {
         val tooLong = Trackers.all.flatMap { sdk ->
             listOfNotNull(
                 "${sdk.id}: ${sdk.displayName.zh}".takeIf { CopyWidth.zh(sdk.displayName.zh) > ZH_NAME_MAX },
@@ -99,15 +115,74 @@ class TrackerDataTest {
         assertTrue(tooLong.isEmpty(), "SDK names too long:\n" + tooLong.joinToString("\n"))
     }
 
+    @Test
+    fun `sdk display names are clean product names`() {
+        val offenders = Trackers.all.flatMap { sdk ->
+            listOf(sdk.name.zh to sdk.displayName.zh, sdk.name.en to sdk.displayName.en).mapNotNull { (name, shown) ->
+                val withoutAliases = name.replace(PARENTHESISED, "").replace(Regex("\\s+"), " ").trim()
+                val vendorWords = sdk.vendor.split(VENDOR_SEPARATORS).filter { it.isNotBlank() }.toSet()
+                when {
+                    shown.isBlank() -> "empty"
+                    shown != shown.trim() || "  " in shown -> "stray spaces"
+                    shown.any { it in BRACKETS } -> "brackets"
+                    " / " in shown -> "slash alternatives"
+                    shown.first() in SEPARATORS || shown.last() in SEPARATORS -> "dangling separator"
+                    shown in vendorWords && shown != withoutAliases -> "bare vendor"
+                    else -> null
+                }?.let { "${sdk.id}: '$shown' ($it)" }
+            }
+        }
+        assertTrue(offenders.isEmpty(), "Display names:\n" + offenders.joinToString("\n"))
+    }
+
+    @Test
+    fun `display names keep the product`() {
+        val expected = mapOf(
+            "amap-location" to Text("高德定位 SDK", "AMap Location SDK"),
+            "amazon-aps" to Text("亚马逊广告", "Amazon Publisher Services"),
+            "oppo-push" to Text("OPPO 推送", "OPPO Push"),
+            "adsuyi-tianmu" to Text("ADSuyi 天目广告", "ADSuyi Tianmu Ads"),
+            "tongdun" to Text("同盾设备指纹", "Tongdun device fingerprint"),
+        )
+        expected.forEach { (id, name) -> assertEquals(name, assertNotNull(Trackers.byId(id)).displayName, id) }
+    }
+
+    @Test
+    fun `display name falls back to name without parenthesised aliases`() {
+        val table = """
+            sdk a 1 ADS
+            n 甲 SDK（别名） 广告
+            e AMap (Gaode) Location SDK
+            v Vendor
+            p com.example.a.
+            sdk b 1 ADS
+            n 乙
+            e OPPO / HeyTap Push
+            dn 乙推送
+            de OPPO Push
+            v OPPO
+            p com.example.b.
+        """.trimIndent()
+        val (a, b) = Trackers.parse(table)
+        assertEquals(Text("甲 SDK 广告", "AMap Location SDK"), a.displayName)
+        assertEquals(Text("乙推送", "OPPO Push"), b.displayName)
+        assertEquals(Text("乙", "OPPO / HeyTap Push"), b.name)
+    }
+
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private companion object {
         const val MIN_TRACKERS = 100
 
-        /** Display names may wrap to a second line in the app detail; these keep them within two. */
-        const val ZH_NAME_MAX = 18.0
-        const val EN_NAME_MAX = 48
+        /** Display names are switch-row titles and must not truncate on a phone (same as AppsCopyTest titles in en). */
+        const val ZH_NAME_MAX = 12.0
+        const val EN_NAME_MAX = 28
+
+        val PARENTHESISED = Regex("\\s*[(（][^()（）]*[)）]")
+        const val BRACKETS = "()（）[]【】"
+        const val SEPARATORS = "/／,，、;；:：-–—&+|"
+        val VENDOR_SEPARATORS = Regex("[\\s()（）/／,，]+")
 
         val BROAD_PACKAGES = setOf(
             "com.tencent", "com.baidu", "com.google", "com.google.android", "com.google.android.gms",

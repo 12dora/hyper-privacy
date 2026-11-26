@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core
 
+import io.github.hyperprivacy.core.tracker.Trackers
 import org.junit.jupiter.api.Test
 import org.w3c.dom.Element
 import java.io.File
@@ -47,10 +48,21 @@ class AppsCopyTest {
 
     @Test
     fun `copy describes functions, not fraud`() {
-        val words = listOf("反诈", "涉诈", "诈骗", "fraud")
-        val offenders = (zh + en.mapKeys { "en:${it.key}" }).filter { (_, text) -> words.any { it in text } }
+        val offenders = (zh + en.mapKeys { "en:${it.key}" }).filter { (_, text) -> banned(text) }
         assertTrue(offenders.isEmpty(), "Describe by function: ${offenders.keys}")
     }
+
+    @Test
+    fun `tracker names and vendors describe functions, not fraud`() {
+        val offenders = Trackers.all.flatMap { sdk ->
+            listOf(sdk.id, sdk.name.zh, sdk.name.en, sdk.displayName.zh, sdk.displayName.en, sdk.vendor)
+                .filter(::banned)
+                .map { "${sdk.id}: $it" }
+        }
+        assertTrue(offenders.isEmpty(), "Describe by function:\n" + offenders.joinToString("\n"))
+    }
+
+    private fun banned(text: String) = BANNED_WORDS.any { text.contains(it, ignoreCase = true) }
 
     private fun isAppsKey(key: String) = PREFIXES.any { key.startsWith(it) }
 
@@ -97,5 +109,8 @@ class AppsCopyTest {
         const val EN_TITLE_MAX = 28
         const val ZH_LINE_MAX = 20.0
         const val EN_LINE_MAX = 48
+
+        /** Public copy names functions and data channels, never anti-fraud / anti-cheat roles. */
+        val BANNED_WORDS = listOf("反诈", "涉诈", "诈骗", "欺诈", "作弊", "fraud", "cheat")
     }
 }
