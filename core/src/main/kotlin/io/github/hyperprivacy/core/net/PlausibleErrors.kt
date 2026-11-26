@@ -95,17 +95,6 @@ public object PlausibleErrors {
         FIRST_EPHEMERAL_PORT + Math.floorMod(random, LAST_EPHEMERAL_PORT - FIRST_EPHEMERAL_PORT + 1)
 
     /**
-     * A line number for a stack frame of [className]#[methodName] when no genuine frame is at hand:
-     * stable per method (a real frame always shows the same line) and in the range real platform
-     * source files use. Never `-1` / absent, which genuine Java frames never show.
-     */
-    public fun plausibleLine(className: String, methodName: String): Int =
-        FIRST_PLAUSIBLE_LINE + Math.floorMod("$className#$methodName".hashCode(), PLAUSIBLE_LINE_SPAN)
-
-    private const val FIRST_PLAUSIBLE_LINE = 60
-    private const val PLAUSIBLE_LINE_SPAN = 840
-
-    /**
      * An HTTP client's failure for a request to an otherwise reachable [host] (path-level block):
      * OkHttp's route failure `Failed to connect to host/ip:port` when an address of the host is
      * known (`/ip:port` when [host] is itself an IP literal, as `InetSocketAddress` prints it), else
@@ -136,4 +125,18 @@ public object PlausibleErrors {
     private fun stableBit(host: String?): Boolean = host != null && (host.hashCode() ushr HASH_BIT) and 1 == 1
 
     private const val HASH_BIT = 7
+}
+
+/** Stack-frame details for errors a hook throws on behalf of a platform method. */
+public object PlausibleFrames {
+    private const val FIRST_LINE = 60
+    private const val LINE_SPAN = 840
+
+    /**
+     * A line number for a stack frame of [className]#[methodName] when no genuine frame is at hand:
+     * stable per method (a real frame always shows the same line) and in the range real platform
+     * source files use. Never `-1` / absent, which genuine platform frames never show.
+     */
+    public fun line(className: String, methodName: String): Int =
+        FIRST_LINE + Math.floorMod("$className#$methodName".hashCode(), LINE_SPAN)
 }

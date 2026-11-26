@@ -98,10 +98,13 @@ public class AppIndex private constructor(
             }
             val byPackage = HashMap<String, Int>()
             byAppId.forEach { (appId, members) -> members.forEach { byPackage[it.packageName] = appId } }
-            val thirdParty = byAppId.filterValues { members -> members.none { VendorTrust.isVendorTrusted(it, trusted) } }
+            fun isVendor(app: InstalledApp) = VendorTrust.isVendorTrusted(app, trusted)
+            val thirdParty = byAppId.filterValues { members -> members.none(::isVendor) }
             return AppIndex(
                 appIdByPackage = byPackage,
-                packagesByAppId = byAppId.mapValues { (_, members) -> members.map { it.packageName }.distinct().sorted() },
+                packagesByAppId = byAppId.mapValues { (_, members) ->
+                    members.map { it.packageName }.distinct().sorted()
+                },
                 thirdPartyKnown = IntSet.of(thirdParty.keys),
                 known = IntSet.of(byAppId.keys),
             )
