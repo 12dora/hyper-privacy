@@ -82,6 +82,7 @@ def main() -> None:
     table = rows(survey)
     OUTPUT.write_text(HEADER + "\n".join(table) + "\n" + FOOTER, encoding="utf-8")
     print(f"wrote {len(table)} packages to {OUTPUT.name}")
+    print("remember: update Baseline.device (codename, ROM incremental) to the surveyed device")
 
 
 if __name__ == "__main__":
