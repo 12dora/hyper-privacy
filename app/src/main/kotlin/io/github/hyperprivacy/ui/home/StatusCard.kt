@@ -104,8 +104,7 @@ private fun statusDetail(module: ModuleState, enabledCount: Int, totalHits: Long
 @Composable
 internal fun StatusCard(state: UiState, actions: HomeActions, modifier: Modifier = Modifier) {
     val module = state.module
-    // Ticks only for a countdown: a pause until resumed shows no time, so nothing wakes the UI.
-    val now = rememberNow(active = state.pausedUntil != 0L && state.pausedUntil != ProtectionPause.UNTIL_MANUAL)
+    val now = rememberNow(active = state.pauseCountdown)
     val paused = module.canEdit && ProtectionPause.isPaused(state.pausedUntil, now)
     var choosing by remember { mutableStateOf(false) }
     val rows = buildList {
@@ -182,7 +181,7 @@ private fun StatusRow(state: UiState, onPause: () -> Unit) {
                 }
             }
         }
-        if (module.canEdit && (state.enabledCount > 0 || state.otherProtectionOn)) PauseButton(onPause)
+        if (state.canPause) PauseButton(onPause)
     }
 }
 

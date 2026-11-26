@@ -109,7 +109,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         prefs = { remotePrefs.get() },
         pendingWrites = pendingWrites,
         status = { backend?.store },
-        clearAppsPending = { trackers.clearPending() },
+        clearAppsPending = { trackers.onPreferencesChanged(overwritten = true) },
         moduleVersion = { backend?.versionName.orEmpty() },
         onChange = { rebuildRequests.trySend(Unit) },
     )
@@ -169,7 +169,7 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
             rules.forEach { pendingWrites.put(ConfigCodec.key(it.id), it.defaultOn) }
             pendingWrites.put(ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT)
             pendingWrites.put(AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
-            trackers.clearPending()
+            trackers.onPreferencesChanged(overwritten = true)
             rebuildRequests.trySend(Unit)
             runCatching { prefs.edit { keys.forEach(::remove) } }.onFailure {
                 pendingWrites.clear()

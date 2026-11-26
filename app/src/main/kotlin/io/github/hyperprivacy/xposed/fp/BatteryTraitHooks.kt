@@ -28,20 +28,21 @@ internal class BatteryTraitHooks(private val env: GuardEnv, private val state: F
 
     private fun installSticky(): Int {
         val methods = methods(CONTEXT_IMPL, "registerReceiverInternal") { it.returnType == Intent::class.java }
-        return env.hookAll(methods, ResultHook(state, HardwareFingerprintGuard.BATTERY_SINK) { real -> stripped(real) })
+        return env.hookAll(methods, ResultHook(state, HardwareFingerprintGuard.BATTERY_SINK, ::stripped))
     }
 
     private fun installDelivery(): Int {
         val methods = methods(RECEIVER_DISPATCHER, "performReceive") {
             it.parameterTypes.firstOrNull() == Intent::class.java
         }
-        return env.hookAll(methods, ArgumentHook(state, HardwareFingerprintGuard.BATTERY_SINK) { first -> stripped(first) })
+        return env.hookAll(methods, ArgumentHook(state, HardwareFingerprintGuard.BATTERY_SINK, ::stripped))
     }
 
     /** A copy of a battery broadcast without the cycle count, or `null` to keep [value] as it is. */
     private fun stripped(value: Any?): Intent? {
         val intent = value as? Intent ?: return null
-        if (intent.action != Intent.ACTION_BATTERY_CHANGED || !intent.hasExtra(BatteryManager.EXTRA_CYCLE_COUNT)) return null
+        if (intent.action != Intent.ACTION_BATTERY_CHANGED) return null
+        if (!intent.hasExtra(BatteryManager.EXTRA_CYCLE_COUNT)) return null
         state.hit(GROUP)
         return Intent(intent).apply { removeExtra(BatteryManager.EXTRA_CYCLE_COUNT) }
     }

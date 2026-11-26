@@ -58,7 +58,9 @@ internal class ConflictController(
             try {
                 do {
                     again = false
-                    hits = withContext(Dispatchers.IO) { runCatching { scanner.overlapping() }.getOrDefault(emptyList()) }
+                    hits = withContext(Dispatchers.IO) {
+                        runCatching { scanner.overlapping() }.getOrDefault(emptyList())
+                    }
                     onChange()
                 } while (again)
             } finally {
@@ -123,7 +125,11 @@ internal class ConflictController(
                 target.edit {
                     restore.hiddenFrom.forEach { putBoolean(it, true) }
                     val selfHide = restore.selfHide
-                    if (selfHide == null) remove(AppListConfig.SELF_HIDE_KEY) else putBoolean(AppListConfig.SELF_HIDE_KEY, selfHide)
+                    if (selfHide == null) {
+                        remove(AppListConfig.SELF_HIDE_KEY)
+                    } else {
+                        putBoolean(AppListConfig.SELF_HIDE_KEY, selfHide)
+                    }
                 }
             }
             if (written.isFailure) {
