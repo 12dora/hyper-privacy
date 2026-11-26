@@ -37,7 +37,9 @@ internal val deviceIdRules: List<Rule> = listOf(
         payload = RulePayload.Domains(listOf("sofire.baidu.com")),
         category = Category.DEVICE_ID,
         evidence = "traffic cap2: baidu.input_mi -> sofire.baidu.com; dex com.baidu.sofire.* (device risk " +
-            "fingerprint, sofire.ac.provider)",
+            "fingerprint, sofire.ac.provider); Baidu Passport login uses Sofire risk tokens",
+        defaultOn = false,
+        impact = Text("输入法内百度账号登录可能失败", "Baidu sign-in in the IME may fail"),
     ),
     Rule(
         id = "getui.collect",
@@ -59,6 +61,7 @@ internal val deviceIdRules: List<Rule> = listOf(
                 "oneid.gepush.com",
                 "oneid.getui.net",
                 "b-qj.gepush.com",
+                "cdn-sdk-opt.getui.com",
             ),
         ),
         category = Category.DEVICE_ID,
@@ -70,10 +73,12 @@ internal val deviceIdRules: List<Rule> = listOf(
         id = "uaid.report",
         packages = setOf("com.xiaomi.smarthome"),
         title = Text("运营商统一标识", "Carrier unified ID"),
-        summary = Text("阻止设备标识与渠道上报", "Block device ID and channel reports"),
-        payload = RulePayload.Domains(listOf("zxid-m.mobileservice.cn")),
+        summary = Text("阻止设备渠道信息上报", "Block device channel reports"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("zxid-m.mobileservice.cn", "/sdk/channel/report"))),
         category = Category.DEVICE_ID,
-        evidence = "dex: smarthome zxid-m.mobileservice.cn/sdk/uaid/reportAuthToken, /sdk/channel/report",
+        evidence = "path scan (applist_urls) smarthome zxid-m.mobileservice.cn/sdk/channel/report; " +
+            "/sdk/uaid/reportAuthToken left allowed (one-tap login token); traffic cap2 (third-party app) " +
+            "zxid-m.mobileservice.cn",
     ),
     Rule(
         id = "telecom-auth.report",
@@ -89,5 +94,26 @@ internal val deviceIdRules: List<Rule> = listOf(
         category = Category.DEVICE_ID,
         evidence = "traffic cap4: mi.car.mobile -> auni.telecome.cn POST /a/daa/report, /a/dai/report (device/app " +
             "info); the login check /a/audd/valid stays allowed",
+    ),
+    Rule(
+        id = "simactivate.firewall",
+        packages = setOf("com.xiaomi.simactivate.service"),
+        title = Text("SIM 激活上报", "SIM activation reports"),
+        summary = Text("禁止上报 SIM 卡与号码信息", "Cut off SIM and number reporting"),
+        payload = RulePayload.Firewall,
+        category = Category.DEVICE_ID,
+        evidence = "uid 10205 (not shared). traffic cap4: -> cnac.account.xiaomi.com; dex %s/pass/activation/report",
+        defaultOn = false,
+        impact = Text("SIM 快捷登录可能失效", "SIM quick sign-in may fail"),
+    ),
+    Rule(
+        id = "misight.trial-check",
+        packages = setOf("com.miui.misightservice"),
+        title = Text("内测设备核验", "Beta device check"),
+        summary = Text("阻止以 OAID 查询内测资格", "Block OAID-based beta-device checks"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("data.pt.xiaomi.com", "/dataplatform/api/v1/trial-records/"))),
+        category = Category.DEVICE_ID,
+        evidence = "evidence.md L581 misightservice data.pt.xiaomi.com/dataplatform/api/v1/trial-records/oaid/check " +
+            "(sends OAID)",
     ),
 )

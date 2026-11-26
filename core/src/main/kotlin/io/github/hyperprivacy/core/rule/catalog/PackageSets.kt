@@ -28,7 +28,6 @@ internal val BYTEDANCE_APPLOG_APPS: Set<String> = setOf(
 internal val FIREBASE_ANALYTICS_APPS: Set<String> = setOf(
     "com.android.browser",
     "com.android.fileexplorer",
-    "com.android.imsserviceentitlement",
     "com.android.updater",
     "com.mi.globalbrowser",
     "com.miui.extraphoto",
@@ -54,7 +53,6 @@ internal val LOCATION_COLLECTION_APPS: Set<String> = setOf(
     "com.miui.securityadd",
     "com.miui.tsmclient",
     "com.miui.voiceassist",
-    "com.mobiletools.systemhelper",
     "com.xiaomi.finddevice",
     "com.xiaomi.metoknlp",
     "com.xiaomi.shop",
@@ -67,6 +65,14 @@ internal val LOCATION_COLLECTION_APPS: Set<String> = setOf(
 internal val LOCATION_SDK_STATS_APPS: Set<String> = setOf(
     "com.mi.car.mobile",
     "com.miui.core",
+    "com.miui.hybrid",
+    "com.mobiletools.systemhelper",
+    "com.xiaomi.finddevice",
+    "com.xiaomi.metoknlp",
+)
+
+/** Target packages of `location.uplink`. */
+internal val LOCATION_UPLINK_APPS: Set<String> = setOf(
     "com.miui.hybrid",
     "com.mobiletools.systemhelper",
     "com.xiaomi.finddevice",
@@ -190,6 +196,44 @@ internal val ONETRACK_APPS: Set<String> = setOf(
     "com.xiaomi.vipaccount",
     "com.xiaomi.xmsf",
     "com.xiaomi.youpin",
+    "miui.systemui.plugin",
+)
+
+/** Target packages of `onetrack.pubsub`. */
+internal val ONETRACK_PUBSUB_APPS: Set<String> = setOf(
+    "com.android.camera",
+    "com.android.phone",
+    "com.android.soundrecorder",
+    "com.mi.globalbrowser",
+    "com.miui.accessibility",
+    "com.miui.aod",
+    "com.miui.gallery",
+    "com.miui.home",
+    "com.miui.mediaeditor",
+    "com.miui.misightservice",
+    "com.miui.miwallpaper",
+    "com.miui.notes",
+    "com.miui.notification",
+    "com.miui.powerinsight",
+    "com.miui.thirdappassistant",
+    "com.xiaomi.aiservice",
+    "com.xiaomi.hypercomm",
+    "com.xiaomi.misettings",
+    "miui.systemui.plugin",
+)
+
+/** Target packages of `payment-sdk.logs`. */
+internal val PAYMENT_SDK_LOGS_APPS: Set<String> = setOf(
+    "com.mi.health",
+    "com.miui.hybrid",
+    "com.miui.player",
+    "com.miui.tsmclient",
+    "com.xiaomi.gamecenter.sdk.service",
+    "com.xiaomi.payment",
+    "com.xiaomi.shop",
+    "com.xiaomi.smarthome",
+    "com.xiaomi.xmsf",
+    "com.xiaomi.youpin",
 )
 
 /** Target packages of `qq-opensdk.stats`. */
@@ -207,7 +251,7 @@ internal val QQ_OPENSDK_STATS_APPS: Set<String> = setOf(
     "com.xiaomi.vipaccount",
 )
 
-/** Target packages of `securitycenter.stats,securitycenter.ads`. */
+/** Target packages of `securitycenter.stats,securitycenter.promo-cards`. */
 internal val SECURITY_CENTER_APPS: Set<String> = setOf(
     "com.miui.cleanmaster",
     "com.miui.securitycenter",
@@ -261,19 +305,12 @@ internal val TENCENT_RDELIVERY_APPS: Set<String> = setOf(
 
 /** Target packages of `thirdparty.sdk-logs`. */
 internal val THIRDPARTY_SDK_LOGS_APPS: Set<String> = setOf(
+    "com.android.providers.downloads.ui",
     "com.mi.car.mobile",
-    "com.mi.health",
     "com.miui.hybrid",
     "com.miui.player",
     "com.miui.securityadd",
-    "com.miui.tsmclient",
-    "com.xiaomi.gamecenter.sdk.service",
     "com.xiaomi.minigame",
-    "com.xiaomi.payment",
-    "com.xiaomi.shop",
-    "com.xiaomi.smarthome",
-    "com.xiaomi.xmsf",
-    "com.xiaomi.youpin",
 )
 
 /** Target packages of `xiaoai.tracker`. */

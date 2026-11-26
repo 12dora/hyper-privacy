@@ -72,11 +72,13 @@ internal val diagnosticsRules: List<Rule> = listOf(
                 "astat.bugly.qcloud.com",
                 "astat.bugly.cros.wr.pvp.net",
                 "rqd.uu.qq.com",
+                "android.rqd.qq.com",
             ),
         ),
         category = Category.DIAGNOSTICS,
         evidence = "traffic cap4: shop -> android.bugly.qq.com POST /rqd/async, youpin -> android.bugly.qq.com; dex " +
-            "com/tencent/bugly in sogou, gamecenter.sdk.service, shop, smarthome, youpin; libbugly.so",
+            "com/tencent/bugly in sogou, gamecenter.sdk.service, shop, smarthome, youpin; libbugly.so; evidence.md " +
+            "L814 sogou android.rqd.qq.com/analytics/async",
     ),
     Rule(
         id = "rmonitor.domains",
@@ -156,34 +158,51 @@ internal val diagnosticsRules: List<Rule> = listOf(
                 UrlPrefix("data.game.xiaomi.com", "/log/"),
                 UrlPrefix("data.game.xiaomi.com", "/appmix.do"),
                 UrlPrefix("data.game.xiaomi.com", "/gamecenter.do"),
+                UrlPrefix("activity.s.migames.com", "/gamesdk/notice/crash"),
             ),
         ),
         category = Category.DIAGNOSTICS,
         evidence = "jadx securitycenter com.xiaomi.gamecenter.sdk.onlinelog.f: sdk.s.migames.com/sdkservice/api/log/" +
             "reportsdk{,online}log; dex: hysdkservice.g.mi.com/sdkservice/api/log/reportmonitordata (hybrid, " +
-            "minigame, xmsf), reportPaymentSwitchData; data.game.xiaomi.com/{log/,appmix.do,gamecenter.do}. " +
-            "Login/payment paths untouched",
+            "minigame, xmsf), reportPaymentSwitchData; data.game.xiaomi.com/{log/,appmix.do,gamecenter.do}; " +
+            "evidence.md L921 gamecenter activity.s.migames.com/gamesdk/notice/crash. Login/payment paths untouched",
     ),
     Rule(
         id = "thirdparty.sdk-logs",
         packages = THIRDPARTY_SDK_LOGS_APPS,
         title = Text("第三方组件日志", "Third-party SDK logs"),
-        summary = Text("阻止支付与云服务组件日志", "Block payment and cloud SDK logs"),
+        summary = Text("阻止云服务与内核组件日志", "Block cloud and WebView SDK logs"),
         payload = RulePayload.Domains(
             listOf(
-                "loggw-exsdk.alipay.com",
-                "cn-hangzhou-mas-log.cloud.alipay.com",
-                "log.wechatpay.cn",
                 "nls-log-gather.aliyuncs.com",
                 "log.tbs.qq.com",
                 "ap-guangzhou.log.zhiyan.tencent-cloud.net",
+                "uploadlog.xlmc.sandai.net",
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "dex: log.tbs.qq.com (X5 WebView) in hybrid, player, minigame; nls-log-gather.aliyuncs.com " +
+            "(mi.car.mobile, evidence.md L361); zhiyan collectruntime (securityadd); uploadlog.xlmc.sandai.net " +
+            "(downloads.ui, L221/L224)",
+    ),
+    Rule(
+        id = "payment-sdk.logs",
+        packages = PAYMENT_SDK_LOGS_APPS,
+        title = Text("支付组件日志", "Payment SDK logs"),
+        summary = Text("阻止支付宝与微信支付日志", "Block Alipay and WeChat Pay logs"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("loggw-exsdk.alipay.com", "/loggw/logUpload.do"),
+                UrlPrefix("cn-hangzhou-mas-log.cloud.alipay.com", "/loggw/logUpload.do"),
+                UrlPrefix("log.wechatpay.cn", "/mmpayendpointreport/"),
             ),
         ),
         category = Category.DIAGNOSTICS,
         evidence = "dex: loggw-exsdk.alipay.com/loggw/logUpload.do in 10 apps (health, hybrid, player, tsmclient, " +
-            "gamecenter…); cn-hangzhou-mas-log.cloud.alipay.com (smarthome); log.wechatpay.cn/mmpayendpointreport " +
-            "(health, tsmclient); log.tbs.qq.com (X5); nls-log-gather.aliyuncs.com (mi.car.mobile); zhiyan " +
-            "collectruntime (securityadd). Payment gateways untouched",
+            "gamecenter…); cn-hangzhou-mas-log.cloud.alipay.com/loggw/logUpload.do (smarthome); log.wechatpay.cn/" +
+            "mmpayendpointreport/opensdkreport (health, tsmclient). Not exercised in a live checkout",
+        defaultOn = false,
+        impact = Text("可能影响第三方支付流程", "May affect third-party payment flows"),
     ),
     Rule(
         id = "browser.engine-telemetry",
@@ -224,5 +243,114 @@ internal val diagnosticsRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("power.pt.xiaomi.com", "/file/upload/"))),
         category = Category.DIAGNOSTICS,
         evidence = "dex: powerinsight power.pt.xiaomi.com/file/upload/zipFile2; OneTrack /track/appUpload also present",
+    ),
+    Rule(
+        id = "feedback.upload",
+        packages = setOf("com.miui.bugreport", "com.miui.misightservice", "com.xiaomi.smarthome"),
+        title = Text("问题反馈上传", "Feedback uploads"),
+        summary = Text("阻止反馈与日志附件上传", "Block feedback and log attachments"),
+        payload = RulePayload.Domains(listOf("feedback.miui.com", "feedback.intl.miui.com", "bugreport.xiaomi.net")),
+        category = Category.DIAGNOSTICS,
+        evidence = "traffic cap2/cap4: uid 1000 group -> feedback.miui.com x2 without user action (MiSight); dex " +
+            "bugreport feedback.miui.com, bugreport.xiaomi.net; misightservice feedback.miui.com",
+        defaultOn = false,
+        impact = Text("无法提交问题反馈", "Feedback cannot be submitted"),
+    ),
+    Rule(
+        id = "carrier-auth.sdk-logs",
+        packages = setOf("com.baidu.input_mi", "com.sohu.inputmethod.sogou.xiaomi", "com.unionpay.tsmservice.mi"),
+        title = Text("运营商登录日志", "Carrier login SDK logs"),
+        summary = Text("阻止一键登录组件日志上报", "Block one-tap login SDK logs"),
+        payload = RulePayload.Domains(listOf("collect.ux.21cn.com", "log1.cmpassport.com", "log2.cmpassport.com")),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L811/L814 sogou collect.ux.21cn.com/collect/custom/accountMsg, log1.cmpassport.com; " +
+            "L322 baidu log2.cmpassport.com; L819/L820 unionpay tsmservice. Login hosts (*.cmpassport.com auth, " +
+            "open.e.189.cn) untouched",
+    ),
+    Rule(
+        id = "globalbrowser.diagnostics",
+        packages = setOf("com.mi.globalbrowser"),
+        title = Text("国际版浏览器诊断", "Global browser diagnostics"),
+        summary = Text("阻止性能监控与可靠性上报", "Block APM and reliability uploads"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("ams-howl.api.intl.miui.com", "/howl-api/apm/v3/"),
+                UrlPrefix("clients2.google.com", "/domainreliability/upload"),
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L371 globalbrowser ams-howl.api.intl.miui.com/howl-api/apm/v3/, clients2.google.com/" +
+            "domainreliability/upload (Chromium domain reliability)",
+    ),
+    Rule(
+        id = "smarthome.extra-logs",
+        packages = setOf("com.xiaomi.smarthome"),
+        title = Text("米家附加日志", "Mi Home extra logs"),
+        summary = Text("阻止崩溃、路由与验证码日志", "Block crash, router and captcha logs"),
+        payload = RulePayload.Domains(
+            listOf(
+                "sg.stat.appmifile.com",
+                "log.miwifi.com",
+                "tw.log.miwifi.com",
+                "monitor.geetest.com",
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L1067 smarthome sg.stat.appmifile.com, log.miwifi.com, tw.log.miwifi.com, " +
+            "monitor.geetest.com; L1069 http://sg.stat.appmifile.com/micra/crash. Captcha (api/static.geetest.com) " +
+            "untouched",
+    ),
+    Rule(
+        id = "music.login-logs",
+        packages = setOf("com.miui.player"),
+        title = Text("QQ 登录日志", "QQ login logs"),
+        summary = Text("阻止 QQ 登录组件日志", "Block QQ login SDK logs"),
+        payload = RulePayload.Domains(listOf("log.wtlogin.qq.com", "log1.wtlogin.qq.com")),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L646/L648 player log.wtlogin.qq.com, log1.wtlogin.qq.com (wtlogin SDK log)",
+    ),
+    Rule(
+        id = "bdsms.log-upload",
+        packages = setOf("com.xiaomi.bdsms"),
+        title = Text("北斗短信日志", "BeiDou SMS logs"),
+        summary = Text("阻止北斗短信组件日志上传", "Block BeiDou SMS SDK log uploads"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("sms.chinaspacetime.com.cn", "/scgateway/xwauth/bdmsg/sdk/v1/uploadBDLog"),
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L883 bdsms sms.chinaspacetime.com.cn/scgateway/xwauth/bdmsg/sdk/v1/uploadBDLog; " +
+            "account status path on the same host untouched",
+    ),
+    Rule(
+        id = "voicetrigger.log-upload",
+        packages = setOf("com.miui.voicetrigger"),
+        title = Text("唤醒日志上传", "Wake-word log uploads"),
+        summary = Text("阻止语音唤醒日志上传", "Block voice-wake log uploads"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("pusherapi-iotdcm.xiaomixiaoai.com", "/iotdcm/pusher/tv/uploadlog"),
+                UrlPrefix("preview-pusherapi-iotdcm.xiaomixiaoai.com", "/iotdcm/pusher/tv/uploadlog"),
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L776 voicetrigger {preview-,}pusherapi-iotdcm.xiaomixiaoai.com/iotdcm/pusher/tv/" +
+            "uploadlog",
+    ),
+    Rule(
+        id = "faceid.sdk-reports",
+        packages = setOf("com.xiaomi.xmsf", "com.xiaomi.youpin"),
+        title = Text("人脸核验日志", "Face-verify SDK logs"),
+        summary = Text("阻止人脸核验组件日志", "Block face-verification SDK logs"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("verify.baidubce.com", "/verify/1.0/sdk/report"),
+                UrlPrefix("sdk.faceid.qq.com", "/api/common/error-report"),
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "evidence.md L1111 youpin verify.baidubce.com/verify/1.0/sdk/report; L1102 xmsf sdk.faceid.qq.com/" +
+            "api/common/error-report. Verification requests themselves untouched",
     ),
 )

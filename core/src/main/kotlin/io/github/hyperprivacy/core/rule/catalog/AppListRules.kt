@@ -40,10 +40,37 @@ internal val appListRules: List<Rule> = listOf(
         packages = setOf("com.miui.personalassistant"),
         title = Text("应用列表同步", "Installed-app sync"),
         summary = Text("阻止上传已安装应用列表", "Block installed-app list uploads"),
-        payload = RulePayload.Urls(listOf(UrlPrefix("assistant.miui.com", "/component/store/syncAppInfo"))),
+        payload = RulePayload.Urls(listOf(UrlPrefix("store.assistant.miui.com", "/component/store/syncAppInfo"))),
         category = Category.APP_LIST,
         evidence = "jadx personalassistant: PickerRequestService @POST component/store/syncAppInfo, body = " +
             "compressed list of every installed package + versionCode + firstInstallTime (EVENT_FULL/INSTALL/" +
-            "UNINSTALL/UPGRADE); traffic cap2: store.assistant.miui.com x7. Widget store browsing untouched",
+            "UNINSTALL/UPGRADE); traffic cap2: store.assistant.miui.com x7 (evidence.md L633). Widget store browsing " +
+            "untouched",
+        defaultOn = false,
+        impact = Text("新装应用的小部件推荐可能缺失", "New apps may lack widget suggestions"),
+    ),
+    Rule(
+        id = "securitycenter.cloud-scan",
+        packages = setOf("com.miui.guardprovider", "com.miui.securitycenter"),
+        title = Text("云查杀上传", "Cloud scan uploads"),
+        summary = Text("阻止上传应用特征", "Block app fingerprint uploads"),
+        payload = RulePayload.Domains(listOf("virus-engine.sec.miui.com")),
+        category = Category.APP_LIST,
+        evidence = "traffic cap2: guardprovider -> virus-engine.sec.miui.com x12, uid 1000 x3; jadx securitycenter " +
+            "virus-engine.sec.miui.com/risk/scan, /risk/issueGrade",
+        defaultOn = false,
+        impact = Text("云查杀不可用", "Cloud virus scan unavailable"),
+    ),
+    Rule(
+        id = "vipaccount.usage-upload",
+        packages = setOf("com.xiaomi.vipaccount"),
+        title = Text("使用记录上传", "Usage record uploads"),
+        summary = Text("阻止上传应用使用记录", "Block app-usage record uploads"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("api.vip.miui.com", "/user/batchuploadappdata"))),
+        category = Category.APP_LIST,
+        evidence = "jadx vipaccount: VipProtocolConfig USAGE_BATCH_UPLOAD POST /user/batchuploadappdata (eventid, " +
+            "statisticstask), RecorderController UsageRecord; traffic cap4: api.vip.miui.com x20",
+        defaultOn = false,
+        impact = Text("社区成长任务无法完成", "Community tasks cannot complete"),
     ),
 )
