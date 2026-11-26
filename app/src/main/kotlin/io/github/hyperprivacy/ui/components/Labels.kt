@@ -1,12 +1,13 @@
 package io.github.hyperprivacy.ui.components
 
-import android.icu.text.CompactDecimalFormat
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.RuleKind
 import java.text.NumberFormat
@@ -47,18 +48,33 @@ internal fun countString(@PluralsRes id: Int, count: Long): String {
     return pluralStringResource(id, quantity, NumberFormat.getIntegerInstance().format(count))
 }
 
-/**
- * A plural string whose argument is [count] in the locale's short compact form
- * ("1.2万", "1.2K"), for tight spots such as the trailing label of a rule row.
- */
-@Composable
-internal fun compactCountString(@PluralsRes id: Int, count: Long): String {
-    val quantity = count.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
-    val locale = LocalLocale.current.platformLocale
-    val formatted = CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT).format(count)
-    return pluralStringResource(id, quantity, formatted)
-}
-
 /** Plural for small counts such as app counts, formatted by the resource itself. */
 @Composable
 internal fun appCountString(count: Int): String = pluralStringResource(R.plurals.meta_apps, count, count)
+
+@StringRes
+internal fun Health.labelRes(): Int = when (this) {
+    Health.BROKEN -> R.string.health_broken
+    Health.NEEDS_REVIEW -> R.string.health_review
+    Health.IDLE -> R.string.health_idle
+    Health.OK -> R.string.health_ok
+    Health.NOT_RUN -> R.string.health_not_run
+    Health.NOT_INSTALLED -> R.string.health_not_installed
+}
+
+/** One-sentence explanation for the states that need attention; `null` for the others. */
+@StringRes
+internal fun Health.descriptionRes(): Int? = when (this) {
+    Health.BROKEN -> R.string.health_broken_desc
+    Health.NEEDS_REVIEW -> R.string.health_review_desc
+    Health.IDLE -> R.string.health_idle_desc
+    else -> null
+}
+
+/** Error red only for a rule that stopped working; the softer states use the tertiary accent. */
+@Composable
+internal fun Health.tint(): Color = if (this == Health.BROKEN) {
+    MaterialTheme.colorScheme.error
+} else {
+    MaterialTheme.colorScheme.tertiary
+}

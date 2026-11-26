@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.ui
 
+import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.MethodPattern
 import io.github.hyperprivacy.core.rule.Rule
@@ -13,8 +14,8 @@ private const val SAMPLE_HITS = 42L
 private const val HOUR_MILLIS = 3_600_000L
 
 private val sampleApps = listOf(
-    AppStatus("com.example.store", "应用商店", DisplayStatus.ACTIVE, STORE_HITS),
-    AppStatus("com.example.themes", "主题商店", DisplayStatus.NOT_RUN, 0),
+    AppStatus("com.example.store", "应用商店", DisplayStatus.ACTIVE, STORE_HITS, Health.OK),
+    AppStatus("com.example.themes", "主题商店", DisplayStatus.NOT_RUN, 0, Health.NEEDS_REVIEW),
 )
 
 private val sampleRules = listOf(
@@ -50,15 +51,15 @@ private val sampleRules = listOf(
 )
 
 private val sampleItems = listOf(
-    RuleItem(sampleRules[0], enabled = true, DisplayStatus.ACTIVE, hits = STORE_HITS, apps = sampleApps.take(1)),
-    RuleItem(sampleRules[1], enabled = true, DisplayStatus.ACTIVE, hits = 0, apps = sampleApps),
-    RuleItem(sampleRules[2], enabled = false, DisplayStatus.NOT_RUN, hits = 0, apps = sampleApps.take(1)),
+    RuleItem(sampleRules[0], true, DisplayStatus.ACTIVE, STORE_HITS, sampleApps.take(1), Health.OK),
+    RuleItem(sampleRules[1], true, DisplayStatus.ACTIVE, 0, sampleApps, Health.NEEDS_REVIEW),
+    RuleItem(sampleRules[2], false, DisplayStatus.NOT_RUN, 0, sampleApps.take(1), Health.NOT_RUN),
 )
 
 internal fun sampleEntries(): List<RuleEntry> = listOf(
-    RuleEntry(sampleItems[0], DisplayStatus.ACTIVE, STORE_HITS, RowMeta.App("应用商店")),
-    RuleEntry(sampleItems[1], DisplayStatus.ACTIVE, 0, RowMeta.Apps(2)),
-    RuleEntry(sampleItems[2], DisplayStatus.NOT_RUN, 0, RowMeta.None),
+    RuleEntry(sampleItems[0], RowMeta.App("应用商店"), Health.OK),
+    RuleEntry(sampleItems[1], RowMeta.Apps(2), Health.NEEDS_REVIEW),
+    RuleEntry(sampleItems[2], RowMeta.None, Health.NOT_RUN),
 )
 
 internal fun sampleItem(): RuleItem = sampleItems[0]
@@ -70,10 +71,11 @@ internal fun sampleState(module: ModuleState = ModuleState.ACTIVE): UiState {
         framework = "LSPosed 1.10",
         versionName = "0.1.0",
         byCategory = groupByCategory(sampleItems),
-        byApp = groupByApp(sampleItems, appOrder),
+        apps = summarizeApps(sampleItems, appOrder),
         rules = sampleItems,
         enabledCount = 2,
         totalHits = STORE_HITS,
+        attention = attentionOf(sampleItems, suspected = 0),
         observed = listOf(
             ObservedEndpointUi("应用商店", "tracking.example.com", "/v2/report", SAMPLE_HITS, now(), blocked = true),
             ObservedEndpointUi("主题商店", "stat.example.com", null, 1, now() - HOUR_MILLIS, blocked = false),

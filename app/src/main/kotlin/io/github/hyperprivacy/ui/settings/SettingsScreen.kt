@@ -37,6 +37,7 @@ import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.UiState
 import io.github.hyperprivacy.ui.components.BackButton
+import io.github.hyperprivacy.ui.components.NavRow
 import io.github.hyperprivacy.ui.components.SectionHeader
 import io.github.hyperprivacy.ui.components.SingleCard
 import io.github.hyperprivacy.ui.components.SwitchRow
@@ -45,6 +46,7 @@ import io.github.hyperprivacy.ui.components.ValueRow
 import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
 import io.github.hyperprivacy.ui.sampleState
+import io.github.hyperprivacy.ui.theme.Appearance
 import kotlinx.coroutines.delay
 
 private const val OBSERVED_REFRESH_MS = 3_000L
@@ -54,7 +56,11 @@ private const val DISABLED_ALPHA = 0.38f
 @Composable
 internal fun SettingsScreen(
     state: UiState,
+    appearance: Appearance,
+    onAppearanceChange: (Appearance) -> Unit,
     onBack: () -> Unit,
+    onOpenHealth: () -> Unit,
+    onExport: () -> Unit,
     onDiagnosticChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
     onRefreshObserved: () -> Unit,
@@ -76,7 +82,8 @@ internal fun SettingsScreen(
         },
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
-            diagnosticsSection(state, onDiagnosticChange)
+            appearanceSection(appearance, onAppearanceChange)
+            diagnosticsSection(state, onOpenHealth, onExport, onDiagnosticChange)
             endpointsSection(state, onClearObserved)
             dataSection(state.module.canEdit) { confirmReset = true }
             aboutSection(state, repository, onOpenRepository = { runCatching { uriHandler.openUri(repository) } })
@@ -109,11 +116,30 @@ private fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
     }
 }
 
-private fun LazyListScope.diagnosticsSection(state: UiState, onDiagnosticChange: (Boolean) -> Unit) {
+private enum class DiagnosticsRow { HEALTH, EXPORT, MODE }
+
+private fun LazyListScope.diagnosticsSection(
+    state: UiState,
+    onOpenHealth: () -> Unit,
+    onExport: () -> Unit,
+    onDiagnosticChange: (Boolean) -> Unit,
+) {
     item(key = "diag-title") { SectionHeader(stringResource(R.string.settings_diagnostics)) }
-    item(key = "diag") {
-        SingleCard {
-            SwitchRow(
+    groupedItems(DiagnosticsRow.entries, key = { "diag/$it" }) { row ->
+        when (row) {
+            DiagnosticsRow.HEALTH -> NavRow(
+                title = stringResource(R.string.health_title),
+                summary = stringResource(R.string.settings_health_summary),
+                onClick = onOpenHealth,
+            )
+
+            DiagnosticsRow.EXPORT -> NavRow(
+                title = stringResource(R.string.health_export),
+                summary = stringResource(R.string.health_export_summary),
+                onClick = onExport,
+            )
+
+            DiagnosticsRow.MODE -> SwitchRow(
                 title = stringResource(R.string.settings_diag_mode),
                 summary = stringResource(R.string.settings_diag_mode_summary),
                 checked = state.diagnosticMode,
@@ -146,7 +172,7 @@ private data class AboutEntry(@StringRes val title: Int, val value: String, val 
 
 private fun LazyListScope.aboutSection(state: UiState, repository: String, onOpenRepository: () -> Unit) {
     val rows = listOfNotNull(
-        AboutEntry(R.string.about_version, state.versionName),
+        AboutEntry(R.string.app_name, state.versionName),
         state.framework?.let { AboutEntry(R.string.about_framework, it) },
         AboutEntry(R.string.about_repository, repository.removePrefix("https://"), onOpenRepository),
     )
@@ -178,5 +204,5 @@ private fun ResetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsPreview() {
-    HyperPrivacyTheme { SettingsScreen(sampleState(), {}, {}, {}, {}, {}) }
+    HyperPrivacyTheme { SettingsScreen(sampleState(), Appearance(), {}, {}, {}, {}, {}, {}, {}, {}) }
 }
