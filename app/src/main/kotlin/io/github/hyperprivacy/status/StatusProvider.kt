@@ -20,7 +20,9 @@ import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.StatusBatch
 import io.github.hyperprivacy.core.status.StatusRelay
+import io.github.hyperprivacy.core.status.clampedTo
 import io.github.hyperprivacy.core.system.SettingsObservation
+import io.github.hyperprivacy.xposed.Sinks
 
 /**
  * Receives status batches from hooked processes via [call] (see [StatusContract]).
@@ -51,12 +53,14 @@ class StatusProvider : ContentProvider() {
             Log.w(TAG, "Rejected status report from uid $uid")
             return null
         }
-        val accepted = accept(StatusContract.decode(extras), callerPackages, isSystemServer)
+        val now = System.currentTimeMillis()
+        val accepted = accept(StatusContract.decode(extras), callerPackages, isSystemServer, now)
         store.merge(accepted.reports, versionsOf(accepted.reports, accepted.meta)::get)
-        store.meta.merge(accepted.meta, receivedAt = System.currentTimeMillis())
+        store.meta.merge(accepted.meta, receivedAt = now)
         store.mergeSinks(accepted.sinks)
         store.mergeObserved(accepted.observed)
         store.perf.merge(accepted.perf)
+        if (isSystemServer) StatusContract.decodeTrust(extras)?.let(store.trust::replace)
         return Bundle.EMPTY
     }
 
@@ -106,14 +110,17 @@ class StatusProvider : ContentProvider() {
 
 /**
  * The rows of [batch] this caller may report: its own package's ([callerPackages], a catalog
- * target), or for system_server its own rows and those it relayed for protected apps.
+ * target), or for system_server its own rows and those it relayed for protected apps. Sinks (states
+ * and costs) must be ones the hooks report ([Sinks.isKnown]), hit deltas are capped and times
+ * clamped to [now], so no caller can bloat the tables or pin rows with far-future times.
  */
-private fun accept(batch: StatusBatch, callerPackages: Set<String>, isSystemServer: Boolean): StatusBatch {
+private fun accept(batch: StatusBatch, callerPackages: Set<String>, isSystemServer: Boolean, now: Long): StatusBatch {
     fun mine(packageName: String) = packageName in callerPackages
     fun relayed(packageName: String) = isSystemServer && isRelayed(packageName)
     return StatusBatch(
-        reports = batch.reports.filter { it.isAuthorized(callerPackages, isSystemServer) },
-        sinks = batch.sinks.filter {
+        reports = batch.reports.filter { it.isAuthorized(callerPackages, isSystemServer) }
+            .map { if (it.hits > MAX_HITS_PER_REPORT) it.copy(hits = MAX_HITS_PER_REPORT) else it },
+        sinks = batch.sinks.filter { Sinks.isKnown(it.sink) }.filter {
             mine(it.packageName) || relayed(it.packageName) ||
                 (isSystemServer && it.packageName == Catalog.SYSTEM_SCOPE)
         },
@@ -121,10 +128,10 @@ private fun accept(batch: StatusBatch, callerPackages: Set<String>, isSystemServ
         observed = batch.observed.filter {
             mine(it.packageName) || relayed(it.packageName) ||
                 (isSystemServer && SettingsObservation.isSettingsHost(it.host))
-        }.take(if (isSystemServer) MAX_OBSERVED_PER_RELAY else MAX_OBSERVED_PER_CALL),
-        meta = batch.meta.filter { mine(it.packageName) || relayed(it.packageName) },
+        }.take(if (isSystemServer) MAX_OBSERVED_PER_RELAY else MAX_OBSERVED_PER_CALL).map { it.clampedTo(now) },
+        meta = batch.meta.filter { mine(it.packageName) || relayed(it.packageName) }.map { it.clampedTo(now) },
         // Per sink name, never per package: nothing about who sent it beyond being authenticated.
-        perf = batch.perf.take(PerfCodec.MAX_ROWS),
+        perf = batch.perf.asSequence().filter { Sinks.isKnown(it.sink) }.take(PerfCodec.MAX_ROWS).toList(),
     )
 }
 
@@ -141,6 +148,9 @@ private fun RuleReport.isAuthorized(callerPackages: Set<String>, isSystemServer:
     val bySystemServer = rule.kind == RuleKind.FIREWALL || packageName == Catalog.SYSTEM_SCOPE
     return if (bySystemServer) isSystemServer else packageName in callerPackages
 }
+
+/** Hit delta accepted per report (a delta per flush interval; real ones are far lower). */
+private const val MAX_HITS_PER_REPORT = StatusRelay.MAX_HITS_PER_REPORT
 
 /** The per-process recorder bound; anything beyond it is not from our reporter. */
 private const val MAX_OBSERVED_PER_CALL = EndpointRecorder.DEFAULT_MAX_ENTRIES

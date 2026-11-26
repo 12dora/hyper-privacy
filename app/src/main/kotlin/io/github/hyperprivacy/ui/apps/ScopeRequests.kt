@@ -1,6 +1,8 @@
 package io.github.hyperprivacy.ui.apps
 
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.scope.Protection
+import io.github.hyperprivacy.core.scope.ScopeDecisions
 import io.github.hyperprivacy.ui.ScopeResult
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CoroutineDispatcher
@@ -19,15 +21,17 @@ import kotlinx.coroutines.launch
  * scope.list.
  *
  * The scope is derived state: whether protection is on lives only in the remote preferences, and
- * [isProtected] reads them. Every answer from LSPosed, however late (after the request timed out,
- * or after protection was turned off again), re-reads the scope and reconciles: an app whose
- * protection is off is taken back out. State is confined to [worker]; binder callbacks hop onto it.
+ * [protection] reads them (tri-state: an unreadable preference is [Protection.UNKNOWN] and never
+ * removes anything). Every answer from LSPosed, however late (after the request timed out, or
+ * after protection was turned off and on again), re-reads the scope and is decided from the state
+ * at that moment ([ScopeDecisions.onAnswer]): an app whose protection is definitely off is taken
+ * back out. State is confined to [worker]; binder callbacks hop onto it.
  */
 internal class ScopeRequests(
     private val scope: CoroutineScope,
     private val worker: CoroutineDispatcher,
     private val service: () -> XposedService?,
-    private val isProtected: (String) -> Boolean,
+    private val protection: (String) -> Protection,
     private val onChange: () -> Unit,
 ) {
     private val results = Channel<ScopeResult>(Channel.BUFFERED)
@@ -56,12 +60,14 @@ internal class ScopeRequests(
     }
 
     /**
-     * Takes every app in [candidates] (the listed user apps) whose protection is off back out of
-     * the scope, e.g. one left behind by a request approved after protection was turned off.
+     * Takes every app in [candidates] (the listed user apps) whose protection is definitely off
+     * back out of the scope, e.g. one left behind by a request approved after protection was turned
+     * off. Apps whose protection cannot be read right now stay.
      */
     fun reconcile(candidates: Collection<String>) {
         if (!known) return
-        candidates.filter { it in granted && it !in pending && !isProtected(it) }.forEach(::remove)
+        candidates.filter { it in granted && it !in pending && ScopeDecisions.shouldRemove(protection(it)) }
+            .forEach(::remove)
     }
 
     fun request(packageName: String) {
@@ -99,20 +105,33 @@ internal class ScopeRequests(
         }
 
         fun finish(result: ScopeResult) {
+            val current = pending[packageName] === this && !cancelled
             if (pending[packageName] === this) pending.remove(packageName)
             timeout?.cancel()
             val first = !answered
             answered = true
             check()
+            val approved = result == ScopeResult.APPROVED
             // LSPosed's own answer wins over a scope read that may predate it.
-            if (result == ScopeResult.APPROVED) granted = granted + packageName
-            // Protection was turned off meanwhile: whatever LSPosed did, the app leaves the scope again.
-            if (cancelled || !isProtected(packageName)) {
-                if (packageName in granted) remove(packageName)
-            } else if (first) {
-                results.trySend(result)
+            if (approved) granted = granted + packageName
+            when (ScopeDecisions.onAnswer(approved, protection(packageName), current, first)) {
+                ScopeDecisions.Answer.REMOVE -> if (packageName in granted) remove(packageName)
+
+                ScopeDecisions.Answer.REPORT -> {
+                    // A late approval of a superseded request also settles the newer one.
+                    if (approved) pending.remove(packageName)?.settle()
+                    results.trySend(result)
+                }
+
+                ScopeDecisions.Answer.IGNORE -> Unit
             }
             onChange()
+        }
+
+        /** Answered through an older request for the same app: stop waiting, stay silent. */
+        fun settle() {
+            answered = true
+            timeout?.cancel()
         }
 
         override fun onScopeRequestApproved(approved: List<String>) {

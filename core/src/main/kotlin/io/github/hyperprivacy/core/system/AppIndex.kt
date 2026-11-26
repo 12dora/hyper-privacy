@@ -4,13 +4,15 @@ import io.github.hyperprivacy.core.firewall.UidPolicy
 
 /**
  * One installed package as seen by system_server: its uid, whether it is a (possibly updated) system
- * app, and the digests of its current signing certificates (see [VendorTrust]).
+ * app, the digests of its current signing certificates and those of its verified APK v3 rotation
+ * lineage ([pastSigners], the certificates it rotated away from; see [VendorTrust]).
  */
 public data class InstalledApp(
     val packageName: String,
     val uid: Int,
     val isSystem: Boolean,
     val signers: Set<String> = emptySet(),
+    val pastSigners: Set<String> = emptySet(),
 )
 
 /**
@@ -35,6 +37,8 @@ public class AppIndex private constructor(
     private val thirdPartyKnown: IntSet,
     /** Every application app id in the snapshot. */
     private val known: IntSet,
+    /** [VendorTrust.trustedSigners] of the snapshot, shared with the module app's own listing. */
+    public val trustedSigners: Set<String>,
 ) {
     /** No snapshot yet (before boot completes): nothing counts as third-party. */
     public val isEmpty: Boolean get() = known.isEmpty()
@@ -107,6 +111,7 @@ public class AppIndex private constructor(
                 },
                 thirdPartyKnown = IntSet.of(thirdParty.keys),
                 known = IntSet.of(byAppId.keys),
+                trustedSigners = trusted,
             )
         }
     }

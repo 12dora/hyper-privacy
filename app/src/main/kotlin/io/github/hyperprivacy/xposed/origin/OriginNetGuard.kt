@@ -3,6 +3,7 @@ package io.github.hyperprivacy.xposed.origin
 import android.annotation.SuppressLint
 import io.github.hyperprivacy.xposed.NetErrors
 import io.github.hyperprivacy.xposed.Reflection
+import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.hyperprivacy.xposed.url.OkHttpCalls
 import io.github.hyperprivacy.xposed.url.OkHttpUrlReader
@@ -75,7 +76,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         val reader = OkHttpUrlReader.resolve(type) ?: return 0
         readers[type] = reader
         val entries = OkHttpCalls.entries(type, reader)
-        entries.forEach { hooks.sink(it, "okhttp exec", ::failCall) }
+        entries.forEach { hooks.sink(it, Sinks.ORIGIN_OKHTTP, ::failCall) }
         return entries.size
     }
 
@@ -92,7 +93,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
             runCatching { URL::class.java.getDeclaredMethod(OPEN_CONNECTION) }.getOrNull(),
             runCatching { URL::class.java.getDeclaredMethod(OPEN_CONNECTION, Proxy::class.java) }.getOrNull(),
         )
-        methods.forEach { hooks.sink(it, "url", ::failUrl) }
+        methods.forEach { hooks.sink(it, Sinks.ORIGIN_URL, ::failUrl) }
         return methods.size
     }
 
@@ -113,7 +114,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         runCatching {
             Socket::class.java.getDeclaredMethod(CONNECT, SocketAddress::class.java, Int::class.javaPrimitiveType)
         }.getOrNull()?.let {
-            hooks.sink(it, "socket connect", ::failSocket)
+            hooks.sink(it, Sinks.ORIGIN_SOCKET, ::failSocket)
             count++
         }
         runCatching { SocketChannel::class.java.getDeclaredConstructor(SelectorProvider::class.java) }
@@ -122,7 +123,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         channelImpl?.declaredMethods?.filter {
             it.name == CONNECT && it.parameterTypes.contentEquals(arrayOf(SocketAddress::class.java))
         }?.forEach {
-            hooks.sink(it, "channel connect", ::failChannel)
+            hooks.sink(it, Sinks.ORIGIN_CHANNEL, ::failChannel)
             count++
         }
         return count
@@ -156,7 +157,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         var count = 0
         request.declaredConstructors.forEach { count += hooks.creation(it, "volley request", hooks::tagSdk) }
         perform.forEach { method ->
-            hooks.sink(method, "volley perform") { chain -> failVolley(chain, error, getUrl) }
+            hooks.sink(method, Sinks.ORIGIN_VOLLEY) { chain -> failVolley(chain, error, getUrl) }
             count++
         }
         return count

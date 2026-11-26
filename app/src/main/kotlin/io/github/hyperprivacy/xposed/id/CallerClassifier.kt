@@ -7,7 +7,6 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import io.github.hyperprivacy.core.system.AppIndex
-import io.github.hyperprivacy.core.system.InstalledApp
 import io.github.hyperprivacy.core.system.VendorTrust
 import java.util.concurrent.ConcurrentHashMap
 
@@ -63,7 +62,7 @@ internal class CallerClassifier {
         } catch (_: RuntimeException) {
             emptyList()
         }
-        val apps = system.map { InstalledApp(it.packageName, -1, isSystem = true, SignerDigests.of(it)) }
+        val apps = system.map { SignerDigests.installedApp(it, -1, isSystem = true) }
         // Empty: the query failed or was filtered; fall back to the system flag and retry later.
         return VendorTrust.trustedSigners(apps).takeIf { it.isNotEmpty() }?.also { trusted = it }
     }
@@ -75,7 +74,7 @@ internal class CallerClassifier {
             return true
         }
         val isSystem = (info.applicationInfo?.flags ?: SYSTEM_FLAGS) and SYSTEM_FLAGS != 0
-        return VendorTrust.isVendorTrusted(InstalledApp(packageName, -1, isSystem, SignerDigests.of(info)), signers)
+        return VendorTrust.isVendorTrusted(SignerDigests.installedApp(info, -1, isSystem), signers)
     }
 
     private companion object {

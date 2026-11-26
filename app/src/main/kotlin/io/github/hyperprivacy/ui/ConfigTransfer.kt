@@ -7,6 +7,7 @@ import io.github.hyperprivacy.core.config.AppearanceBackup
 import io.github.hyperprivacy.core.config.ConfigBackup
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.status.StatusStore
 import io.github.hyperprivacy.trackers.AppScan
 import io.github.hyperprivacy.trackers.AppScanner
 import io.github.hyperprivacy.trackers.TrackerStore
@@ -38,6 +39,7 @@ internal class ConfigTransfer(
     private val worker: CoroutineDispatcher,
     private val prefs: () -> SharedPreferences?,
     private val pendingWrites: PendingWrites,
+    private val status: () -> StatusStore?,
     private val moduleVersion: () -> String,
     private val onChange: () -> Unit,
 ) {
@@ -88,7 +90,10 @@ internal class ConfigTransfer(
             app.protect && current[TrackerProtection.protectKey(pkg)] == null
         }.keys
         if (wanted.isEmpty()) return emptyMap()
-        val scanner = AppScanner(appContext.packageManager, TrackerStore(appContext))
+        // Same vendor classification as the Apps page: with the signers system_server reported.
+        val scanner = AppScanner(appContext.packageManager, TrackerStore(appContext)) {
+            status()?.trust?.signers().orEmpty()
+        }
         val listed = runCatching { scanner.installedUserApps() }.getOrDefault(emptyList())
         val installed = listed.associateBy { it.packageName }
         return wanted.associateWith { pkg -> installed[pkg]?.let { scanner.cached(it) ?: scanner.scan(it) } }

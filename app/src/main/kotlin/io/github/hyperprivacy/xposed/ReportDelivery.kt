@@ -1,9 +1,15 @@
 package io.github.hyperprivacy.xposed
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Bundle
 import android.provider.Settings
+import io.github.hyperprivacy.core.status.RelayKeys
+import io.github.hyperprivacy.core.status.RelayPayload
+import io.github.hyperprivacy.core.status.StatusBatch
+import io.github.hyperprivacy.core.status.StatusRelay
 import io.github.hyperprivacy.status.StatusContract
+import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -15,16 +21,18 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   is being installed, or when the calling app has no package visibility of the module (Android
  *   11+ filtering). These cases are indistinguishable here, so all are reported as [UNAVAILABLE]
  *   and retried with backoff by the caller; each distinct problem is logged once per process.
- * - **relay** (protected third-party apps, when [relayMethod] is given): a `call` on the Settings
- *   provider, answered by system_server ([io.github.hyperprivacy.core.status.StatusRelay]). The
- *   module package and its provider are never resolved from such a process, so module
- *   self-hiding stays in force there. A `null` answer (relay not hooked, or not accepted) counts
- *   as [REJECTED]; a missing module secret as [UNAVAILABLE].
+ * - **relay** (protected third-party apps, when [relayKeys] is given): a sealed `call` on the
+ *   Settings provider, answered by system_server ([StatusRelay]). The module package and its
+ *   provider are never resolved from such a process, so module self-hiding stays in force there.
+ *   Anything but an accepting answer (the stock provider's `SecurityException` while the relay
+ *   hook is not ready, or not ready for this app yet; a `null`) is [UNAVAILABLE] and retried: from
+ *   here a transient refusal cannot be told from a lasting one. A missing module secret is
+ *   [UNAVAILABLE] too.
  */
 internal class ReportDelivery(
     private val log: HookLog,
     private val context: () -> Context?,
-    private val relayMethod: (() -> String?)? = null,
+    private val relayKeys: (() -> RelayKeys?)? = null,
 ) {
     enum class Outcome {
         DELIVERED,
@@ -32,7 +40,7 @@ internal class ReportDelivery(
         /** The receiver answered `null`: this caller is not authorised. Retrying cannot help. */
         REJECTED,
 
-        /** No Context yet, or the receiver is not resolvable from this process right now. */
+        /** No Context yet, or the receiver is not resolvable or not ready for this process right now. */
         UNAVAILABLE,
 
         /** The receiver was found but the call failed (provider died, binder error …). */
@@ -42,26 +50,52 @@ internal class ReportDelivery(
     private val warnedUnavailable = AtomicBoolean()
     private val warnedRejected = AtomicBoolean()
     private val warnedFailed = AtomicBoolean()
+    private val random by lazy { SecureRandom() }
 
-    fun send(extras: Bundle): Outcome {
+    /** Whether batches go through the status relay (and so must fit [StatusRelay.MAX_PAYLOAD_BYTES]). */
+    val relayed: Boolean get() = relayKeys != null
+
+    /** Sends [batch]; [trustedSigners] (system_server only) rides along to the module app. */
+    fun send(batch: StatusBatch, trustedSigners: Set<String> = emptySet()): Outcome {
         val ctx = context() ?: return Outcome.UNAVAILABLE
-        val relay = relayMethod
-        return if (relay != null) sendToRelay(ctx, relay(), extras) else sendToProvider(ctx, extras)
+        val relay = relayKeys
+        return if (relay != null) {
+            sendToRelay(ctx, relay(), batch)
+        } else {
+            sendToProvider(ctx, StatusContract.encode(batch, trustedSigners))
+        }
     }
 
-    private fun sendToRelay(ctx: Context, method: String?, extras: Bundle): Outcome {
-        method ?: return Outcome.UNAVAILABLE
+    private fun sendToRelay(ctx: Context, keys: RelayKeys?, batch: StatusBatch): Outcome {
+        keys ?: return Outcome.UNAVAILABLE
         return try {
-            if (ctx.contentResolver.call(Settings.AUTHORITY, method, null, extras) != null) {
+            val sealed = keys.seal(RelayPayload.encode(batch), random)
+            val extras = Bundle(1).apply { putByteArray(StatusRelay.EXTRA_PAYLOAD, sealed) }
+            val resolver = baseResolverContext(ctx).contentResolver
+            if (resolver.call(Settings.AUTHORITY, StatusRelay.METHOD, keys.token, extras) != null) {
                 Outcome.DELIVERED
             } else {
-                warnOnce(warnedRejected, "status relay not accepted")
-                Outcome.REJECTED
+                warnOnce(warnedUnavailable, "status relay not ready; retrying")
+                Outcome.UNAVAILABLE
             }
+        } catch (_: SecurityException) {
+            // The stock provider's answer: the relay hook is not installed or not ready for this app yet.
+            warnOnce(warnedUnavailable, "status relay not ready; retrying")
+            Outcome.UNAVAILABLE
         } catch (t: Throwable) {
             warnOnce(warnedFailed, "status relay failed", t)
             Outcome.FAILED
         }
+    }
+
+    /**
+     * The innermost base context of [ctx]: the framework's own context, whose resolver the host
+     * app cannot override (an `Application` subclass can override `getContentResolver`).
+     */
+    private fun baseResolverContext(ctx: Context): Context {
+        var current = ctx
+        while (current is ContextWrapper) current = current.baseContext ?: break
+        return current
     }
 
     private fun sendToProvider(ctx: Context, extras: Bundle): Outcome {

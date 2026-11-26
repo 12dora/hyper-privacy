@@ -4,6 +4,7 @@ import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.xposed.GuardEnv
+import io.github.hyperprivacy.xposed.Sinks
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -61,8 +62,8 @@ internal class HardwareFingerprintGuard(private val env: GuardEnv) {
 
     private companion object {
         const val ARMED = 1
-        const val SENSOR_SINK = "fp.sensor"
-        const val FS_SINK = "fp.fsid"
-        const val BATTERY_SINK = "fp.battery"
+        const val SENSOR_SINK = Sinks.FP_SENSOR
+        const val FS_SINK = Sinks.FP_FSID
+        const val BATTERY_SINK = Sinks.FP_BATTERY
     }
 }
