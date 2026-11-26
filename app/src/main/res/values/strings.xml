@@ -192,6 +192,9 @@
     <string name="palette_graphite">Graphite</string>
     <string name="appearance_pure_black">Pure black</string>
     <string name="appearance_pure_black_summary">Use a black background in dark mode, for OLED screens</string>
+    <string name="settings_stealth">Stealth</string>
+    <string name="settings_self_hide">Hide this module from other apps</string>
+    <string name="settings_self_hide_summary">Third-party apps can\'t detect it. Turn off if an installer needs to update it</string>
     <string name="settings_diagnostics">Diagnostics</string>
     <string name="settings_health_summary">See rules that stopped working or need review</string>
     <string name="settings_diag_mode">Diagnostic mode</string>
