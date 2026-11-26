@@ -15,57 +15,46 @@ import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
-import io.github.hyperprivacy.core.status.MetaCodec
-import io.github.hyperprivacy.core.status.ObservedCodec
 import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RuleReport
-import io.github.hyperprivacy.core.status.SinkCodec
-import io.github.hyperprivacy.core.status.StatusCodec
+import io.github.hyperprivacy.core.status.StatusBatch
+import io.github.hyperprivacy.core.status.StatusRelay
 import io.github.hyperprivacy.core.system.SettingsObservation
-import io.github.hyperprivacy.core.tracker.TrackerProtection
-import io.github.hyperprivacy.core.tracker.TrackerRules
-import io.github.hyperprivacy.trackers.TrackerStore
 
 /**
  * Receives status batches from hooked processes via [call] (see [StatusContract]).
  *
- * The provider is exported, so every call is authenticated by Binder uid: the caller must be
- * system_server (reporting FIREWALL rules, and rules, sinks and Settings reads under
- * `Catalog.SYSTEM_SCOPE`) or run as a package in the module scope (catalog targets, or an app
- * with tracker protection on), and may only report rules, sinks, process facts and observed
- * endpoints of its own package. Everything else is dropped.
+ * The provider is exported, so every call is authenticated by Binder uid, and only two kinds of
+ * caller are answered at all:
+ * - a catalog target (a package in `Catalog.scope`): rules, sinks, process facts and observed
+ *   endpoints of its own package;
+ * - system_server: FIREWALL rules, rules, sinks and Settings reads under `Catalog.SYSTEM_SCOPE`,
+ *   and what protected third-party apps relayed through it ([StatusRelay]); system_server checked
+ *   their uid against the remote preferences, so their rows are accepted for any non-vendor
+ *   package, for their own rule ids only.
+ *
+ * Every other caller gets `null`, whether or not protection is on for it, so the provider never
+ * tells an app anything about itself. Protected apps never call it (they cannot even see it).
  */
 class StatusProvider : ContentProvider() {
     private val store by lazy { StatusStore(requireNotNull(context)) }
-    private val trackers by lazy { TrackerStore(requireNotNull(context)) }
 
     override fun onCreate(): Boolean = true
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         if (method != StatusContract.METHOD_REPORT) return null
         val uid = Binder.getCallingUid()
-        val callerPackages = callerScopePackages(uid)
         val isSystemServer = uid % UidPolicy.PER_USER_RANGE == Process.SYSTEM_UID
+        val callerPackages = if (isSystemServer) emptySet() else callerScopePackages(uid)
         if (callerPackages.isEmpty() && !isSystemServer) {
             Log.w(TAG, "Rejected status report from uid $uid")
             return null
         }
-        val reports = StatusCodec.decode(extras?.getString(StatusContract.KEY_PAYLOAD))
-            .filter { it.isAuthorized(callerPackages, isSystemServer) }
-        val sinks = SinkCodec.decode(extras?.getString(StatusContract.KEY_SINKS))
-            .filter { it.packageName in callerPackages || (isSystemServer && it.packageName == Catalog.SYSTEM_SCOPE) }
-        // system_server records Settings reads under the reading app's package.
-        val observed = ObservedCodec.decode(extras?.getString(StatusContract.KEY_OBSERVED))
-            .filter {
-                it.packageName in callerPackages || (isSystemServer && SettingsObservation.isSettingsHost(it.host))
-            }
-            .take(MAX_OBSERVED_PER_CALL)
-        val meta = MetaCodec.decode(extras?.getString(StatusContract.KEY_META))
-            .filter { it.packageName in callerPackages }
-        store.merge(reports, versionsOf(reports, meta)::get)
-        store.meta.merge(meta, receivedAt = System.currentTimeMillis())
-        store.mergeSinks(sinks)
-        store.mergeObserved(observed)
+        val accepted = accept(StatusContract.decode(extras), callerPackages, isSystemServer)
+        store.merge(accepted.reports, versionsOf(accepted.reports, accepted.meta)::get)
+        store.meta.merge(accepted.meta, receivedAt = System.currentTimeMillis())
+        store.mergeSinks(accepted.sinks)
+        store.mergeObserved(accepted.observed)
         return Bundle.EMPTY
     }
 
@@ -88,24 +77,8 @@ class StatusProvider : ContentProvider() {
         context?.packageManager?.getPackageInfo(DeviceCoverage.versionPackage(pkg), flags)?.longVersionCode
     }.getOrNull()
 
-    private fun callerScopePackages(uid: Int): Set<String> {
-        val packages = context?.packageManager?.getPackagesForUid(uid).orEmpty()
-        if (packages.isEmpty()) return emptySet()
-        val protected = trackers.protectedPackages()
-        return packages.filterTo(HashSet()) { it in Catalog.scope || it in protected }
-    }
-
-    private fun RuleReport.isAuthorized(callerPackages: Set<String>, isSystemServer: Boolean): Boolean {
-        // Tracker and app-level rules of a protected app: reported by that app only.
-        if (TrackerProtection.sdkIdOf(ruleId) != null || ruleId in TrackerRules.appRuleIds) {
-            return packageName in callerPackages && packageName in trackers.protectedPackages()
-        }
-        val rule = Catalog.byId(ruleId) ?: return false
-        if (packageName !in rule.packages) return false
-        // FIREWALL and system_server-scoped rules are enforced (and reported) by system_server.
-        val bySystemServer = rule.kind == RuleKind.FIREWALL || packageName == Catalog.SYSTEM_SCOPE
-        return if (bySystemServer) isSystemServer else packageName in callerPackages
-    }
+    private fun callerScopePackages(uid: Int): Set<String> =
+        context?.packageManager?.getPackagesForUid(uid).orEmpty().filterTo(HashSet()) { it in Catalog.scope }
 
     override fun query(
         uri: Uri,
@@ -126,8 +99,47 @@ class StatusProvider : ContentProvider() {
 
     private companion object {
         const val TAG = "StatusProvider"
-
-        /** The per-process recorder bound; anything beyond it is not from our reporter. */
-        const val MAX_OBSERVED_PER_CALL = EndpointRecorder.DEFAULT_MAX_ENTRIES
     }
 }
+
+/**
+ * The rows of [batch] this caller may report: its own package's ([callerPackages], a catalog
+ * target), or for system_server its own rows and those it relayed for protected apps.
+ */
+private fun accept(batch: StatusBatch, callerPackages: Set<String>, isSystemServer: Boolean): StatusBatch {
+    fun mine(packageName: String) = packageName in callerPackages
+    fun relayed(packageName: String) = isSystemServer && isRelayed(packageName)
+    return StatusBatch(
+        reports = batch.reports.filter { it.isAuthorized(callerPackages, isSystemServer) },
+        sinks = batch.sinks.filter {
+            mine(it.packageName) || relayed(it.packageName) ||
+                (isSystemServer && it.packageName == Catalog.SYSTEM_SCOPE)
+        },
+        // system_server records Settings reads under the reading app's package.
+        observed = batch.observed.filter {
+            mine(it.packageName) || relayed(it.packageName) ||
+                (isSystemServer && SettingsObservation.isSettingsHost(it.host))
+        }.take(if (isSystemServer) MAX_OBSERVED_PER_RELAY else MAX_OBSERVED_PER_CALL),
+        meta = batch.meta.filter { mine(it.packageName) || relayed(it.packageName) },
+    )
+}
+
+/** A package whose rows only arrive relayed by system_server: a protected third-party app. */
+private fun isRelayed(packageName: String): Boolean =
+    packageName != Catalog.SYSTEM_SCOPE && packageName !in Catalog.allPackages
+
+private fun RuleReport.isAuthorized(callerPackages: Set<String>, isSystemServer: Boolean): Boolean {
+    // Tracker and app-level rules of a protected app: relayed by system_server only.
+    if (StatusRelay.isProtectedAppRuleId(ruleId)) return isSystemServer && isRelayed(packageName)
+    val rule = Catalog.byId(ruleId) ?: return false
+    if (packageName !in rule.packages) return false
+    // FIREWALL and system_server-scoped rules are enforced (and reported) by system_server.
+    val bySystemServer = rule.kind == RuleKind.FIREWALL || packageName == Catalog.SYSTEM_SCOPE
+    return if (bySystemServer) isSystemServer else packageName in callerPackages
+}
+
+/** The per-process recorder bound; anything beyond it is not from our reporter. */
+private const val MAX_OBSERVED_PER_CALL = EndpointRecorder.DEFAULT_MAX_ENTRIES
+
+/** system_server's own endpoints plus those it holds for relaying apps. */
+private const val MAX_OBSERVED_PER_RELAY = EndpointRecorder.DEFAULT_MAX_ENTRIES * 6

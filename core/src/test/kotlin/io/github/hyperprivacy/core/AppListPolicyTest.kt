@@ -167,6 +167,17 @@ class AppListPolicyTest {
     }
 
     @Test
+    fun `an exempt caller keeps seeing the module even when restricted`() {
+        val config = AppListConfig.decode(
+            mapOf(AppListConfig.hideKey(LAUNCHER) to true, AppListConfig.hideKey(PROBER) to true),
+        )
+        val p = AppListPolicy.resolve(config, index, MODULE, setOf(LAUNCHER))
+        assertFalse(p.shouldHide(id(LAUNCHER), id(MODULE)), "exempt")
+        assertTrue(p.shouldHide(id(LAUNCHER), id(BANK)), "still restricted for other apps")
+        assertTrue(p.shouldHide(id(PROBER), id(MODULE)), "restricted and not exempt")
+    }
+
+    @Test
     fun `config keys are recognised for live refresh`() {
         assertTrue(AppListConfig.affects(AppListConfig.SELF_HIDE_KEY))
         assertTrue(AppListConfig.affects(null))

@@ -80,25 +80,22 @@ internal class SettingsKeyGuard(
     }
 
     /**
-     * Run after `systemReady`: makes sure the class loader of the live provider instance (found
-     * through the local provider client) is hooked, whether or not LSPosed called back for
-     * SettingsProvider's package earlier.
+     * The class loader of the live SettingsProvider instance (found through the local provider
+     * client), or `null` (logged) when it is not local. Hooked after `systemReady` whether or not
+     * LSPosed called back for SettingsProvider's package earlier.
      */
-    fun installFromProvider(context: Context): Boolean {
+    fun providerLoader(context: Context): ClassLoader? {
         val client = context.contentResolver.acquireContentProviderClient(Settings.AUTHORITY) ?: run {
             log.warn("settings: provider ${Settings.AUTHORITY} not resolvable")
-            return hooked
+            return null
         }
         val loader = try {
             client.localContentProvider?.javaClass?.classLoader
         } finally {
             client.close()
         }
-        if (loader == null) {
-            log.warn("settings: provider ${Settings.AUTHORITY} is not local to system_server")
-            return hooked
-        }
-        return install(loader, "provider instance")
+        if (loader == null) log.warn("settings: provider ${Settings.AUTHORITY} is not local to system_server")
+        return loader
     }
 
     /** SettingsProvider's static `sAll{Global,System,Secure}Settings`: every AOSP-declared key. */
