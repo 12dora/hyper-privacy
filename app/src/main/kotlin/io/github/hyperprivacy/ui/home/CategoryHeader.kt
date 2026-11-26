@@ -164,10 +164,17 @@ internal fun BulkToggleDialog(
         item.enabled != request.enable && (!request.enable || !item.rule.skippedByBulkEnable)
     }
     val skipped = if (request.enable) targetsSkipped(group) else 0
-    val body = when {
+    // High-risk rules are turned on despite their side effect; say so rather than hide it.
+    val sideEffects = if (request.enable) targets.count { it.rule.impact != null } else 0
+    val base = when {
         !request.enable -> pluralStringResource(R.plurals.category_disable_body, targets.size, targets.size)
         skipped > 0 -> pluralStringResource(R.plurals.category_enable_body_impact, targets.size, targets.size, skipped)
         else -> pluralStringResource(R.plurals.category_enable_body, targets.size, targets.size)
+    }
+    val body = if (sideEffects > 0) {
+        base + "\n" + pluralStringResource(R.plurals.category_enable_side_effects, sideEffects, sideEffects)
+    } else {
+        base
     }
     AlertDialog(
         onDismissRequest = onDismiss,
