@@ -27,13 +27,26 @@ public data class ManifestInfo(
  * uses, so it survives manifests whose attribute name strings were stripped) or, failing a
  * resource map, by name and namespace.
  *
- * Bounded: the entry may inflate to at most [MAX_MANIFEST_BYTES], the string pool to
- * [MAX_STRINGS] strings, the result to [MAX_COMPONENTS] components and the element depth to
- * [MAX_DEPTH]. Malformed input ends the parse with what was read before the problem.
+ * Bounded in memory and linear in time whatever the input: the entry may inflate to at most
+ * [MAX_MANIFEST_BYTES]; every read is confined to the chunk it belongs to (string data to its
+ * string pool chunk, attributes to their element chunk, header sizes and offsets validated as
+ * unsigned values inside it); the string pool holds at most [MAX_STRINGS] strings, a string at
+ * most [MAX_STRING_CHARS] characters (a longer one reads as absent) and decoded strings are
+ * cached by their byte offset, so aliased offsets decode once; the document has at most
+ * [MAX_CHUNKS] chunks, the result at most [MAX_COMPONENTS] components, and elements nested deeper
+ * than [MAX_DEPTH] are skipped with their subtree. Each attribute record is read a bounded number
+ * of times, so the work is proportional to the input size.
+ *
+ * Malformed input ends the parse with what was read before the problem; input that exceeds a
+ * budget ([MAX_TOTAL_CHARS] decoded characters, [MAX_CHUNKS]) is unreadable: [parse] returns
+ * `null`, never throws and never allocates more than a few MiB.
  */
 public object ManifestScanner {
     public const val MAX_MANIFEST_BYTES: Int = 4 shl 20
     public const val MAX_STRINGS: Int = 1 shl 17
+    public const val MAX_STRING_CHARS: Int = 4096
+    public const val MAX_TOTAL_CHARS: Int = 1 shl 20
+    public const val MAX_CHUNKS: Int = 1 shl 17
     public const val MAX_COMPONENTS: Int = 8192
     public const val MAX_DEPTH: Int = 64
 
@@ -55,12 +68,21 @@ public object ManifestScanner {
         return if (bytes.size > MAX_MANIFEST_BYTES) null else parse(bytes)
     }
 
-    /** Parses binary manifest [bytes]; `null` when it is not AXML or names no package. */
+    /**
+     * Parses binary manifest [bytes]; `null` when it is not AXML, names no package or exceeds a
+     * budget (unreadable).
+     */
+    // Unreadable is this parser's own budget signal, thrown only to end the walk.
+    @Suppress("SwallowedException")
     public fun parse(bytes: ByteArray): ManifestInfo? {
         val doc = Axml(Bytes(bytes))
         if (!doc.readHeader()) return null
         val walk = Walk()
-        doc.walk(walk)
+        try {
+            doc.walk(walk)
+        } catch (_: Unreadable) {
+            return null
+        }
         val pkg = walk.packageName?.takeIf { it.isNotBlank() } ?: return null
         return ManifestInfo(
             packageName = pkg,
@@ -99,8 +121,14 @@ public object ManifestScanner {
         private var filterMain = false
         private var filterLauncher = false
 
+        // Elements opened past MAX_DEPTH: skipped, and their end elements must not pop the stack.
+        private var skipped = 0
+
         fun start(name: String, attrs: Attributes) {
-            if (stack.size >= MAX_DEPTH) return
+            if (skipped > 0 || stack.size >= MAX_DEPTH) {
+                skipped++
+                return
+            }
             stack += name
             when (val depth = stack.size) {
                 1 -> if (name == "manifest") packageName = attrs.plain("package")
@@ -138,6 +166,10 @@ public object ManifestScanner {
         }
 
         fun end() {
+            if (skipped > 0) {
+                skipped--
+                return
+            }
             if (stack.isEmpty()) return
             val name = stack.removeAt(stack.size - 1)
             val depth = stack.size + 1
@@ -212,38 +244,55 @@ public object ManifestScanner {
         fun u32(at: Int): Long = int(at).toLong() and UINT
     }
 
-    /** One `ResStringPool`: strings decoded on first use (UTF-8 or UTF-16), then cached. */
+    /** A budget of the whole document is exhausted: the manifest is unreadable. */
+    private class Unreadable : RuntimeException(null, null, false, false)
+
+    /**
+     * One `ResStringPool` chunk ending at [chunkEnd]: strings at `stringsStart + offsets[i]`,
+     * decoded on first use (UTF-8 or UTF-16) within the chunk, then cached by byte offset.
+     */
     private class StringPool(
         private val bytes: Bytes,
-        private val start: Int,
+        private val stringsStart: Int,
+        private val chunkEnd: Int,
         private val offsets: IntArray,
         private val utf8: Boolean,
     ) {
         private val cache = HashMap<Int, String?>()
+        private var decodedChars = 0
 
         fun get(index: Int): String? {
             if (index < 0 || index >= offsets.size) return null
-            return cache.getOrPut(index) { decode(start + offsets[index]) }
+            val offset = offsets[index]
+            if (offset < 0) return null
+            if (cache.containsKey(offset)) return cache[offset]
+            val value = decode(stringsStart + offset)
+            cache[offset] = value
+            return value
         }
 
         private fun decode(at: Int): String? = when {
-            at < 0 || at >= bytes.end -> null
+            at < stringsStart || at >= chunkEnd -> null
             utf8 -> decodeUtf8(at)
             else -> decodeUtf16(at)
         }
 
         private fun decodeUtf8(at: Int): String? {
             // UTF-16 length, then UTF-8 byte length; each one or two bytes.
+            val chars = utf8Length(at)
             var p = at + lengthBytes(at)
-            if (p >= bytes.end) return null
-            val length = if (lengthBytes(p) == 2) {
-                ((bytes.u8(p) and LOW_7) shl BYTE_BITS) or bytes.u8(p + 1)
-            } else {
-                bytes.u8(p)
-            }
+            if (p >= chunkEnd || chars > MAX_STRING_CHARS) return null
+            val length = utf8Length(p)
             p += lengthBytes(p)
-            if (p + length > bytes.end) return null
+            if (length > MAX_STRING_CHARS * UTF8_MAX_BYTES || length > chunkEnd - p) return null
+            charge(length)
             return String(bytes.data, p, length, Charsets.UTF_8)
+        }
+
+        private fun utf8Length(at: Int): Int = if (lengthBytes(at) == 2) {
+            ((bytes.u8(at) and LOW_7) shl BYTE_BITS) or bytes.u8(at + 1)
+        } else {
+            bytes.u8(at)
         }
 
         private fun lengthBytes(at: Int): Int = if (bytes.u8(at) and HIGH_BIT_8 != 0) 2 else 1
@@ -256,9 +305,19 @@ public object ManifestScanner {
                 length = ((length and LOW_15) shl SHORT_BITS) or bytes.u16(p)
                 p += 2
             }
-            if (length < 0 || p + length.toLong() * 2 > bytes.end) return null
+            if (length > MAX_STRING_CHARS || p > chunkEnd || length.toLong() * 2 > chunkEnd - p) return null
+            charge(length)
             val chars = CharArray(length) { i -> bytes.u16(p + i * 2).toChar() }
             return String(chars)
+        }
+
+        private fun charge(units: Int) {
+            decodedChars += units
+            if (decodedChars > MAX_TOTAL_CHARS) throw Unreadable()
+        }
+
+        private companion object {
+            const val UTF8_MAX_BYTES = 4
         }
     }
 
@@ -277,41 +336,61 @@ public object ManifestScanner {
 
         fun walk(walk: Walk) {
             var at = bodyStart
+            var chunks = 0
             while (at + CHUNK_HEADER <= bytes.end) {
+                if (++chunks > MAX_CHUNKS) throw Unreadable()
                 val type = bytes.u16(at)
                 val headerSize = bytes.u16(at + HEADER_SIZE_FIELD)
                 val size = bytes.u32(at + SIZE_FIELD)
                 if (headerSize < CHUNK_HEADER || size < headerSize || at + size > bytes.end) return
+                val chunkEnd = at + size.toInt()
                 when (type) {
-                    RES_STRING_POOL_TYPE -> if (!readStringPool(at, size.toInt())) return
+                    RES_STRING_POOL_TYPE -> if (!readStringPool(at, headerSize, chunkEnd)) return
                     RES_XML_RESOURCE_MAP_TYPE -> readResourceMap(at, headerSize, size.toInt())
-                    RES_XML_START_ELEMENT_TYPE -> startElement(at, headerSize, walk)
+                    RES_XML_START_ELEMENT_TYPE -> startElement(at, headerSize, chunkEnd, walk)
                     RES_XML_END_ELEMENT_TYPE -> walk.end()
                     else -> Unit
                 }
-                at += size.toInt()
+                at = chunkEnd
             }
         }
 
-        private fun startElement(at: Int, headerSize: Int, walk: Walk) {
+        /** One start element; its extension and attribute records must lie inside its chunk. */
+        private fun startElement(at: Int, headerSize: Int, chunkEnd: Int, walk: Walk) {
             val ext = at + headerSize
-            if (ext + ELEMENT_EXT > bytes.end) return
+            if (ext.toLong() + ELEMENT_EXT > chunkEnd) return
             val name = string(bytes.int(ext + ELEMENT_NAME)) ?: return
             val attrSize = bytes.u16(ext + ATTR_SIZE)
             val attrCount = bytes.u16(ext + ATTR_COUNT)
             val first = ext + bytes.u16(ext + ATTR_START)
-            val fits = attrSize >= ATTR_MIN_SIZE && first.toLong() + attrCount.toLong() * attrSize <= bytes.end
+            val fits = attrSize >= ATTR_MIN_SIZE && first >= ext + ELEMENT_EXT &&
+                first.toLong() + attrCount.toLong() * attrSize <= chunkEnd
             walk.start(name, Attributes(this, first, if (fits) attrCount else 0, maxOf(attrSize, ATTR_MIN_SIZE)))
         }
 
-        private fun readStringPool(at: Int, size: Int): Boolean {
-            if (pool != null || size < POOL_HEADER) return true
+        /**
+         * The first string pool; `false` (stop) when its header is malformed. Sizes and offsets are
+         * unsigned and must lie inside the chunk: the offset tables after the header, the string
+         * data after the offset tables, each string offset inside the string data.
+         */
+        private fun readStringPool(at: Int, headerSize: Int, chunkEnd: Int): Boolean {
+            if (pool != null) return true
+            if (headerSize < POOL_HEADER || at.toLong() + headerSize > chunkEnd) return false
             val count = bytes.u32(at + POOL_COUNT)
-            val offsets = at + bytes.u16(at + HEADER_SIZE_FIELD)
-            if (count > MAX_STRINGS || offsets + count * INT_BYTES > at + size) return false
+            val styles = bytes.u32(at + POOL_STYLE_COUNT)
+            if (count > MAX_STRINGS || styles > MAX_STRINGS) return false
+            val offsets = at + headerSize
+            val tablesEnd = offsets.toLong() + (count + styles) * INT_BYTES
+            val stringsStart = at.toLong() + bytes.u32(at + POOL_STRINGS_START)
+            val badStart = count > 0 && (stringsStart < tablesEnd || stringsStart > chunkEnd)
+            if (tablesEnd > chunkEnd || badStart) return false
             val utf8 = bytes.u32(at + POOL_FLAGS) and UTF8_FLAG != 0L
-            val start = at + bytes.u32(at + POOL_STRINGS_START).toInt()
-            pool = StringPool(bytes, start, IntArray(count.toInt()) { i -> bytes.int(offsets + i * INT_BYTES) }, utf8)
+            val dataSize = chunkEnd - stringsStart
+            val table = IntArray(count.toInt()) { i ->
+                val offset = bytes.u32(offsets + i * INT_BYTES)
+                if (offset < dataSize) offset.toInt() else -1
+            }
+            pool = StringPool(bytes, stringsStart.toInt(), chunkEnd, table, utf8)
             return true
         }
 
@@ -343,6 +422,7 @@ public object ManifestScanner {
             const val SIZE_FIELD = 4
             const val POOL_HEADER = 28
             const val POOL_COUNT = 8
+            const val POOL_STYLE_COUNT = 12
             const val POOL_FLAGS = 16
             const val POOL_STRINGS_START = 20
             const val UTF8_FLAG = 0x100L
