@@ -65,6 +65,7 @@ internal data class RuleGroup(val key: String, val header: GroupHeader, val entr
 
 @Immutable
 internal data class UiState(
+    val loaded: Boolean = false,
     val module: ModuleState = ModuleState.CHECKING,
     val framework: String? = null,
     val versionName: String = "",

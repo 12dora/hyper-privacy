@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
@@ -103,8 +105,11 @@ private fun LazyListScope.detailItems(item: RuleItem, module: ModuleState, onTog
             SingleCard {
                 Text(
                     text = impact.resolve(LocalLanguageTag.current),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(Dimens.Gutter),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(
+                        horizontal = Dimens.Gutter,
+                        vertical = Dimens.RowVertical + Dimens.Tiny,
+                    ),
                 )
             }
         }
@@ -113,17 +118,17 @@ private fun LazyListScope.detailItems(item: RuleItem, module: ModuleState, onTog
     item(key = "method") { MethodCard(rule) }
     item(key = "apps-title") { SectionHeader(stringResource(R.string.detail_section_apps)) }
     groupedItems(item.apps, key = { "app/${it.packageName}" }) { app -> AppRow(app, item.enabled) }
-    item(key = "evidence") { EvidenceCard(rule.evidence, Modifier.padding(top = Dimens.Section)) }
+    item(key = "evidence") { EvidenceCard(rule.evidence, Modifier.padding(top = Dimens.GroupGap + Dimens.Small)) }
 }
 
 @Composable
 private fun Header(rule: Rule) {
     val tag = LocalLanguageTag.current
     Column(Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small)) {
-        Text(rule.title.resolve(tag), style = MaterialTheme.typography.titleLarge)
+        Text(rule.title.resolve(tag), style = MaterialTheme.typography.titleMedium)
         Text(
             text = rule.summary.resolve(tag),
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = Dimens.Tiny),
         )
@@ -132,7 +137,7 @@ private fun Header(rule: Rule) {
 
 @Composable
 private fun EnableCard(item: RuleItem, module: ModuleState, onToggle: (Boolean) -> Unit) {
-    SingleCard(Modifier.padding(top = Dimens.Gutter)) {
+    SingleCard(Modifier.padding(top = Dimens.Small)) {
         SwitchRow(
             title = stringResource(R.string.detail_enable),
             checked = item.enabled,
@@ -147,15 +152,18 @@ private fun EnableCard(item: RuleItem, module: ModuleState, onToggle: (Boolean) 
 private fun MethodCard(rule: Rule) {
     val targets = rule.blockedTargets()
     SingleCard {
-        Column(Modifier.padding(Dimens.Gutter), verticalArrangement = Arrangement.spacedBy(Dimens.Tiny)) {
+        Column(
+            Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny),
+            verticalArrangement = Arrangement.spacedBy(Dimens.Tiny),
+        ) {
             Text(stringResource(rule.kind.titleRes()), style = MaterialTheme.typography.bodyLarge)
             Text(
                 text = stringResource(rule.kind.descriptionRes()),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (targets.isNotEmpty()) {
-                Column(Modifier.padding(top = Dimens.Small), verticalArrangement = Arrangement.spacedBy(Dimens.Tiny)) {
+                Column(Modifier.padding(top = Dimens.Tiny), verticalArrangement = Arrangement.spacedBy(Dimens.Tiny)) {
                     targets.forEach { MonoText(it) }
                 }
             }
@@ -169,7 +177,7 @@ private fun AppRow(app: AppStatus, ruleEnabled: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.RowMinHeight)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -190,16 +198,18 @@ private fun AppRow(app: AppStatus, ruleEnabled: Boolean) {
 private fun EvidenceCard(evidence: String, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val title = stringResource(R.string.detail_section_evidence)
+    val stateLabel = stringResource(if (expanded) R.string.state_expanded else R.string.state_collapsed)
     val rotation by animateFloatAsState(if (expanded) EXPANDED_ROTATION else 0f, label = "evidenceChevron")
     SingleCard(modifier) {
         Column(Modifier.animateContentSize()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = Dimens.TouchTarget)
+                    .heightIn(min = Dimens.RowMinHeight)
                     .clickable(role = Role.Button, onClickLabel = stringResource(R.string.detail_evidence_toggle)) {
                         expanded = !expanded
                     }
+                    .semantics { stateDescription = stateLabel }
                     .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -216,7 +226,11 @@ private fun EvidenceCard(evidence: String, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.labelSmall,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Dimens.Gutter, end = Dimens.Gutter, bottom = Dimens.Gutter),
+                    modifier = Modifier.padding(
+                        start = Dimens.Gutter,
+                        end = Dimens.Gutter,
+                        bottom = Dimens.RowVertical,
+                    ),
                 )
             }
         }

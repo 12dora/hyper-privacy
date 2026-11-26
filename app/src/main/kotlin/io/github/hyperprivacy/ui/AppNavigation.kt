@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import io.github.hyperprivacy.ui.detail.RuleDetailScreen
 import io.github.hyperprivacy.ui.home.HomeScreen
 import io.github.hyperprivacy.ui.home.HomeView
 import io.github.hyperprivacy.ui.settings.SettingsScreen
+import kotlinx.coroutines.launch
 
 private const val SLIDE_DIVISOR = 4
 private const val BACK_SCALE_DELTA = 0.1f
@@ -46,6 +48,7 @@ internal fun AppNavigation(viewModel: MainViewModel) {
     var route by rememberSaveable(stateSaver = Route.Saver) { mutableStateOf<Route>(Route.Home) }
     var homeView by rememberSaveable { mutableStateOf(HomeView.CATEGORY) }
     val homeListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     val backState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
@@ -64,7 +67,10 @@ internal fun AppNavigation(viewModel: MainViewModel) {
             Route.Home -> HomeScreen(
                 state = state,
                 view = homeView,
-                onViewChange = { homeView = it },
+                onViewChange = {
+                    homeView = it
+                    scope.launch { if (homeListState.firstVisibleItemIndex > 1) homeListState.scrollToItem(1) }
+                },
                 onToggleRule = viewModel::setRuleEnabled,
                 onOpenRule = { route = Route.RuleDetail(it) },
                 onOpenSettings = { route = Route.Settings },
@@ -77,13 +83,14 @@ internal fun AppNavigation(viewModel: MainViewModel) {
                 onDiagnosticChange = viewModel::setDiagnosticMode,
                 onResetDefaults = viewModel::resetDefaults,
                 onRefreshObserved = viewModel::refreshObserved,
+                onClearObserved = viewModel::clearObserved,
                 modifier = pageModifier,
             )
 
             is Route.RuleDetail -> {
                 val item = state.rule(target.ruleId)
                 // Until the first state arrives there is nothing to show, and "not found" would flash.
-                if (item != null || state.rules.isNotEmpty()) {
+                if (state.loaded) {
                     RuleDetailScreen(
                         item = item,
                         module = state.module,

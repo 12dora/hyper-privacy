@@ -10,20 +10,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -47,6 +48,7 @@ import io.github.hyperprivacy.ui.sampleState
 import kotlinx.coroutines.delay
 
 private const val OBSERVED_REFRESH_MS = 3_000L
+private const val DISABLED_ALPHA = 0.38f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,30 +58,26 @@ internal fun SettingsScreen(
     onDiagnosticChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
     onRefreshObserved: () -> Unit,
+    onClearObserved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val repository = stringResource(R.string.repository_url)
-    ObservedRefresh(onRefreshObserved)
+    ObservedRefresh(polling = state.diagnosticMode, onRefresh = onRefreshObserved)
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier,
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = { BackButton(onBack) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                ),
-                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             diagnosticsSection(state, onDiagnosticChange)
-            endpointsSection(state)
+            endpointsSection(state, onClearObserved)
             dataSection(state.module.canEdit) { confirmReset = true }
             aboutSection(state, repository, onOpenRepository = { runCatching { uriHandler.openUri(repository) } })
         }
@@ -95,15 +93,17 @@ internal fun SettingsScreen(
     }
 }
 
-/** Polls the endpoint list while the page is visible. */
+/** Loads the endpoint list when the page is shown, and keeps it fresh while diagnostic mode is on. */
 @Composable
-private fun ObservedRefresh(onRefresh: () -> Unit) {
+private fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle) {
+    val currentRefresh by rememberUpdatedState(onRefresh)
+    LaunchedEffect(lifecycle, polling) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            while (true) {
-                onRefresh()
+            currentRefresh()
+            while (polling) {
                 delay(OBSERVED_REFRESH_MS)
+                currentRefresh()
             }
         }
     }
@@ -132,10 +132,11 @@ private fun LazyListScope.dataSection(canEdit: Boolean, onReset: () -> Unit) {
                 title = stringResource(R.string.settings_reset),
                 summary = stringResource(R.string.settings_reset_summary),
                 modifier = Modifier
+                    .alpha(if (canEdit) 1f else DISABLED_ALPHA)
                     .fillMaxWidth()
                     .heightIn(min = Dimens.RowMinHeight)
                     .clickable(enabled = canEdit, role = Role.Button, onClick = onReset)
-                    .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+                    .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
             )
         }
     }
@@ -153,6 +154,14 @@ private fun LazyListScope.aboutSection(state: UiState, repository: String, onOpe
     groupedItems(rows, key = { "about/${it.title}" }) { row ->
         ValueRow(stringResource(row.title), row.value, onClick = row.onClick)
     }
+    item(key = "about-note") {
+        Text(
+            text = stringResource(R.string.xposed_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
+        )
+    }
 }
 
 @Composable
@@ -169,5 +178,5 @@ private fun ResetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsPreview() {
-    HyperPrivacyTheme { SettingsScreen(sampleState(), {}, {}, {}, {}) }
+    HyperPrivacyTheme { SettingsScreen(sampleState(), {}, {}, {}, {}, {}) }
 }
