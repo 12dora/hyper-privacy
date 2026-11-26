@@ -47,8 +47,8 @@ internal val appListRules: List<Rule> = listOf(
             "compressed list of every installed package + versionCode + firstInstallTime (EVENT_FULL/INSTALL/" +
             "UNINSTALL/UPGRADE); traffic cap2: store.assistant.miui.com x7 (evidence.md L633). Widget store browsing " +
             "untouched",
-        defaultOn = false,
         impact = Text("新装应用的小部件推荐可能缺失", "New apps may lack widget suggestions"),
+        highRisk = true,
     ),
     Rule(
         id = "securitycenter.cloud-scan",
@@ -71,8 +71,8 @@ internal val appListRules: List<Rule> = listOf(
         category = Category.APP_LIST,
         evidence = "jadx vipaccount: VipProtocolConfig USAGE_BATCH_UPLOAD POST /user/batchuploadappdata (eventid, " +
             "statisticstask), RecorderController UsageRecord; traffic cap4: api.vip.miui.com x20",
-        defaultOn = false,
         impact = Text("社区成长任务无法完成", "Community tasks cannot complete"),
+        highRisk = true,
     ),
     Rule(
         id = "guard.apk-collect",
@@ -100,7 +100,7 @@ internal val appListRules: List<Rule> = listOf(
         evidence = "dex: guardprovider POST https://flash.sec.miui.com/detect/app with uuid, OS and every " +
             "non-system package with version, signature MD5 and app name (anti-fraud cloud app check after AV " +
             "updates)",
-        defaultOn = false,
         impact = Text("无法识别涉诈应用", "Fraud apps won't be flagged"),
+        highRisk = true,
     ),
 )

@@ -588,8 +588,8 @@ internal val analyticsRules: List<Rule> = listOf(
         evidence = "jadx baidu.input_mi com.baidu.ubc Constants UPLOAD_URL_PATH \"/ztbox?action=zubc\", UBCHelper -> " +
             "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325); traffic cap3 typing: mbd.baidu.com x3 " +
             "(L321). /ztbox multiplexes other action= services and the matcher ignores query strings",
-        defaultOn = false,
         impact = Text("可能影响百度部分云端功能", "May affect other Baidu ztbox services"),
+        highRisk = true,
     ),
     Rule(
         id = "milink.cast-report",
