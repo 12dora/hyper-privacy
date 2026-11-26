@@ -103,6 +103,15 @@ internal class StatusStore(context: Context) {
         prefs.getString(key(packageName, ruleId), null),
     )
 
+    /** Hits of every rule reported by [packages] (protected user apps), read off the main thread. */
+    fun totalHitsOf(packages: Set<String>): Long {
+        if (packages.isEmpty()) return 0
+        return prefs.all.entries.sumOf { (key, value) ->
+            val pkg = key.substringBefore(KEY_SEPARATOR, missingDelimiterValue = "")
+            if (pkg in packages) decode(value as? String)?.totalHits ?: 0 else 0
+        }
+    }
+
     /** Replaces the stored state of each reported sink, stamped with the receipt time. */
     fun mergeSinks(reports: List<SinkReport>) = sinks.merge(reports, System.currentTimeMillis())
 

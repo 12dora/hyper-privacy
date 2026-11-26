@@ -126,6 +126,8 @@ internal data class UiState(
     val rules: List<RuleItem> = emptyList(),
     val enabledCount: Int = 0,
     val totalHits: Long = 0,
+    /** Hits reported by protected user apps, read from the status store (not from the Apps tab). */
+    val protectedHits: Long = 0,
     val attention: Attention = Attention(),
     val diagnosticMode: Boolean = false,
     /** `applist.self.hide`: the module's package is hidden from third-party apps (system_server). */

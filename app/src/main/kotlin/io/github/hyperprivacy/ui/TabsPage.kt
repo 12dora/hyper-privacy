@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.home.OverviewActions
@@ -122,12 +121,10 @@ private fun OverviewTab(state: UiState, shell: Shell) {
             onOpenApps = { shell.tab = Tab.APPS },
         )
     }
-    // Protected apps' hits are what the Apps tab already holds; the Overview never lists apps itself.
-    val apps by shell.model.trackers.state.collectAsStateWithLifecycle()
     OverviewScreen(
         state = state,
         actions = actions,
-        blockedTotal = state.totalHits + apps.protectedHits,
+        blockedTotal = state.totalHits + state.protectedHits,
         listState = shell.overview.list,
         barState = shell.overview.bar,
         snackbarHostState = shell.snackbar,
