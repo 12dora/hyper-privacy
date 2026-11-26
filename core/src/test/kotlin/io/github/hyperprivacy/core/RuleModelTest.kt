@@ -64,7 +64,16 @@ class RuleModelTest {
         assertFailsWith<IllegalArgumentException> { rule(impact = impact, defaultOn = true) }
         assertEquals(impact, rule(impact = impact, defaultOn = false).impact)
         assertTrue(rule(impact = impact, defaultOn = true, highRisk = true).highRisk)
-        assertTrue(rule(impact = impact, defaultOn = false, highRisk = true).highRisk)
+    }
+
+    @Test
+    fun `highRisk must ship enabled and describe its impact`() {
+        val impact = Text("i", "i")
+        assertFailsWith<IllegalArgumentException> { rule(impact = impact, defaultOn = false, highRisk = true) }
+        assertFailsWith<IllegalArgumentException> { rule(defaultOn = true, highRisk = true) }
+        assertFailsWith<IllegalArgumentException> { rule(defaultOn = false, highRisk = true) }
+        val error = assertFailsWith<IllegalArgumentException> { rule(id = "x.y", highRisk = true) }
+        assertEquals("Rule x.y is highRisk, so it must ship enabled and describe its impact", error.message)
     }
 
     @Test
@@ -74,8 +83,7 @@ class RuleModelTest {
     }
 
     @Test
-    fun `highRisk without impact is allowed and defaults to false`() {
-        assertTrue(rule(highRisk = true).highRisk)
+    fun `highRisk defaults to false`() {
         assertFalse(rule().highRisk)
     }
 

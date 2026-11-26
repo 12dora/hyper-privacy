@@ -96,4 +96,4 @@
 - XSOF 混淆回调、`SQLiteOpenHelper` 启发式置空、`execSQL` 子串拦截
 - 输入法 SDK 的 `void` 方法批量置空
 - 任意 `类名#*` 自定义规则
-- root 删除系统数据库（`fraud_detection_data.db`）
+- root 删除安全中心的检测数据库文件
