@@ -58,10 +58,37 @@ class RuleModelTest {
         assertFailsWith<IllegalArgumentException> { RulePayload.Method(" ", MethodPattern.parse("a")) }
     }
 
+    @Test
+    fun `impact on a default-on rule requires highRisk`() {
+        val impact = Text("i", "i")
+        assertFailsWith<IllegalArgumentException> { rule(impact = impact, defaultOn = true) }
+        assertEquals(impact, rule(impact = impact, defaultOn = false).impact)
+        assertTrue(rule(impact = impact, defaultOn = true, highRisk = true).highRisk)
+        assertTrue(rule(impact = impact, defaultOn = false, highRisk = true).highRisk)
+    }
+
+    @Test
+    fun `invariant message names the rule`() {
+        val error = assertFailsWith<IllegalArgumentException> { rule(id = "x.y", impact = Text("i", "i")) }
+        assertEquals("Rule x.y affects a service and must ship disabled unless highRisk", error.message)
+    }
+
+    @Test
+    fun `highRisk without impact is allowed and defaults to false`() {
+        assertTrue(rule(highRisk = true).highRisk)
+        assertFalse(rule().highRisk)
+    }
+
     private fun rule(
         id: String = "a.b",
         packages: Set<String> = setOf("com.example"),
         payload: RulePayload = RulePayload.Firewall,
         evidence: String = "test",
-    ) = Rule(id, packages, Text("t", "t"), Text("s", "s"), payload, Category.ANALYTICS, evidence)
+        impact: Text? = null,
+        defaultOn: Boolean = true,
+        highRisk: Boolean = false,
+    ) = Rule(
+        id, packages, Text("t", "t"), Text("s", "s"), payload, Category.ANALYTICS, evidence,
+        defaultOn = defaultOn, impact = impact, highRisk = highRisk,
+    )
 }

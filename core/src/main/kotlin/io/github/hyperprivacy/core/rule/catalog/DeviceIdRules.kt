@@ -39,8 +39,8 @@ internal val deviceIdRules: List<Rule> = listOf(
         category = Category.DEVICE_ID,
         evidence = "traffic cap2: baidu.input_mi -> sofire.baidu.com; dex com.baidu.sofire.* (device risk " +
             "fingerprint, sofire.ac.provider); Baidu Passport login uses Sofire risk tokens",
-        defaultOn = false,
         impact = Text("输入法内百度账号登录可能失败", "Baidu sign-in in the IME may fail"),
+        highRisk = true,
     ),
     Rule(
         id = "getui.collect",
@@ -129,6 +129,8 @@ internal val deviceIdRules: List<Rule> = listOf(
             "signal logs (RegType R) over Wi-Fi or Unicom data; embeds Baidu LBS (loc/ofloc/daup/itsdata.map." +
             "baidu.com); traffic: loc.map.baidu.com x11 idle; appops: FINE_LOCATION, WIFI_SCAN, READ_CELL_INFO " +
             "while idle; own uid (sharedUserId with one package)",
+        impact = Text("联通终端登记将失败", "Unicom device registration fails"),
+        highRisk = true,
     ),
     Rule(
         id = "ct-autoreg.http",

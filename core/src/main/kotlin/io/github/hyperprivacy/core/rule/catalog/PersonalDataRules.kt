@@ -56,8 +56,8 @@ internal val personalDataRules: List<Rule> = listOf(
         evidence = "jadx securitycenter: WebApiAccessHelper.reportTrafficCorrectionSms -> " +
             "api.sec.miui.com/v1/traffic/report (android id, province, city, carrier, SMS body); called from " +
             "TcSmsReportService and TrafficSimManager retry queue",
-        defaultOn = false,
         impact = Text("无法提交流量纠错", "Data usage correction unavailable"),
+        highRisk = true,
     ),
     Rule(
         id = "securitycenter.quake-sensor",
@@ -79,8 +79,8 @@ internal val personalDataRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("srv.android.shouji.sogou.com", "/v1/contact/upload"))),
         category = Category.PERSONAL_DATA,
         evidence = "dex strings: srv.android.shouji.sogou.com/v1/contact/upload",
-        defaultOn = false,
         impact = Text("无法生成云端通讯录词库", "Cloud contact lexicon cannot be built"),
+        highRisk = true,
     ),
     Rule(
         id = "location.uplink",
@@ -101,5 +101,17 @@ internal val personalDataRules: List<Rule> = listOf(
             "api.map.baidu.com/lbs_sdkcc/report. Not live-verified against Find Device / network location",
         defaultOn = false,
         impact = Text("可能影响查找设备与网络定位", "May affect Find Device and location"),
+    ),
+    Rule(
+        id = "securitycenter.url-detect",
+        packages = setOf("com.miui.securitycenter"),
+        title = Text("短信链接上传", "SMS link upload"),
+        summary = Text("阻止上传短信与网页链接", "Blocks uploads of SMS and web links"),
+        payload = RulePayload.Domains(listOf("url-detect.engine.mi.com")),
+        category = Category.PERSONAL_DATA,
+        evidence = "dex: security center anti-fraud POST https://url-detect.engine.mi.com/url/detect with each URL " +
+            "found in SMS/web pages (url, timestamp, c=2, sign) for scam checks; links can carry personal tokens",
+        impact = Text("无法识别诈骗链接", "Scam links won't be flagged"),
+        highRisk = true,
     ),
 )
