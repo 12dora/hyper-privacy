@@ -2,101 +2,164 @@ package io.github.hyperprivacy.ui
 
 import android.app.Application
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.hyperprivacy.ModuleConnection
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Catalog
-import io.github.hyperprivacy.core.rule.Rule
-import io.github.hyperprivacy.core.status.DisplayStatus
 import io.github.hyperprivacy.status.StatusStore
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
-internal class MainViewModel(application: Application) : AndroidViewModel(application) {
+/**
+ * Owns the UI state. All work that touches preferences, the status store or the package manager runs
+ * on a single background thread; state is rebuilt on request, at most once per [THROTTLE_MS].
+ */
+internal class MainViewModel(application: Application, private val endpoints: ObservedEndpointsSource) :
+    AndroidViewModel(application) {
+    /** Production constructor used by the default ViewModel factory. */
+    constructor(application: Application) : this(application, EmptyObservedEndpointsSource)
+
     private val statusStore = StatusStore(application)
+    private val worker = Dispatchers.Default.limitedParallelism(1)
+    private val rebuildRequests = Channel<Unit>(Channel.CONFLATED)
     private val mutableState = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = mutableState.asStateFlow()
 
-    private var labels: Map<String, String> = emptyMap()
-    private var remotePrefs: SharedPreferences? = null
+    private val versionName: String = runCatching {
+        application.packageManager.getPackageInfo(application.packageName, 0).versionName
+    }.getOrNull().orEmpty()
 
-    private val refreshListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
+    // Confined to [worker].
+    private var catalogView: RuleCatalogView? = null
+    private var remotePrefs: SharedPreferences? = null
+    private var framework: String? = null
+    private var settled = false
+    private var observed: List<ObservedEndpointUi> = emptyList()
+
+    /** Writes not yet visible in the preferences, so a toggled switch reflects the tap immediately. */
+    private val pendingWrites = ConcurrentHashMap<String, Boolean>()
+
+    private val changeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> requestRebuild() }
 
     init {
-        statusStore.registerListener(refreshListener)
-        viewModelScope.launch {
-            labels = withContext(Dispatchers.Default) { loadLabels(application.packageManager) }
-            refresh()
-        }
-        viewModelScope.launch {
-            ModuleConnection.service.collect { service -> bind(service) }
+        statusStore.registerListener(changeListener)
+        viewModelScope.launch(worker) {
+            catalogView = RuleCatalogView(statusStore, InstalledApps.load(application.packageManager))
+            launch { ModuleConnection.service.collect(::bind) }
+            launch {
+                delay(SETTLE_MS)
+                settled = true
+                requestRebuild()
+            }
+            requestRebuild()
+            rebuildRequests.receiveAsFlow().collect {
+                rebuild()
+                delay(THROTTLE_MS)
+            }
         }
     }
 
-    fun setEnabled(ruleId: String, enabled: Boolean) {
-        val prefs = remotePrefs ?: return
-        prefs.edit { putBoolean(ConfigCodec.key(ruleId), enabled) }
+    fun setRuleEnabled(ruleId: String, enabled: Boolean) = write(ConfigCodec.key(ruleId), enabled)
+
+    fun setDiagnosticMode(enabled: Boolean) = write(PrefKeys.DIAG_OBSERVE, enabled)
+
+    fun resetDefaults() {
+        viewModelScope.launch(worker) {
+            val prefs = remotePrefs ?: return@launch
+            Catalog.rules.forEach { pendingWrites[ConfigCodec.key(it.id)] = it.defaultOn }
+            pendingWrites[PrefKeys.DIAG_OBSERVE] = false
+            requestRebuild()
+            runCatching {
+                prefs.edit {
+                    Catalog.rules.forEach { remove(ConfigCodec.key(it.id)) }
+                    remove(PrefKeys.DIAG_OBSERVE)
+                }
+            }.onFailure { pendingWrites.clear() }
+        }
+    }
+
+    fun refreshObserved() {
+        viewModelScope.launch(worker) {
+            observed = runCatching { endpoints.observed() }.getOrDefault(emptyList())
+            requestRebuild()
+        }
     }
 
     override fun onCleared() {
-        statusStore.unregisterListener(refreshListener)
-        remotePrefs?.unregisterOnSharedPreferenceChangeListener(refreshListener)
+        statusStore.unregisterListener(changeListener)
+        remotePrefs?.unregisterOnSharedPreferenceChangeListener(changeListener)
+    }
+
+    private fun requestRebuild() {
+        rebuildRequests.trySend(Unit)
+    }
+
+    private fun write(key: String, value: Boolean) {
+        viewModelScope.launch(worker) {
+            val prefs = remotePrefs ?: return@launch
+            pendingWrites[key] = value
+            requestRebuild()
+            runCatching { prefs.edit { putBoolean(key, value) } }.onFailure {
+                pendingWrites.remove(key)
+                requestRebuild()
+            }
+        }
     }
 
     private fun bind(service: XposedService?) {
-        remotePrefs?.unregisterOnSharedPreferenceChangeListener(refreshListener)
+        remotePrefs?.unregisterOnSharedPreferenceChangeListener(changeListener)
         remotePrefs = service?.let { runCatching { it.getRemotePreferences(ConfigCodec.PREFS_GROUP) }.getOrNull() }
-        remotePrefs?.registerOnSharedPreferenceChangeListener(refreshListener)
-        refresh(service)
+        remotePrefs?.registerOnSharedPreferenceChangeListener(changeListener)
+        framework = service?.let { runCatching { "${it.frameworkName} ${it.frameworkVersion}" }.getOrNull() }
+        requestRebuild()
     }
 
-    private fun refresh(service: XposedService? = ModuleConnection.service.value) {
-        val switches = ConfigCodec.decode(remotePrefs?.all.orEmpty())
+    private fun rebuild() {
+        val view = catalogView ?: return
+        val prefs = remotePrefs
+        val stored = prefs?.let { runCatching { it.all }.getOrNull() }.orEmpty()
+        val snapshot = view.snapshot { rule -> flag(stored, ConfigCodec.key(rule.id), rule.defaultOn) }
         mutableState.value = UiState(
-            module = service?.toModuleState() ?: ModuleState.Inactive,
-            groups = groupRules(switches),
+            module = moduleState(prefs != null, snapshot),
+            framework = framework,
+            versionName = versionName,
+            byCategory = snapshot.byCategory,
+            byApp = snapshot.byApp,
+            rules = snapshot.rules,
+            enabledCount = snapshot.enabledCount,
+            totalHits = snapshot.totalHits,
+            diagnosticMode = flag(stored, PrefKeys.DIAG_OBSERVE, false),
+            observed = observed,
         )
     }
 
-    private fun groupRules(switches: Map<String, Boolean>): List<RuleGroup> = Catalog.rules
-        .groupBy { it.packages.singleOrNull() ?: MULTI_APP_KEY }
-        .map { (key, rules) ->
-            RuleGroup(key, if (key == MULTI_APP_KEY) null else labels[key] ?: key, rules.map { it.toItem(switches) })
-        }
-
-    private val languageTag: String get() = java.util.Locale.getDefault().toLanguageTag()
-
-    private fun Rule.toItem(switches: Map<String, Boolean>): RuleItem {
-        val statuses = packages.mapNotNull { statusStore.get(it, id) }.filter { it.isFromCurrentBoot }
-        return RuleItem(
-            id = id,
-            title = title.resolve(languageTag),
-            summary = summary.resolve(languageTag),
-            enabled = switches[id] ?: defaultOn,
-            status = DisplayStatus.of(statuses.map { it.state }),
-            hits = packages.sumOf { statusStore.get(it, id)?.totalHits ?: 0 },
-        )
+    /** The stored value, unless a write of ours is still on its way. */
+    private fun flag(stored: Map<String, *>, key: String, default: Boolean): Boolean {
+        val current = stored[key] as? Boolean ?: default
+        val pending = pendingWrites[key] ?: return current
+        if (pending == current) pendingWrites.remove(key)
+        return pending
     }
 
-    private fun XposedService.toModuleState(): ModuleState = runCatching {
-        ModuleState.Active(frameworkName, frameworkVersion, apiVersion)
-    }.getOrDefault(ModuleState.Inactive)
+    private fun moduleState(prefsReachable: Boolean, snapshot: RuleSnapshot): ModuleState = when {
+        ModuleConnection.service.value == null -> if (settled) ModuleState.INACTIVE else ModuleState.CHECKING
+        !prefsReachable -> ModuleState.UNAVAILABLE
+        snapshot.enabledCount > 0 && !snapshot.anyReported -> ModuleState.NEEDS_REBOOT
+        else -> ModuleState.ACTIVE
+    }
 
     private companion object {
-        const val MULTI_APP_KEY = "*"
-
-        fun loadLabels(pm: PackageManager): Map<String, String> = Catalog.allPackages.associateWith { pkg ->
-            runCatching {
-                pm.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0)).loadLabel(pm).toString()
-            }.getOrDefault(pkg)
-        }
+        const val THROTTLE_MS = 200L
+        const val SETTLE_MS = 1_000L
     }
 }
