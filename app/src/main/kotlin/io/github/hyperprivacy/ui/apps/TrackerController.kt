@@ -1,9 +1,11 @@
 package io.github.hyperprivacy.ui.apps
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.scope.Protection
 import io.github.hyperprivacy.core.system.AppListConfig
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
@@ -60,7 +62,9 @@ internal class TrackerController(
 
     // SharedPreferences are opened on first use, on a background thread.
     private val store by lazy { TrackerStore(appContext) }
-    private val appScanner by lazy { AppScanner(appContext.packageManager, store) }
+    private val appScanner by lazy {
+        AppScanner(appContext.packageManager, store) { status()?.trust?.signers().orEmpty() }
+    }
     private val scanner = Dispatchers.IO.limitedParallelism(1)
     private val mutableState = MutableStateFlow(AppsUi())
     private val pending = PendingWrites()
@@ -69,7 +73,7 @@ internal class TrackerController(
         scope = scope,
         worker = worker,
         service = service,
-        isProtected = { isProtected(prefs(), it) },
+        protection = ::protection,
         onChange = { publishRequests.trySend(Unit) },
     )
 
@@ -129,12 +133,15 @@ internal class TrackerController(
             pendingProtect[packageName] = on
             publish()
             val result = detected[packageName]?.result ?: AppScan(emptySet())
+
+            // Committed synchronously (on the worker): the scope follows only a write known to have landed.
+            // KTX edit(commit = true) drops commit()'s result, which is what decides here.
+            @SuppressLint("UseKtx")
             val written = runCatching {
-                target.edit {
-                    if (on) putScanResult(packageName, result) else removeScanResult(packageName)
-                }
-            }
-            if (written.isFailure) {
+                target.edit().apply { if (on) putScanResult(packageName, result) else removeScanResult(packageName) }
+                    .commit()
+            }.getOrDefault(false)
+            if (!written) {
                 pendingProtect.remove(packageName)
             } else if (on) {
                 scopes.request(packageName)
@@ -143,6 +150,16 @@ internal class TrackerController(
             }
             publish()
         }
+    }
+
+    /**
+     * Whether protection is on for [packageName]: a write made here and not yet seen in the
+     * preferences wins; an unreadable preference is [Protection.UNKNOWN] (never "off").
+     */
+    private fun protection(packageName: String): Protection {
+        val key = TrackerProtection.protectKey(packageName)
+        val read = prefs()?.let { target -> { target.getString(key, null) } }
+        return Protection.resolve(pendingProtect[packageName], read)
     }
 
     /** Writes one per-app switch (SDK, app-level rule, app-list hiding). */
@@ -274,12 +291,6 @@ internal sealed class AppSwitch(val key: String) {
     class Strict(packageName: String) : AppSwitch(AppListConfig.strictKey(packageName))
 
     class Suspect(packageName: String, root: String) : AppSwitch(TrackerOrigin.suspectKey(packageName, root))
-}
-
-/** Whether protection is on for [packageName] in [prefs] (the single source of truth). */
-private fun isProtected(prefs: SharedPreferences?, packageName: String): Boolean {
-    val key = TrackerProtection.protectKey(packageName)
-    return prefs?.let { runCatching { it.getString(key, null) }.getOrNull() } != null
 }
 
 /** A protected app was updated and rescanned: hooks pick up the new SDK set on its next start. */

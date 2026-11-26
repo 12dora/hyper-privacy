@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.id.DerivedIds
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.status.HookState
+import io.github.hyperprivacy.core.system.VendorTrust
 import io.github.hyperprivacy.xposed.GuardEnv
 import io.github.hyperprivacy.xposed.Sinks
 import io.github.libxposed.api.XposedInterface.Chain
@@ -26,8 +27,9 @@ import java.util.concurrent.atomic.AtomicReference
  * and out of reach.
  *
  * Reusable for any protected third-party app ([Catalog.protectedAppRules]); it refuses to run in a
- * vendor-catalog package even if a rule list routes it there, because vendor backends (account,
- * wallet, TSM, FIDO, Find Device) bind the device by this id across all vendor apps.
+ * vendor-catalog or vendor-namespace package ([VendorTrust]) even if a rule list routes it there,
+ * because vendor backends (account, wallet, TSM, FIDO, Find Device) bind the device by this id
+ * across all vendor apps.
  */
 internal class MediaDrmGuard(private val env: GuardEnv) {
     private class Cached(val real: ByteArray, val derived: ByteArray, val secret: ByteArray)
@@ -38,7 +40,7 @@ internal class MediaDrmGuard(private val env: GuardEnv) {
 
     /** Returns the number of methods hooked for [rule]. */
     fun install(rule: Rule): Int {
-        if (env.packageName in Catalog.allPackages) {
+        if (env.packageName in Catalog.allPackages || VendorTrust.isVendorNamespace(env.packageName)) {
             env.log.warn("${rule.id}: ${env.packageName} is a vendor package; DRM id left untouched")
             return 0
         }

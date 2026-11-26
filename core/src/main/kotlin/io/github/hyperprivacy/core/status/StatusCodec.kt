@@ -6,14 +6,17 @@ package io.github.hyperprivacy.core.status
  * rather than failing the batch, because the payload crosses a trust boundary.
  */
 public object StatusCodec {
-    private const val FIELD_COUNT = 4
+    internal const val FIELD_COUNT = 4
 
-    public fun encode(reports: Iterable<RuleReport>): String =
-        TsvRows.encode(reports.map { listOf(it.packageName, it.ruleId, it.state.name, it.hits.toString()) })
+    public fun encode(reports: Iterable<RuleReport>): String = TsvRows.encode(reports.map(::fields))
 
-    public fun decode(text: String?): List<RuleReport> = TsvRows.decode(text, FIELD_COUNT, ::parse)
+    internal fun fields(it: RuleReport): List<String> =
+        listOf(it.packageName, it.ruleId, it.state.name, it.hits.toString())
 
-    private fun parse(fields: List<String>): RuleReport? {
+    public fun decode(text: String?, maxRows: Int = TsvRows.DEFAULT_MAX_ROWS): List<RuleReport> =
+        TsvRows.decode(text, FIELD_COUNT, maxRows, ::parse)
+
+    internal fun parse(fields: List<String>): RuleReport? {
         val pkg = fields[0].ifEmpty { return null }
         val id = fields[1].ifEmpty { return null }
         val state = HookState.parse(fields[2]) ?: return null

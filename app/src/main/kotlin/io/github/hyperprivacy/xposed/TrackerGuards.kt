@@ -1,6 +1,6 @@
 package io.github.hyperprivacy.xposed
 
-import io.github.hyperprivacy.core.status.StatusRelay
+import io.github.hyperprivacy.core.status.RelayKeys
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.hyperprivacy.xposed.origin.AdOrigin
@@ -9,6 +9,7 @@ import io.github.hyperprivacy.xposed.origin.OriginHooks
 import io.github.hyperprivacy.xposed.origin.OriginNetGuard
 import io.github.hyperprivacy.xposed.origin.OriginWebGuard
 import io.github.libxposed.api.XposedInterface
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Entry for an app outside the catalog that the user protects from tracker SDKs. The module app
@@ -23,8 +24,8 @@ import io.github.libxposed.api.XposedInterface
  * [AdPageGuard]): only when
  * the scan found one (or suspected ad packages), so other protected apps get no extra hook at all.
  *
- * Status goes through system_server ([StatusRelay]): this app never resolves the module package,
- * which stays hidden from it.
+ * Status goes through system_server ([io.github.hyperprivacy.core.status.StatusRelay]) with this
+ * app's own [RelayKeys]: it never resolves the module package, which stays hidden from it.
  */
 internal object TrackerGuards {
     fun install(xposed: XposedInterface, log: HookLog, packageName: String, classLoader: ClassLoader) {
@@ -43,9 +44,20 @@ internal object TrackerGuards {
         )
         log.verbose = { switches.observe }
         log.info("tracker protection for $packageName: ${detected.size} SDKs detected, ${rules.size} rules")
-        val relay = { switches.secret?.let(StatusRelay::method) }
+        val relay = relayKeys(switches, packageName)
         val origin = { env: GuardEnv -> installOrigin(env, raw, switches) { prefs.all } }
         AppGuards(xposed, log, packageName, classLoader, rules, switches, relay, origin).install()
+    }
+
+    /** This app's relay credentials for the current module secret, derived once per secret. */
+    private fun relayKeys(switches: RuleSwitches, packageName: String): () -> RelayKeys? {
+        val cached = AtomicReference<Pair<ByteArray, RelayKeys>?>()
+        return {
+            switches.secret?.let { secret ->
+                cached.get()?.takeIf { it.first === secret }?.second
+                    ?: RelayKeys.derive(secret, packageName).also { cached.set(secret to it) }
+            }
+        }
     }
 
     private fun installOrigin(env: GuardEnv, raw: Map<String, *>, switches: RuleSwitches, read: () -> Map<String, *>) {

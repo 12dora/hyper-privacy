@@ -4,6 +4,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import dalvik.system.BaseDexClassLoader
 import io.github.hyperprivacy.xposed.FailOpenHooker
+import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.hyperprivacy.xposed.url.WebClientHooks
 import io.github.libxposed.api.XposedInterface.Chain
@@ -48,7 +49,7 @@ internal class OriginWebGuard(private val hooks: OriginHooks) {
             }
             count++
         }
-        val hooker = FailOpenHooker(hooks.log, "origin webview", ::answer)
+        val hooker = FailOpenHooker(hooks.log, Sinks.ORIGIN_WEBVIEW, ::answer)
         return count + WebClientHooks(hooks.env.xposed, hooks.log, hooker).install()
     }
 

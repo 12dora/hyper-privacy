@@ -32,17 +32,19 @@ public data class SinkPerf(val sink: String, val calls: Long, val totalNs: Long,
 
 /** Wire format for [SinkPerf] batches: `sink  calls  totalNs  maxNs` per line. */
 public object PerfCodec {
-    private const val FIELD_COUNT = 4
+    internal const val FIELD_COUNT = 4
 
-    /** Upper bound on rows accepted from one call; there are only a dozen sinks. */
+    /** Upper bound on rows accepted from one call; there are only a few dozen sinks. */
     public const val MAX_ROWS: Int = 64
 
-    public fun encode(rows: Iterable<SinkPerf>): String =
-        TsvRows.encode(rows.map { listOf(it.sink, it.calls.toString(), it.totalNs.toString(), it.maxNs.toString()) })
+    public fun encode(rows: Iterable<SinkPerf>): String = TsvRows.encode(rows.map(::fields))
 
-    public fun decode(text: String?): List<SinkPerf> = TsvRows.decode(text, FIELD_COUNT, ::parse).take(MAX_ROWS)
+    internal fun fields(it: SinkPerf): List<String> =
+        listOf(it.sink, it.calls.toString(), it.totalNs.toString(), it.maxNs.toString())
 
-    private fun parse(fields: List<String>): SinkPerf? {
+    public fun decode(text: String?): List<SinkPerf> = TsvRows.decode(text, FIELD_COUNT, MAX_ROWS, ::parse)
+
+    internal fun parse(fields: List<String>): SinkPerf? {
         val sink = fields[0].takeIf(SinkPerf::isValidSink) ?: return null
         val calls = fields[1].toLongOrNull()?.takeIf { it >= 0 } ?: return null
         val total = fields[2].toLongOrNull()?.takeIf { it >= 0 } ?: return null
