@@ -1,12 +1,17 @@
 package io.github.hyperprivacy.xposed
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Process
 import android.os.SystemClock
+import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
+import io.github.hyperprivacy.core.status.MetaCodec
 import io.github.hyperprivacy.core.status.ObservedCodec
 import io.github.hyperprivacy.core.status.ObservedEndpoint
+import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RetryBackoff
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.SinkCodec
@@ -30,9 +35,13 @@ import java.util.concurrent.atomic.AtomicLong
  * next attempt follows [RetryBackoff] (5 s doubling to 5 min). Once the attempt budget is spent
  * the reporter stops trying for the life of the process but keeps counting locally.
  *
+ * Every batch from an app process also carries its [ProcessMeta] (own versionCode, read once,
+ * and process start time), and a heartbeat every [HEARTBEAT_HOURS] re-sends the state so the app
+ * can tell a long-lived quiet process (a candidate for "idle rule") from one that is gone.
+ *
  * @param context supplies a Context once one exists (returns `null` early in process start).
  */
-internal class StatusReporter(private val log: HookLog, context: () -> Context?) {
+internal class StatusReporter(private val log: HookLog, private val context: () -> Context?) {
     private data class RuleKey(val packageName: String, val ruleId: String)
 
     private data class SinkKey(val packageName: String, val sink: String)
@@ -45,6 +54,11 @@ internal class StatusReporter(private val log: HookLog, context: () -> Context?)
     private val endpoints = EndpointRecorder()
     private val loggedHits: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val scheduled = AtomicBoolean(false)
+    private val heartbeatStarted = AtomicBoolean(false)
+
+    /** This process's facts; read once on the executor thread, never for system_server. */
+    private var processMeta: ProcessMeta? = null
+    private var processMetaRead = false
 
     /** Set by every record; cleared when a flush starts, so records racing a flush are not lost. */
     private val dirty = AtomicBoolean(false)
@@ -97,6 +111,13 @@ internal class StatusReporter(private val log: HookLog, context: () -> Context?)
     private fun markDirty() {
         dirty.set(true)
         schedule()
+        if (heartbeatStarted.compareAndSet(false, true)) startHeartbeat()
+    }
+
+    private fun startHeartbeat() {
+        log.guard("schedule status heartbeat") {
+            executor.scheduleWithFixedDelay(::markDirty, HEARTBEAT_HOURS, HEARTBEAT_HOURS, TimeUnit.HOURS)
+        }
     }
 
     private fun schedule() {
@@ -143,14 +164,36 @@ internal class StatusReporter(private val log: HookLog, context: () -> Context?)
             if (reports.isNotEmpty()) putString(StatusContract.KEY_PAYLOAD, StatusCodec.encode(reports))
             if (sinkReports.isNotEmpty()) putString(StatusContract.KEY_SINKS, SinkCodec.encode(sinkReports))
             if (observed.isNotEmpty()) putString(StatusContract.KEY_OBSERVED, ObservedCodec.encode(observed))
+            readProcessMeta()?.let { putString(StatusContract.KEY_META, MetaCodec.encode(listOf(it))) }
         }
         return delivery.send(extras)
+    }
+
+    /**
+     * The host's own versionCode and wall-clock start time. Read at most once (a PackageManager
+     * IPC); `null` in system_server, which reports on behalf of other packages.
+     */
+    private fun readProcessMeta(): ProcessMeta? {
+        if (processMetaRead) return processMeta
+        if (Process.myUid() % UidPolicy.PER_USER_RANGE == Process.SYSTEM_UID) {
+            processMetaRead = true
+            return null
+        }
+        val ctx = context() ?: return null
+        processMetaRead = true
+        processMeta = log.guard("read process meta") {
+            val info = ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.PackageInfoFlags.of(0))
+            val uptime = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
+            ProcessMeta(ctx.packageName, info.longVersionCode, System.currentTimeMillis() - uptime)
+        }
+        return processMeta
     }
 
     private companion object {
         const val THREAD_NAME = "HyperPrivacyStatus"
         const val INITIAL_DELAY_MS = 5_000L
         const val FLUSH_INTERVAL_MS = 30_000L
+        const val HEARTBEAT_HOURS = 6L
 
         /** Distinct (rule, target) pairs logged per process before first-hit logging goes quiet. */
         const val MAX_LOGGED_HITS = 256
