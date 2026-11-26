@@ -41,6 +41,7 @@ internal class IdentifierGuard(private val env: GuardEnv) {
 
             // Enforced in system_server by xposed.system.SettingsKeyGuard, never in an app process.
             IdentifierSource.SETTINGS_KEYS -> return 0
+
             // Enforced per app by MediaDrmGuard; AppGuards never routes it here.
             IdentifierSource.MEDIA_DRM_ID -> return 0
         }
