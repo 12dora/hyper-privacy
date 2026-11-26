@@ -20,11 +20,24 @@ public object TrackerOrigin {
     public const val SUSPECT_RULE_ID: String = "tracker.suspect"
 
     private const val SUSPECT_ID_PREFIX = "suspect:"
+    private const val SUSPECT_MARK = ".suspect"
 
     public fun originKey(packageName: String): String = ORIGIN_PREFIX + packageName
 
     public fun suspectKey(packageName: String, root: String): String =
         TrackerProtection.blockKey(packageName, SUSPECT_ID_PREFIX + root)
+
+    /**
+     * Whether preference [key] is a suspected-package switch ([suspectKey]). These stay on the
+     * device: the suspected packages come from this device's scan, so backups neither carry nor
+     * replace them.
+     */
+    public fun isSuspectKey(key: String): Boolean {
+        if (!key.startsWith(TrackerProtection.BLOCK_PREFIX)) return false
+        // Package names have no colon: the first one ends `<pkg>.suspect`.
+        val colon = key.indexOf(':')
+        return colon > 0 && key.regionMatches(colon - SUSPECT_MARK.length, SUSPECT_MARK, 0, SUSPECT_MARK.length)
+    }
 
     /** The stored [OriginHints] of [packageName] (empty when none). */
     public fun origin(raw: Map<String, *>, packageName: String): OriginHints =
