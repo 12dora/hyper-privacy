@@ -1,4 +1,4 @@
-# 隐私管控（Hyper Privacy）
+# HyperPrivacy
 
 面向小米 HyperOS 的 LSPosed 模块：**只拦截隐私上报与遥测，不影响任何厂商服务**（应用商店、安全扫描、推送、云同步、查找设备、天气、系统更新等）。
 
@@ -49,3 +49,15 @@ scripts/privacy-scan.sh        # 检查已跟踪文件中是否含本机路径�
 ## 许可证
 
 独立实现，未使用任何第三方模块的代码。
+
+## 贡献者
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/contributors/opus.svg" width="72" height="72" alt="Opus 5.5"><br><b>Opus 5.5</b></td>
+    <td align="center"><img src="docs/images/contributors/gemini.svg" width="72" height="72" alt="Gemini 4 Neon"><br><b>Gemini 4 Neon</b></td>
+    <td align="center"><img src="docs/images/contributors/grok.svg" width="72" height="72" alt="Grok 4.6"><br><b>Grok 4.6</b></td>
+  </tr>
+</table>
+
+<sub>头像图标来自 LobeHub Icons（MIT），商标归各自所有者。</sub>
