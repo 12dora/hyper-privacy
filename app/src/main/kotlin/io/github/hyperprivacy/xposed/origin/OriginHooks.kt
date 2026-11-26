@@ -47,11 +47,11 @@ internal class OriginHooks(val env: GuardEnv, val origin: AdOrigin) {
         return 1
     }
 
-    /** An execution sink: may fail the call with a [Verdict.Throw]. */
-    fun sink(executable: Executable, name: String, decide: (Chain) -> Verdict) {
+    /** An execution sink named [sink] (one of `Sinks.ORIGIN_*`): may fail the call with a [Verdict.Throw]. */
+    fun sink(executable: Executable, sink: String, decide: (Chain) -> Verdict) {
         env.xposed.hook(executable)
             .setExceptionMode(ExceptionMode.PASSTHROUGH)
-            .intercept(FailOpenHooker(log, "origin $name", decide))
+            .intercept(FailOpenHooker(log, sink, decide))
     }
 
     fun hook(executable: Executable, mode: ExceptionMode, hooker: Hooker) {
