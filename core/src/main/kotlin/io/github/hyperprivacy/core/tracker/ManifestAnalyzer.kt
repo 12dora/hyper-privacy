@@ -8,16 +8,20 @@ package io.github.hyperprivacy.core.tracker
  * @property relocated package roots (dot form, ending in `.`) of SDKs copied into another
  *   namespace, mapped to the SDK id: a declared component ends with the part of one of the SDK's
  *   [TrackerSdk.anchors] after its own prefix.
- * @property own the app's own code roots: its package and the packages of its application class
- *   and launcher activities, unless an SDK claims them.
+ * @property own the app's own code roots: the [appRoots] plus the package of every other declared
+ *   activity and service that no SDK claims and that does not look like an ad page.
  * @property suspects packages of declared components that look like ad pages or ad services but
  *   belong to no known SDK; listed for the user, never blocked unless enabled.
+ * @property appRoots the app's strongest roots: its package and the packages of its application
+ *   class and launcher activities. No derived root (relocated or suspected) is ever taken inside
+ *   one of them: only a database prefix can claim code there.
  */
 public data class OriginHints(
     val detected: Set<String> = emptySet(),
     val relocated: Map<String, String> = emptyMap(),
     val own: Set<String> = emptySet(),
     val suspects: List<Suspect> = emptyList(),
+    val appRoots: Set<String> = emptySet(),
 ) {
     /** A suspected ad package: its root and the simple names of the components that matched. */
     public data class Suspect(val prefix: String, val components: List<String>)
@@ -26,13 +30,14 @@ public data class OriginHints(
     val isEmpty: Boolean get() = relocated.isEmpty() && suspects.isEmpty()
 
     /**
-     * Compact form for preferences: comma-separated `r:<sdkId>:<root>`, `o:<root>` and
+     * Compact form for preferences: comma-separated `r:<sdkId>:<root>`, `o:<root>`, `a:<root>` and
      * `s:<root>:<name>/<name>` tokens ([detected] is stored separately). Class names contain none
      * of `, ` `:` `/`.
      */
     public fun encode(): String = buildList {
         relocated.forEach { (root, sdkId) -> add("$RELOCATED$SEP$sdkId$SEP$root") }
         own.forEach { add("$OWN$SEP$it") }
+        appRoots.forEach { add("$APP$SEP$it") }
         suspects.forEach { add("$SUSPECT$SEP${it.prefix}$SEP${it.components.joinToString(NAME_SEP)}") }
     }.joinToString(LIST_SEP)
 
@@ -44,6 +49,7 @@ public data class OriginHints(
         private const val NAME_SEP = "/"
         private const val RELOCATED = "r"
         private const val OWN = "o"
+        private const val APP = "a"
         private const val SUSPECT = "s"
         private const val SUSPECT_FIELDS = 3
 
@@ -52,6 +58,7 @@ public data class OriginHints(
             if (text.isNullOrEmpty()) return EMPTY
             val relocated = LinkedHashMap<String, String>()
             val own = LinkedHashSet<String>()
+            val apps = LinkedHashSet<String>()
             val suspects = ArrayList<Suspect>()
             for (token in text.split(LIST_SEP)) {
                 val fields = token.split(SEP)
@@ -60,7 +67,9 @@ public data class OriginHints(
                         relocated[fields[2]] = fields[1]
                     }
 
-                    OWN -> if (fields.size == 2 && isRoot(fields[1])) own += fields[1]
+                    OWN -> rootOf(fields)?.let(own::add)
+
+                    APP -> rootOf(fields)?.let(apps::add)
 
                     SUSPECT -> if (fields.size == SUSPECT_FIELDS && isRoot(fields[1])) {
                         suspects += Suspect(fields[1], fields[2].split(NAME_SEP).filter { it.isNotEmpty() })
@@ -69,8 +78,18 @@ public data class OriginHints(
                     else -> Unit
                 }
             }
-            return OriginHints(emptySet(), relocated, own, suspects)
+            return OriginHints(emptySet(), relocated, own, suspects, apps)
         }
+
+        /** The root of a two-field `<tag>:<root>` token, if well-formed. */
+        private fun rootOf(fields: List<String>): String? = fields.takeIf { it.size == 2 && isRoot(it[1]) }?.get(1)
+
+        /**
+         * Whether derived root [root] lies inside (or equals) one of [appRoots] or `<packageName>.`:
+         * such a root is never attributed to an SDK, whatever the stored hints say.
+         */
+        public fun isInsideApp(root: String, packageName: String, appRoots: Collection<String>): Boolean =
+            root.startsWith("$packageName.") || appRoots.any { root.startsWith(it) }
 
         private fun isRoot(text: String) = text.length > 1 && text.endsWith('.') && !text.startsWith('.')
     }
@@ -80,16 +99,19 @@ public data class OriginHints(
  * Turns a [ManifestInfo] into [OriginHints], using the database's [TrackerSdk.anchors]. Pure and
  * bounded; runs in the module app next to the dex scan, never in a hooked process.
  *
- * A derived root (relocated or suspected) is dropped when it would cover the app's own code: when
- * it is a prefix of (or equal to) the app's package root or any [OriginHints.own] root, or has
- * fewer than [MIN_SEGMENTS] segments. So switching it on can never take the app's launcher or
- * application class for SDK code.
+ * Roots are decided so that the app's own code is never taken for SDK code:
+ * - the app roots (package, application class, launcher activities) are own, and no relocated or
+ *   suspected root is accepted inside them;
+ * - every other declared activity or service package that no SDK claims (by prefix or relocated
+ *   root) and whose components do not look like ad pages is own as well;
+ * - a derived root is dropped when it equals or covers an own root, or has fewer than
+ *   [MIN_SEGMENTS] segments; a suspect in a package that also holds own components is dropped.
  */
 public object ManifestAnalyzer {
     public const val MIN_SEGMENTS: Int = 2
     public const val MAX_RELOCATED: Int = 32
     public const val MAX_SUSPECTS: Int = 16
-    public const val MAX_OWN: Int = 8
+    public const val MAX_OWN: Int = 64
     private const val MAX_NAMES = 3
 
     /** An anchor's tail (the part after its SDK prefix, e.g. `activity.RewardActivity`) and its SDK. */
@@ -97,9 +119,18 @@ public object ManifestAnalyzer {
 
     private val anchors: List<Anchor> by lazy { anchorsOf(Trackers.all) }
 
-    /** Class simple-name tokens of ad pages and ad services: `Ad`/`Ads`/`AD` as a CamelCase word, or a format name. */
-    private val AD_WORD = Regex("(?:^|(?<=[a-z0-9_$]))(?:Ads?|AD)(?=[A-Z_$]|$)")
-    private val AD_FORMAT = Regex("Reward|Interstitial")
+    /**
+     * Class simple-name tokens of ad pages and ad services: `Ad`/`Ads`/`AD` as a CamelCase word
+     * (not the directory / sign-in sense: `ADLogin`, `AzureAdAuth`), or an ad format name
+     * (`Interstitial`, rewarded video: a bare `Reward` is a loyalty page as often as an ad).
+     */
+    private val AD_WORD = Regex(
+        "(?:^|(?<=[a-z0-9_$]))(?:Ads?|AD)(?=[A-Z_$]|$)" +
+            "(?!Login|Logon|Logout|Auth|Account|Sign|Sso|SSO|Directory|User|Tenant|Group|Domain|Ldap|LDAP|FS|Fs)",
+    )
+    private val AD_FORMAT = Regex("Interstitial|Reward(?:ed)?(?:Video|Ad|Express|FullScreen|Fullscreen|Splash)")
+
+    private val OWN_KINDS = setOf(ManifestInfo.Kind.ACTIVITY, ManifestInfo.Kind.SERVICE)
 
     public fun analyze(
         info: ManifestInfo,
@@ -107,44 +138,65 @@ public object ManifestAnalyzer {
         trackers: List<TrackerSdk> = Trackers.all,
     ): OriginHints {
         val anchorList = if (trackers === Trackers.all) anchors else anchorsOf(trackers)
-        val detected = sortedSetOf<String>()
-        val relocated = LinkedHashMap<String, String>()
-        val suspectNames = LinkedHashMap<String, MutableList<String>>()
-        val own = ownRoots(info, matcher)
-        val appRoot = info.packageName + "."
+        val apps = appRoots(info, matcher)
+        val found = Found(apps)
         for (component in info.components) {
             val name = component.className
             val known = matcher.match(name)
             val anchor = if (known == null) anchorList.firstOrNull { name.endsWith(".${it.tail}") } else null
-            val simple = name.substringAfterLast('.')
             when {
-                known != null -> detected += known
-
-                anchor != null -> {
-                    val root = name.substring(0, name.length - anchor.tail.length)
-                    if (isSafeRoot(root, appRoot, own) && relocated.size < MAX_RELOCATED) {
-                        relocated.putIfAbsent(root, anchor.sdkId)
-                        detected += anchor.sdkId
-                    }
-                }
-
-                looksLikeAd(simple) -> {
-                    val names = suspectNames.getOrPut(name.substring(0, name.length - simple.length)) { ArrayList() }
-                    if (names.size < MAX_NAMES) names += simple
-                }
+                known != null -> found.detected += known
+                anchor != null -> found.relocate(name.substring(0, name.length - anchor.tail.length), anchor.sdkId)
+                else -> found.candidates += component
             }
         }
-        val suspects = suspectNames.filterKeys { root ->
-            isSafeRoot(root, appRoot, own) && relocated.keys.none { root.startsWith(it) }
+        found.candidates.forEach(found::place)
+        val suspects = found.suspectNames.filterKeys { root ->
+            isSafeRoot(root, apps, found.own) && found.relocated.keys.none { root.startsWith(it) }
         }.entries.take(MAX_SUSPECTS).map { (root, names) -> OriginHints.Suspect(root, names) }
-        return OriginHints(detected, relocated, own, suspects)
+        return OriginHints(found.detected, found.relocated, found.own, suspects, apps)
+    }
+
+    /** What [analyze] collects, in two passes: SDK components first, then the rest ([place]). */
+    private class Found(val apps: Set<String>) {
+        val detected = sortedSetOf<String>()
+        val relocated = LinkedHashMap<String, String>()
+        val candidates = ArrayList<ManifestInfo.Component>()
+        val own = LinkedHashSet(apps)
+        val suspectNames = LinkedHashMap<String, MutableList<String>>()
+
+        /** An anchor names [sdkId] relocated to [root]; kept when the root is safe. */
+        fun relocate(root: String, sdkId: String) {
+            if (!isSafeRoot(root, apps, apps) || relocated.size >= MAX_RELOCATED) return
+            relocated.putIfAbsent(root, sdkId)
+            detected += sdkId
+        }
+
+        /** A component no SDK claims: an ad-looking one makes its package a suspect, others own code. */
+        fun place(component: ManifestInfo.Component) {
+            val name = component.className
+            if (relocated.keys.any { name.startsWith(it) }) return
+            val simple = name.substringAfterLast('.')
+            val root = name.substring(0, name.length - simple.length)
+            when {
+                looksLikeAd(simple) -> {
+                    val names = suspectNames.getOrPut(root) { ArrayList() }
+                    if (names.size < MAX_NAMES) names += simple
+                }
+
+                component.kind in OWN_KINDS && segments(root) >= MIN_SEGMENTS && own.size < MAX_OWN -> own += root
+
+                else -> Unit
+            }
+        }
     }
 
     /** Whether a simple class name reads like an ad page or ad service. */
     public fun looksLikeAd(simpleName: String): Boolean =
         AD_WORD.containsMatchIn(simpleName) || AD_FORMAT.containsMatchIn(simpleName)
 
-    private fun ownRoots(info: ManifestInfo, matcher: CodePrefixMatcher): Set<String> {
+    /** The package, the application class's package and launcher activities' packages, unless an SDK claims them. */
+    private fun appRoots(info: ManifestInfo, matcher: CodePrefixMatcher): Set<String> {
         val classes = listOfNotNull(info.applicationClass) +
             info.components.filter { it.launcher }.map { it.className }
         val roots = linkedSetOf(info.packageName + ".")
@@ -156,8 +208,11 @@ public object ManifestAnalyzer {
         return roots
     }
 
-    private fun isSafeRoot(root: String, appRoot: String, own: Set<String>): Boolean =
-        root.count { it == '.' } >= MIN_SEGMENTS && !appRoot.startsWith(root) && own.none { it.startsWith(root) }
+    /** A derived root is safe when it is deep enough, covers no own root and lies inside no app root. */
+    private fun isSafeRoot(root: String, apps: Set<String>, own: Set<String>): Boolean =
+        segments(root) >= MIN_SEGMENTS && own.none { it.startsWith(root) } && apps.none { root.startsWith(it) }
+
+    private fun segments(root: String): Int = root.count { it == '.' }
 
     private fun anchorsOf(trackers: List<TrackerSdk>): List<Anchor> = trackers.flatMap { sdk ->
         sdk.anchors.mapNotNull { anchor ->

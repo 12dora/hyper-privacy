@@ -6,7 +6,10 @@ package io.github.hyperprivacy.core.tracker
  * found through manifest anchors, suspected components the user enabled), the app's own code
  * roots and the platform / runtime namespaces. Longest prefix wins, so an SDK nested in the app's
  * namespace (`com.app.ads.` under `com.app.`) is still the SDK, and the app's own package nested
- * in an SDK's namespace is still the app.
+ * in an SDK's namespace is still the app; on equal prefixes the app's own root wins, then the SDK,
+ * then the platform, whatever order the entries come in. Derived roots (relocated or suspected)
+ * inside the app's roots are dropped before they get here
+ * ([OriginHints.isInsideApp]), so only a database prefix can claim code under the app's package.
  *
  * [attribute] reads a call stack from the innermost frame outwards: the first SDK frame decides
  * (the request originates in that SDK, however it reached the network: directly, through an
@@ -17,14 +20,14 @@ package io.github.hyperprivacy.core.tracker
  *
  * Immutable and thread-safe. Cost, measured by `OriginMatcherTest` on a desktop JVM: [classify] is
  * one trie walk over the class name, allocation-free, in the order of 60 ns; [attribute] over a
- * typical 40-frame stack takes about 2-3 µs, on top of capturing the stack itself
- * (`Throwable().stackTrace`, about 10-30 µs on a phone), and is meant only for the points where a
- * request, socket or web view is created, never per byte or per connect.
+ * typical 40-frame stack takes about 2-3 µs, on top of walking the stack itself, and is meant only
+ * for the points where a request, socket or web view is created, never per byte or per connect.
  */
 public class OriginMatcher(sdkPrefixes: List<Pair<String, String>>, ownPrefixes: Collection<String>) {
+    // CodePrefixMatcher keeps the first owner of a duplicate prefix: own roots go first.
     private val trie = CodePrefixMatcher(
-        sdkPrefixes.filter { it.second != OWN_ID && it.second != PLATFORM_ID } +
-            ownPrefixes.map { it to OWN_ID } +
+        ownPrefixes.map { it to OWN_ID } +
+            sdkPrefixes.filter { it.second != OWN_ID && it.second != PLATFORM_ID } +
             PLATFORM_PREFIXES.map { it to PLATFORM_ID },
     )
     private val ownIndex = trie.ids.indexOf(OWN_ID)
@@ -52,10 +55,40 @@ public class OriginMatcher(sdkPrefixes: List<Pair<String, String>>, ownPrefixes:
 
     /**
      * The SDK the innermost decisive frame of [frames] belongs to (an index for [sdkId]), [OWN]
-     * when an app frame comes first, or [UNKNOWN] when no frame is claimed. At most [MAX_FRAMES] frames
-     * are read. [resolver], if given, is asked about frames of unknown classes only (it may return
-     * an SDK index from [indexOf], else [UNKNOWN]); it is the only part that may cost more.
+     * when an app frame comes first, or [UNKNOWN] when no frame is claimed. At most [MAX_FRAMES]
+     * frames are read, innermost first, and reading stops at the first decisive one. [nameOf] gives
+     * a frame's class name; [skip] drops a frame outright (e.g. one of this module's own classes,
+     * whatever R8 renamed them to); [resolver], if given, is asked about frames of unknown classes
+     * only (it may return an SDK index from [indexOf], else [UNKNOWN], and must decide by the frame's
+     * actual class, never by name alone).
      */
+    public fun <T> attribute(
+        frames: Iterator<T>,
+        nameOf: (T) -> String,
+        skip: ((T) -> Boolean)? = null,
+        resolver: ((T) -> Int)? = null,
+    ): Int {
+        var read = 0
+        while (read++ < MAX_FRAMES && frames.hasNext()) {
+            val frame = frames.next()
+            if (skip != null && skip(frame)) continue
+            when (val kind = classify(nameOf(frame))) {
+                OWN -> return OWN
+
+                PLATFORM -> Unit
+
+                UNKNOWN -> if (resolver != null) {
+                    val resolved = resolver(frame)
+                    if (resolved >= 0) return resolved
+                }
+
+                else -> return kind
+            }
+        }
+        return UNKNOWN
+    }
+
+    /** [attribute] over captured frames, by class name (tests and diagnostics); allocation-free. */
     public fun attribute(frames: Array<StackTraceElement>, resolver: ((String) -> Int)? = null): Int {
         val end = minOf(frames.size, MAX_FRAMES)
         for (i in 0 until end) {
