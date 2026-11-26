@@ -25,6 +25,10 @@
         <item quantity="one">%1$s blocked</item>
         <item quantity="other">%1$s blocked</item>
     </plurals>
+    <plurals name="rule_hits_short">
+        <item quantity="one">%1$s blocked</item>
+        <item quantity="other">%1$s blocked</item>
+    </plurals>
 
     <!-- Home -->
     <string name="view_by_category">By type</string>

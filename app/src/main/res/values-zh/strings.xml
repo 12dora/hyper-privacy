@@ -49,6 +49,9 @@
     <plurals name="rule_hits">
         <item quantity="other">已拦截 %1$s 次</item>
     </plurals>
+    <plurals name="rule_hits_short">
+        <item quantity="other">拦截 %1$s 次</item>
+    </plurals>
     <string name="rule_open_details">查看详情</string>
 
     <!-- 规则详情 -->
