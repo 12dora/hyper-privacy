@@ -62,9 +62,10 @@ internal object TrackerGuards {
 
     private fun installOrigin(env: GuardEnv, raw: Map<String, *>, switches: RuleSwitches, read: () -> Map<String, *>) {
         if (!AdOrigin.canEverMatch(raw, env.packageName)) return
-        val origin = AdOrigin(env.log, env.packageName, env.reporter)
-        origin.rebuild(raw)
-        switches.addListener { env.log.guard("read origin config") { read() }?.let(origin::rebuild) }
+        // Built from the effective switches: a global pause empties the table like every other rule.
+        val origin = AdOrigin(env.log, env.packageName, env.reporter, switches, read)
+        origin.refresh(raw)
+        switches.addListener { origin.refresh() }
         val hooks = OriginHooks(env, origin)
         val count = OriginNetGuard(hooks).install() + OriginWebGuard(hooks).install() +
             AdPageGuard(env, origin).install()

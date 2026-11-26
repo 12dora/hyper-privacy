@@ -24,27 +24,37 @@ internal class OriginHooks(val env: GuardEnv, val origin: AdOrigin) {
     val log get() = env.log
     private val failures = AtomicInteger()
 
+    /** The object a creation family is constructing on this thread (`null`: none). */
+    private class Building {
+        var target: Any? = null
+    }
+
     /**
-     * A creation point: while an ad SDK is enabled, [decide] runs before the original, once per
-     * outermost construction on this thread (constructors delegating to each other decide once).
-     * Returns 1 (hooked).
+     * Creation points of one family (e.g. every `WebView` constructor): while an ad SDK is enabled,
+     * [decide] runs before the original, once per object. The family shares one per-thread record
+     * of the object under construction, so constructors delegating to each other (`this(...)`,
+     * `super(...)` within the family) decide once, while constructing a *different* object of the
+     * family inside a constructor still decides for that one. Returns the number of hooked executables.
      */
-    fun creation(executable: Executable, name: String, decide: (Chain) -> Unit): Int {
-        val depth = object : ThreadLocal<IntArray>() {
-            override fun initialValue() = IntArray(1)
-        }
-        hook(executable, ExceptionMode.PROTECTIVE) { chain ->
-            if (!origin.active) return@hook chain.proceed()
-            val nesting = depth.get() ?: return@hook chain.proceed()
-            if (nesting[0] == 0) safely(name) { decide(chain) }
-            nesting[0]++
-            try {
-                chain.proceed()
-            } finally {
-                nesting[0]--
+    fun creation(executables: Collection<Executable>, name: String, decide: (Chain) -> Unit): Int {
+        val building = ThreadLocal.withInitial { Building() }
+        executables.forEach { executable ->
+            hook(executable, ExceptionMode.PROTECTIVE) { chain ->
+                if (!origin.active) return@hook chain.proceed()
+                val target = chain.thisObject
+                val state = building.get() ?: return@hook chain.proceed()
+                if (target == null || state.target === target) return@hook chain.proceed()
+                val outer = state.target
+                state.target = target
+                try {
+                    safely(name) { decide(chain) }
+                    chain.proceed()
+                } finally {
+                    state.target = outer
+                }
             }
         }
-        return 1
+        return executables.size
     }
 
     /** An execution sink named [sink] (one of `Sinks.ORIGIN_*`): may fail the call with a [Verdict.Throw]. */
@@ -67,6 +77,9 @@ internal class OriginHooks(val env: GuardEnv, val origin: AdOrigin) {
 
     /** The creating SDK's rule id, `null` for the app's own or unattributed code. */
     fun sdkRule(): String? = origin.attribute()?.takeIf { it != AdOrigin.OWN }
+
+    /** The host of [url], if it parses as a URL with one. */
+    fun hostOf(url: String?): String? = UrlParts.parse(url)?.host
 
     /** What an HTTP client reports for a blocked request to [url] (a plausible network failure). */
     fun httpFailure(url: String?): IOException {
