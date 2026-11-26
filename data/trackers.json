@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026.11.27d",
+  "version": "2026.11.27e",
   "trackers": [
     {
       "id": "aatkit",
@@ -30,6 +30,9 @@
       ],
       "codePrefixes": [
         "com.adcolony.sdk."
+      ],
+      "anchors": [
+        "com.adcolony.sdk.AdColonyInterstitialActivity"
       ],
       "blockHosts": [
         "adc3-launch.adcolony.com",
@@ -982,6 +985,23 @@
         "com.bytedance.pangle.",
         "com.bytedance.adsdk."
       ],
+      "anchors": [
+        "com.bytedance.sdk.openadsdk.activity.TTAdActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTAppOpenAdActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTCeilingLandingPageActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTDelegateActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTFullScreenExpressVideoActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTFullScreenVideoActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTInterstitialActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTInterstitialExpressActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTLandingPageActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTPlayableLandingPageActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTRewardExpressVideoActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTRewardVideoActivity",
+        "com.bytedance.sdk.openadsdk.activity.TTVideoLandingPageLink2Activity",
+        "com.bytedance.sdk.openadsdk.activity.TTWebsiteActivity",
+        "com.bytedance.sdk.openadsdk.multipro.aidl.BinderPoolService"
+      ],
       "blockHosts": [
         "5log-api.pangolin-sdk-toutiao-b.com",
         "api-access.pangolin-sdk-toutiao-b.com",
@@ -1004,7 +1024,8 @@
         "apk: com.mi.globalbrowser (global Pangle) const-strings in com.bytedance.sdk.openadsdk.* reference api16-access-sg.pangle.io, api16-endcard-pack-sg.pangle.io, lf-static.tiktokpangle-cdn-us.com; also Lcom/pgl/ssdk/ces/",
         "sdk: https://artifact.bytedance.com/repository/pangle/com/pangle/global/ads-sdk/6.5.1.2/ (global Pangle AAR: same com.bytedance.sdk.openadsdk / com.bykv.vk.openvk / com.bytedance.adsdk packages as the CN build, so one entry covers both; hosts api16-access-sg.pangle.io, api16-endcard-pack-sg.pangle.io, sf16-static.i18n-pglstatp.com)",
         "apk: com.mi.globalbrowser dex strings https://api16-access-ttp.tiktokpangle.us/service/2/app_log/, api16-access-ttp-b.tiktokpangle-b.us, https://lf-static.tiktokpangle-cdn-us.com/obj/ad-pattern-tx/ (from the former pangle-global entry)",
-        "doc: https://www.pangleglobal.com/integration/android-initialize-pangle-sdk (PAGSdk.init / PAGConfig, classes under com.bytedance.sdk.openadsdk.api.*)"
+        "doc: https://www.pangleglobal.com/integration/android-initialize-pangle-sdk (PAGSdk.init / PAGConfig, classes under com.bytedance.sdk.openadsdk.api.*)",
+        "sdk: com.pangle.global:ads-sdk 6.5.1.2 AAR AndroidManifest.xml declares com.bytedance.sdk.openadsdk.activity.TT*Activity (reward / full-screen / interstitial / app-open / landing-page) and multipro.aidl.BinderPoolService (manifest anchors)"
       ],
       "notes": "Merged from the former pangle-global entry: CN (穿山甲) and global (Pangle PAG) builds share the com.bytedance.sdk.openadsdk namespace, so a global APK now matches exactly this one entry (the PAG* entry classes are subsumed by com.bytedance.sdk.openadsdk.; com.google.ads.mediation.pangle. is intentionally not claimed — it belongs to AdMob's adapter namespace). pangle.io apex is not blocked (www.pangle.io is the vendor site); only the ad subdomains api16-access-sg / api16-endcard-pack-sg are. Only the verified Pangle subdomains are blocked (api16-access-ttp / api16-access-ttp-b, lf-static, sf16-static, api16-access-sg, api16-endcard-pack-sg); the tiktokpangle*.us, tiktokpangle-cdn-us.com, i18n-pglstatp.com and pangle.io apexes are not. com.pgl.* moved to bytedance-pgl-secsdk; obfuscated com.byazt./com.byakv. dropped (unstable). Not listed (shared with ByteDance apps or DataRangers analytics): com.ss.android.downloadlib./socialbase. (download lib), applog.snssdk.com, toblog/tobapplog/success.ctobsnssdk.com, mon.zijieapi.com, tnc3-*.zijieapi.com. log.byteoversea.com app_log paths are handled by bytedance-applog. Uncertain: apps.bytesfield.com / apps.bytesfield-b.com, sf1-amtos-cdn.bytesmanager.com, playable.oceanengine.com."
     },
@@ -1347,6 +1368,12 @@
         "com.fyber.inneractive.sdk.",
         "com.fyber.marketplace."
       ],
+      "anchors": [
+        "com.fyber.inneractive.sdk.activities.InneractiveInternalBrowserActivity",
+        "com.fyber.inneractive.sdk.activities.InneractiveFullscreenAdActivity",
+        "com.fyber.inneractive.sdk.activities.InneractiveRichMediaVideoPlayerActivityCore",
+        "com.fyber.inneractive.sdk.activities.FyberReportAdActivity"
+      ],
       "blockHosts": [
         "postbidopt.fyber.com",
         "init-mp.digitalturbine.com",
@@ -1358,7 +1385,8 @@
         "apk: com.mi.globalbrowser dex types Lcom/fyber/inneractive/sdk/external/InneractiveAdManager;",
         "sdk: https://repo1.maven.org/maven2/com/fyber/marketplace-sdk/8.5.1/ (AAR hosts wv/sdk-events/cdn2.inner-active.mobi, postbidopt.fyber.com, init-mp.digitalturbine.com)",
         "doc: https://cdn2.inner-active.mobi/deviceStorageDisclosure/deviceStorageDisclosureUrl.json",
-        "sdk: Maven Central com.fyber:marketplace-sdk:8.5.1 AAR re-scanned: wv.inner-active.mobi/simpleM2M/clientRequestEnhanced, sdk-events.inner-active.mobi/Event, cdn2.inner-active.mobi/ia-sdk-config|ia-js-tags"
+        "sdk: Maven Central com.fyber:marketplace-sdk:8.5.1 AAR re-scanned: wv.inner-active.mobi/simpleM2M/clientRequestEnhanced, sdk-events.inner-active.mobi/Event, cdn2.inner-active.mobi/ia-sdk-config|ia-js-tags",
+        "sdk: com.fyber:marketplace-sdk 8.5.1 AAR AndroidManifest.xml declares com.fyber.inneractive.sdk.activities.Inneractive*Activity and FyberReportAdActivity (manifest anchors)"
       ],
       "notes": "Only the verified inner-active.mobi subdomains (wv, sdk-events, cdn2) are blocked, not the apex. Digital Turbine Ignite (com.digitalturbine.ignite, OEM app-install service) is not covered here."
     },
@@ -1513,6 +1541,9 @@
       "codePrefixes": [
         "com.fyber.fairbid.",
         "com.fyber.ads."
+      ],
+      "anchors": [
+        "com.fyber.ads.ofw.OfferWallActivity"
       ],
       "blockHosts": [
         "mediation.fyber.com",
@@ -2156,6 +2187,12 @@
       "codePrefixes": [
         "com.hyprmx.android."
       ],
+      "anchors": [
+        "com.hyprmx.android.sdk.activity.HyprMXOfferViewerActivity",
+        "com.hyprmx.android.sdk.activity.HyprMXRequiredInformationActivity",
+        "com.hyprmx.android.sdk.activity.HyprMXNoOffersActivity",
+        "com.hyprmx.android.sdk.overlay.HyprMXBrowserActivity"
+      ],
       "blockHosts": [
         "prd-event-tracking-service.hyprmx.com",
         "jungroup-pbs.relevant-digital.com",
@@ -2163,7 +2200,8 @@
       ],
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/hyprmx/android/HyprMX-SDK/6.4.7/ (AAR hosts marketplace-android-b<build>.hyprmx.com, prd-event-tracking-service.hyprmx.com, jungroup-pbs*.relevant-digital.com)",
-        "sdk: HyprMX-SDK 6.4.7 AAR re-scanned: prd/stg -event-tracking-service.hyprmx.com, marketplace-android-b459.hyprmx.com (BuildConfig), jungroup-pbs(-nt).relevant-digital.com"
+        "sdk: HyprMX-SDK 6.4.7 AAR re-scanned: prd/stg -event-tracking-service.hyprmx.com, marketplace-android-b459.hyprmx.com (BuildConfig), jungroup-pbs(-nt).relevant-digital.com",
+        "sdk: com.hyprmx.android:HyprMX-SDK 6.4.7 AAR AndroidManifest.xml declares com.hyprmx.android.sdk.activity.HyprMX*Activity and sdk.overlay.HyprMXBrowserActivity (manifest anchors)"
       ],
       "notes": "hyprmx.com apex (vendor portal) is not blocked. The marketplace ad host embeds the SDK build number (marketplace-android-b<build>.hyprmx.com) and cannot be listed, so only event tracking and the prebid hosts are blocked."
     },
@@ -2327,6 +2365,14 @@
         "com.unity3d.mediation.",
         "com.unity3d.ironsourceads."
       ],
+      "anchors": [
+        "com.ironsource.sdk.controller.ControllerActivity",
+        "com.ironsource.sdk.controller.InterstitialActivity",
+        "com.ironsource.sdk.controller.OpenUrlActivity",
+        "com.ironsource.lifecycle.IronsourceLifecycleProvider",
+        "com.ironsource.lifecycle.LevelPlayActivityLifecycleProvider",
+        "com.unity3d.ironsourceads.internal.services.InlineStoreActivity"
+      ],
       "blockHosts": [
         "iads.unity3d.com",
         "mediation.unity3d.com",
@@ -2343,7 +2389,8 @@
       "evidence": [
         "apk: com.mi.globalbrowser dex types Lcom/ironsource/mediationsdk/IronSource; and Lcom/unity3d/mediation/",
         "sdk: https://repo1.maven.org/maven2/com/unity3d/ads-mediation/mediation-sdk/9.8.0/ (AAR strings init/pm-gateway/banner-gateway.supersonicads.com, gw-rv/gw-is/ae/cdn.iads.unity3d.com, o-sdk/o-ext/o-crash/i-sdk.mediation.unity3d.com, secure.ironbeast.io, postlog.supersonic.com, *.ssacdn.com, android-att.ironsrc.mobi)",
-        "sdk: Maven Central com.unity3d.ads-mediation:mediation-sdk:9.8.0 AAR re-scanned: https://www.supersonicads.com/mobile/sdk5/log?method=, android-att.ironsrc.mobi; other hosts as in the earlier scan above"
+        "sdk: Maven Central com.unity3d.ads-mediation:mediation-sdk:9.8.0 AAR re-scanned: https://www.supersonicads.com/mobile/sdk5/log?method=, android-att.ironsrc.mobi; other hosts as in the earlier scan above",
+        "sdk: com.unity3d.ads-mediation:mediation-sdk 9.8.0 AAR AndroidManifest.xml declares com.ironsource.sdk.controller.*Activity, com.ironsource.lifecycle.*Provider and com.unity3d.ironsourceads.internal.services.InlineStoreActivity (manifest anchors)"
       ],
       "notes": "unity3d.com itself is mixed (engine services, Remote Config) — only the iads/mediation subtrees are blocked. supersonicads.com / ironbeast.io / ironsrc.mobi apexes replaced by the verified subdomains; ssacdn.com and ssadscdn.cn (CDN suffixes) are unchanged."
     },
@@ -2690,6 +2737,9 @@
       "codePrefixes": [
         "com.meishu.sdk."
       ],
+      "anchors": [
+        "com.meishu.sdk.activity.SdkInterstitialActivity"
+      ],
       "blockHosts": [],
       "evidence": [
         "doc: https://github.com/Lin-arm/GKD_subscription src/apps/com.xyhui.ts (real-app rule targets com.meishu.sdk.activity.SdkInterstitialActivity)"
@@ -2957,6 +3007,11 @@
       "codePrefixes": [
         "com.moloco.sdk."
       ],
+      "anchors": [
+        "com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.mraid.MraidActivity",
+        "com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.staticrenderer.StaticAdActivity",
+        "com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.vast.VastActivity"
+      ],
       "blockHosts": [
         "dsp-api.moloco.com",
         "cdn-f.adsmoloco.com"
@@ -2964,7 +3019,8 @@
       "evidence": [
         "apk: com.mi.globalbrowser dex contains Lcom/moloco/sdk/publisher/",
         "sdk: https://repo1.maven.org/maven2/com/moloco/sdk/moloco-sdk/4.15.0/ (AAR hosts sdkapi.dsp-api.moloco.com, sdkopmetrics-us.dsp-api.moloco.com, cdn-f.adsmoloco.com)",
-        "sdk: Maven Central moloco-sdk 4.15.0 AAR re-scanned: sdkapi.dsp-api.moloco.com /v2/init, sdkopmetrics-us.dsp-api.moloco.com /v1/sdk/send/metrics/operation, cdn-f.adsmoloco.com/moloco-cdn/"
+        "sdk: Maven Central moloco-sdk 4.15.0 AAR re-scanned: sdkapi.dsp-api.moloco.com /v2/init, sdkopmetrics-us.dsp-api.moloco.com /v1/sdk/send/metrics/operation, cdn-f.adsmoloco.com/moloco-cdn/",
+        "sdk: com.moloco.sdk:moloco-sdk 4.15.0 AAR AndroidManifest.xml declares the ad renderer activities under com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal. (manifest anchors)"
       ],
       "notes": "adsmoloco.com apex replaced by cdn-f.adsmoloco.com."
     },
@@ -3048,12 +3104,17 @@
         "com.my.target.",
         "io.github.mytargetsdk."
       ],
+      "anchors": [
+        "com.my.target.common.MyTargetActivity",
+        "com.my.target.common.MyTargetContentProvider"
+      ],
       "blockHosts": [
         "ad.mail.ru"
       ],
       "evidence": [
         "apk: com.mi.globalbrowser dex types Lcom/my/target/common/MyTargetManager; and strings https://ad.mail.ru/mobile/adcontext, https://ad.mail.ru/sdk/log/v2, https://ad.mail.ru/sdk/ms/, https://target.my.com/",
-        "sdk: https://repo1.maven.org/maven2/com/my/target/mytarget-sdk/5.52.5/ (AAR strings ad.mail.ru, sdk.mail.ru; package com.my.target)"
+        "sdk: https://repo1.maven.org/maven2/com/my/target/mytarget-sdk/5.52.5/ (AAR strings ad.mail.ru, sdk.mail.ru; package com.my.target)",
+        "sdk: com.my.target:mytarget-sdk 5.27.3 AAR AndroidManifest.xml declares com.my.target.common.MyTargetActivity and MyTargetContentProvider (manifest anchors)"
       ],
       "notes": "ad.mail.ru is the myTarget ad-serving/logging host; mail.ru apex is NOT blocked (mail/accounts). sdk.mail.ru is shared with non-ad Mail.ru/VK SDKs and target.my.com is the advertiser web portal, so they are no longer blocked."
     },
@@ -3884,6 +3945,10 @@
       "codePrefixes": [
         "com.tapjoy."
       ],
+      "anchors": [
+        "com.tapjoy.TJAdUnitActivity",
+        "com.tapjoy.TJWebViewActivity"
+      ],
       "blockHosts": [],
       "keepHosts": [
         "gateway-b.offerwall.unity3d.com"
@@ -3891,7 +3956,8 @@
       "evidence": [
         "sdk: https://sdk.tapjoy.com/com/tapjoy/tapjoy-android-sdk/14.9.0/ (AAR host gateway-b.offerwall.unity3d.com)",
         "doc: https://services.api.unity.com/advertise/developer/v1/tcf.json (Unity domain disclosure lists *.tapjoy.com, *.tapjoy.net)",
-        "sdk: https://sdk.tapjoy.com/com/tapjoy/tapjoy-android-sdk/14.9.0/ re-scanned: only gateway-b.offerwall.unity3d.com and dev.tapjoy.com are visible in plain strings (offerwall placements /placements/); no telemetry-only subdomain could be verified"
+        "sdk: https://sdk.tapjoy.com/com/tapjoy/tapjoy-android-sdk/14.9.0/ re-scanned: only gateway-b.offerwall.unity3d.com and dev.tapjoy.com are visible in plain strings (offerwall placements /placements/); no telemetry-only subdomain could be verified",
+        "sdk: com.tapjoy:tapjoy-android-sdk 14.9.0 AAR AndroidManifest.xml declares com.tapjoy.TJAdUnitActivity and TJWebViewActivity (manifest anchors)"
       ],
       "notes": "Detection only: tapjoy.com/tapjoy.net apexes (support/privacy pages) and the offerwall gateway (earned rewards) are not blocked, and no telemetry-only Tapjoy subdomain could be verified in the SDK, so nothing is blocked until one is."
     },
@@ -4765,6 +4831,10 @@
         "com.unity3d.services.",
         "com.unity3d.scar."
       ],
+      "anchors": [
+        "com.unity3d.ads.adplayer.FullScreenWebViewDisplay",
+        "com.unity3d.ads.adplayer.AdTaskRemovalDetectionService"
+      ],
       "blockHosts": [
         "unityads.unity3d.com",
         "iads.unity3d.com",
@@ -4775,7 +4845,8 @@
       "evidence": [
         "apk: com.mi.globalbrowser dex contains Lcom/unity3d/ads/ and Lcom/unity3d/services/",
         "doc: https://services.api.unity.com/advertise/developer/v1/tcf.json (Unity domain disclosure: *.unityads.unity3d.com, *.isx.unity3d.com, *.iads.unity3d.com)",
-        "sdk: https://repo1.maven.org/maven2/com/unity3d/ads/unity-ads/4.22.0/ (AAR hosts gateway/webview/configv2/scar.unityads.unity3d.com)"
+        "sdk: https://repo1.maven.org/maven2/com/unity3d/ads/unity-ads/4.22.0/ (AAR hosts gateway/webview/configv2/scar.unityads.unity3d.com)",
+        "sdk: com.unity3d.ads:unity-ads 4.22.0 AAR AndroidManifest.xml declares com.unity3d.ads.adplayer.FullScreenWebViewDisplay and AdTaskRemovalDetectionService (manifest anchors)"
       ],
       "notes": "com.unity3d.player (the Unity engine) is intentionally not matched. gatewayprotocol.v1. (unbranded protobuf package) removed from prefixes."
     },

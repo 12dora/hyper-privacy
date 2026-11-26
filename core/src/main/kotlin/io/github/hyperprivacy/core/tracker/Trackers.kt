@@ -19,6 +19,8 @@ public enum class TrackerCategory {
  * One third-party SDK from the signature database (`data/trackers.json`).
  *
  * @property codePrefixes Java package or class-name prefixes (dot form) that identify the SDK in dex.
+ * @property anchors manifest component class names (activities, services, providers) the SDK
+ *   declares, each under one of its package [codePrefixes]; see [ManifestAnalyzer].
  * @property blockHosts hosts blocked exactly or as a dot-suffix (same semantics as DOMAIN rules).
  * @property blockUrls reporting paths on hosts that also serve features (same semantics as URL rules).
  * @property keepHosts hosts the SDK needs for user-visible features; never blocked at host level.
@@ -37,6 +39,7 @@ public data class TrackerSdk(
     val keepHosts: List<String>,
     val defaultBlock: Boolean = true,
     val shortName: ShortName = ShortName(),
+    val anchors: List<String> = emptyList(),
 ) {
     init {
         require(categories.isNotEmpty()) { "Tracker $id has no category" }
@@ -54,6 +57,16 @@ public data class TrackerSdk(
 
     /** Whether protection can do anything about it; detection-only SDKs (push, unverified hosts) cannot. */
     val blockable: Boolean get() = blockHosts.isNotEmpty() || blockUrls.isNotEmpty()
+
+    /**
+     * Whether protection can block the SDK by the origin of its requests and pages, whatever
+     * hosts it uses: advertising SDKs, never device-verification ones.
+     */
+    val originBlockable: Boolean
+        get() = TrackerCategory.ADS in categories && TrackerCategory.IDENTIFICATION !in categories
+
+    /** Whether the per-app switch of this SDK does anything: [blockable] or [originBlockable]. */
+    val switchable: Boolean get() = blockable || originBlockable
 
     /** Optional explicit display names (`displayName` / `displayNameEn` in the database). */
     public data class ShortName(val zh: String? = null, val en: String? = null)
@@ -113,6 +126,7 @@ public object Trackers {
         var displayEn: String? = null
         var vendor: String? = null
         val prefixes = ArrayList<String>()
+        val anchors = ArrayList<String>()
         val hosts = ArrayList<String>()
         val urls = ArrayList<UrlPrefix>()
         val keep = ArrayList<String>()
@@ -125,6 +139,7 @@ public object Trackers {
                 "de" -> displayEn = rest.trim().ifEmpty { null }
                 "v" -> vendor = rest
                 "p" -> prefixes += tokens(rest)
+                "a" -> anchors += tokens(rest)
                 "b" -> hosts += tokens(rest)
                 "u" -> urls += tokens(rest).mapNotNull(::urlOf)
                 "k" -> keep += tokens(rest)
@@ -144,6 +159,7 @@ public object Trackers {
                 keepHosts = keep,
                 defaultBlock = defaultBlock,
                 shortName = TrackerSdk.ShortName(displayZh, displayEn),
+                anchors = anchors,
             )
         }.getOrNull()
 

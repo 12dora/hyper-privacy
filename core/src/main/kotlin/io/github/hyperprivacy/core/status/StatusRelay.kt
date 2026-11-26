@@ -50,9 +50,12 @@ public object StatusRelay {
         }
     }
 
-    /** Rule ids a protected app reports for itself: its SDK rules and [Catalog.protectedAppRules]. */
-    public fun isProtectedAppRuleId(ruleId: String): Boolean =
-        TrackerProtection.sdkIdOf(ruleId) != null || Catalog.protectedAppRuleIds.contains(ruleId)
+    /**
+     * Rule ids a protected app reports for itself: its SDK rules, suspected ad packages
+     * ([TrackerProtection.SUSPECT_RULE_ID]) and [Catalog.protectedAppRules].
+     */
+    public fun isProtectedAppRuleId(ruleId: String): Boolean = TrackerProtection.sdkIdOf(ruleId) != null ||
+        ruleId == TrackerProtection.SUSPECT_RULE_ID || Catalog.protectedAppRuleIds.contains(ruleId)
 
     /**
      * What system_server relays from one caller: rows about packages [ownedByCaller] accepts (the
