@@ -98,7 +98,7 @@ internal val adRules: List<Rule> = listOf(
     ),
     Rule(
         id = "securitycenter.ads",
-        packages = SECURITY_CENTER_APPS,
+        packages = setOf("com.miui.cleanmaster", "com.miui.securitycenter", "com.miui.securitycore"),
         title = Text("安全中心广告", "Security app ads"),
         summary = Text("阻止游戏广告与广告统计", "Block game ads and ad statistics"),
         payload = RulePayload.Urls(
@@ -106,13 +106,28 @@ internal val adRules: List<Rule> = listOf(
                 UrlPrefix("data.sec.miui.com", "/adv/"),
                 UrlPrefix("adv.sec.miui.com", "/info/videoAdv"),
                 UrlPrefix("adv.sec.miui.com", "/game2/gameAdv"),
+                UrlPrefix("adv.sec.miui.com", "/switch/clonedAd"),
             ),
         ),
         category = Category.ADS,
-        evidence = "jadx securitycenter: AdvTailStatUtils -> data.sec.miui.com/adv/tail (biz tail4virusscan, did); " +
-            "gamebooster active_track -> /adv/game_ad/report; ki.q -> adv.sec.miui.com/info/videoAdv; ki.p/ki.c -> " +
+        evidence = "evidence.md L708 securitycore adv.sec.miui.com/switch/clonedAd (ads in cloned apps); jadx " +
+            "securitycenter: AdvTailStatUtils -> data.sec.miui.com/adv/tail (biz tail4virusscan, did); gamebooster " +
+            "active_track -> /adv/game_ad/report; ki.q -> adv.sec.miui.com/info/videoAdv; ki.p/ki.c -> " +
             "/game2/gameAdv (sends gaid). Game Turbo config (/gameTurbo/*, /info/gameConfig, /game/speedParams) left " +
             "allowed",
+    ),
+    Rule(
+        id = "securitycenter.promo-cards",
+        packages = SECURITY_CENTER_APPS,
+        title = Text("安全中心运营卡片", "Security promo cards"),
+        summary = Text("阻止结果页推荐卡片", "Block result-page promo cards"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("adv.sec.miui.com", "/info/layout"))),
+        category = Category.ADS,
+        evidence = "jadx securitycenter: 9 callers of adv.sec.miui.com/info/layout (scan result, home, phone-manage, " +
+            "notification, app manager cards; BatterySaveIdeaLoadTask posts installed pkgNames); traffic: " +
+            "adv.sec.miui.com from uid 1000 x5",
+        defaultOn = false,
+        impact = Text("结果页不再显示推荐", "Hides result page suggestions"),
     ),
     Rule(
         id = "ime.promo",
@@ -122,7 +137,7 @@ internal val adRules: List<Rule> = listOf(
         payload = RulePayload.Urls(
             listOf(
                 UrlPrefix("adv.sec.miui.com", "/info/icon"),
-                UrlPrefix("adv.sec.miui.com", "/info/inputAdv"),
+                UrlPrefix("adv.sec.miui.com", "/info/inputAdv/"),
                 UrlPrefix("mime.baidu.com", "/v5/solid-window-ads/"),
             ),
         ),
@@ -138,7 +153,19 @@ internal val adRules: List<Rule> = listOf(
         summary = Text("阻止天气页广告", "Block ads in Weather"),
         payload = RulePayload.Domains(listOf("wtradv.market.xiaomi.com")),
         category = Category.ADS,
-        evidence = "traffic cap4: weather2 -> wtradv.market.xiaomi.com x3 (weather ad slots); " +
-            "weatherapi.market.xiaomi.com untouched",
+        evidence = "traffic cap4: weather2 -> wtradv.market.xiaomi.com x3 (evidence.md L779); the host also serves " +
+            "/v1/index/indexDetail and /v1/page (L782), so ads cannot be separated from life-index content",
+        defaultOn = false,
+        impact = Text("生活指数详情与资讯页无法加载", "Life-index details may not load"),
+    ),
+    Rule(
+        id = "baidu.ads",
+        packages = setOf("com.baidu.input_mi"),
+        title = Text("百度联盟广告", "Baidu Union ads"),
+        summary = Text("阻止百度联盟广告投放", "Block Baidu Union ads"),
+        payload = RulePayload.Domains(listOf("union.baidu.com", "cpro.baidustatic.com")),
+        category = Category.ADS,
+        evidence = "evidence.md L322 baidu.input_mi union.baidu.com, cpro.baidustatic.com, com.baidu.input.ad.info; " +
+            "jadx XAdEntryResponse unionUrl https://union.baidu.com/",
     ),
 )
