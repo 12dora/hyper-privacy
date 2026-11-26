@@ -23,12 +23,24 @@ public object HostNames {
         return host.takeIf(::hasValidLabels)
     }
 
+    /** [normalize] for rule patterns, which must be valid. */
+    internal fun requireCanonical(pattern: String): String =
+        requireNotNull(normalize(pattern)) { "Invalid host pattern: '$pattern'" }
+
     private fun toAscii(host: String): String? = try {
         IDN.toASCII(host, IDN.ALLOW_UNASSIGNED)
     } catch (_: IllegalArgumentException) {
         null
     }
 
-    private fun hasValidLabels(host: String): Boolean =
-        host.isNotEmpty() && host.split(LABEL_SEPARATOR).none { it.isEmpty() || it.any(Char::isWhitespace) }
+    /** No empty label and no whitespace; a plain scan so lookups on hot paths allocate nothing. */
+    private fun hasValidLabels(host: String): Boolean {
+        if (host.isEmpty()) return false
+        var previous = LABEL_SEPARATOR
+        for (char in host) {
+            if (char.isWhitespace() || (char == LABEL_SEPARATOR && previous == LABEL_SEPARATOR)) return false
+            previous = char
+        }
+        return previous != LABEL_SEPARATOR
+    }
 }

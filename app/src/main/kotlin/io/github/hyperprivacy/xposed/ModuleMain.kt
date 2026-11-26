@@ -1,7 +1,6 @@
 package io.github.hyperprivacy.xposed
 
-import io.github.hyperprivacy.core.rule.Catalog
-import io.github.hyperprivacy.core.rule.RuleKind
+import io.github.hyperprivacy.core.scope.PackageRules
 import io.github.hyperprivacy.xposed.firewall.FirewallGuard
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
@@ -30,7 +29,8 @@ class ModuleMain : XposedModule() {
         // share the process and would otherwise install duplicate hooks.
         if (!param.isFirstPackage) return
         val pkg = param.packageName
-        val rules = Catalog.rulesFor(pkg).filter { it.kind != RuleKind.FIREWALL }
+        // Indexed lookup; processes without in-process rules return before touching anything else.
+        val rules = PackageRules.catalog.inProcess(pkg)
         if (rules.isEmpty()) return
         log.guard("guards for $pkg") { AppGuards(this, log, pkg, param.classLoader, rules).install() }
     }
