@@ -38,20 +38,17 @@ internal class OkHttpSink(private val sinks: SinkContext) {
         private set
 
     fun install(): Boolean {
-        val hooked = CALL_CLASSES.sumOf { name ->
-            val type = Reflection.loadClass(name, sinks.classLoader) ?: return@sumOf 0
-            sinks.log.guard("OkHttp $name") { hook(type) } ?: 0
+        val hooked = OkHttpCalls.callClasses(sinks.classLoader).sumOf { type ->
+            sinks.log.guard("OkHttp ${type.name}") { hook(type) } ?: 0
         }
         sinks.reportSink(Sinks.URL_OKHTTP, hooked > 0)
-        presentButMissed = hooked == 0 && (CALL_CLASSES + MARKER_CLASSES).any {
-            Reflection.loadClass(it, sinks.classLoader) != null
-        }
+        presentButMissed = hooked == 0 && OkHttpCalls.isPresent(sinks.classLoader)
         return hooked > 0
     }
 
     private fun hook(type: Class<*>): Int {
         val reader = OkHttpUrlReader.resolve(type) ?: return skip(type, "cannot read the request URL")
-        val entries = entries(type, reader)
+        val entries = OkHttpCalls.entries(type, reader)
         if (entries.isEmpty()) return skip(type, "no call-execution entry")
         entries.forEach { method ->
             sinks.xposed.hook(method)
@@ -61,20 +58,6 @@ internal class OkHttpSink(private val sinks: SinkContext) {
         sinks.log.info("OkHttp: hooked ${entries.joinToString { it.name }} of ${type.name}")
         return entries.size
     }
-
-    private fun entries(type: Class<*>, reader: OkHttpUrlReader): List<Method> {
-        val candidates = type.declaredMethods.filter {
-            it.parameterCount == 0 && !Modifier.isStatic(it.modifiers) && !Modifier.isAbstract(it.modifiers) &&
-                !it.isBridge && !it.isSynthetic
-        }
-        val named = candidates.filter { it.name == ENTRY || it.name.startsWith("$ENTRY$") }
-        if (named.isNotEmpty()) return named
-        val shapes = ShapeCache()
-        val structural = candidates.filter { shapes.isResponse(it.returnType, reader.requestType) && it.throwsIo() }
-        return structural.filter { it.name != EXECUTE }.ifEmpty { structural }
-    }
-
-    private fun Method.throwsIo(): Boolean = exceptionTypes.any { it.isAssignableFrom(IOException::class.java) }
 
     /** Logs (once per class: install runs once) why [type] is skipped, with its member shapes. */
     private fun skip(type: Class<*>, why: String): Int {
@@ -95,18 +78,41 @@ internal class OkHttpSink(private val sinks: SinkContext) {
         sinks.checkParsed(UrlParts(host, parts.path)) ?: return Verdict.Proceed
         return Verdict.Throw(sinks.urlFailure(url))
     }
+}
 
-    private companion object {
-        val CALL_CLASSES = listOf(
-            // OkHttp 4.x / 5.x
-            "okhttp3.internal.connection.RealCall",
-            // OkHttp 3.x
-            "okhttp3.RealCall",
-        )
+/** Where OkHttp calls are found and executed; shared by [OkHttpSink] and the origin guard. */
+internal object OkHttpCalls {
+    private val CALL_CLASSES = listOf(
+        // OkHttp 4.x / 5.x
+        "okhttp3.internal.connection.RealCall",
+        // OkHttp 3.x
+        "okhttp3.RealCall",
+    )
 
-        /** Public OkHttp names that usually survive R8 (consumer rules, reflection by other libraries). */
-        val MARKER_CLASSES = listOf("okhttp3.OkHttpClient", "okhttp3.Call")
-        const val ENTRY = "getResponseWithInterceptorChain"
-        const val EXECUTE = "execute"
+    /** Public OkHttp names that usually survive R8 (consumer rules, reflection by other libraries). */
+    private val MARKER_CLASSES = listOf("okhttp3.OkHttpClient", "okhttp3.Call")
+    private const val ENTRY = "getResponseWithInterceptorChain"
+    private const val EXECUTE = "execute"
+
+    /** The call classes present in [loader] under their public names. */
+    fun callClasses(loader: ClassLoader): List<Class<*>> = CALL_CLASSES.mapNotNull { Reflection.loadClass(it, loader) }
+
+    /** Whether OkHttp is in [loader] under its public names at all. */
+    fun isPresent(loader: ClassLoader): Boolean =
+        (CALL_CLASSES + MARKER_CLASSES).any { Reflection.loadClass(it, loader) != null }
+
+    /** The call-execution entries of call class [type] (see [OkHttpSink]). */
+    fun entries(type: Class<*>, reader: OkHttpUrlReader): List<Method> {
+        val candidates = type.declaredMethods.filter {
+            it.parameterCount == 0 && !Modifier.isStatic(it.modifiers) && !Modifier.isAbstract(it.modifiers) &&
+                !it.isBridge && !it.isSynthetic
+        }
+        val named = candidates.filter { it.name == ENTRY || it.name.startsWith("$ENTRY$") }
+        if (named.isNotEmpty()) return named
+        val shapes = ShapeCache()
+        val structural = candidates.filter { shapes.isResponse(it.returnType, reader.requestType) && it.throwsIo() }
+        return structural.filter { it.name != EXECUTE }.ifEmpty { structural }
     }
+
+    private fun Method.throwsIo(): Boolean = exceptionTypes.any { it.isAssignableFrom(IOException::class.java) }
 }

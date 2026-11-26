@@ -3,6 +3,11 @@ package io.github.hyperprivacy.xposed
 import io.github.hyperprivacy.core.status.StatusRelay
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
+import io.github.hyperprivacy.xposed.origin.AdOrigin
+import io.github.hyperprivacy.xposed.origin.AdPageGuard
+import io.github.hyperprivacy.xposed.origin.OriginHooks
+import io.github.hyperprivacy.xposed.origin.OriginNetGuard
+import io.github.hyperprivacy.xposed.origin.OriginWebGuard
 import io.github.libxposed.api.XposedInterface
 
 /**
@@ -13,6 +18,10 @@ import io.github.libxposed.api.XposedInterface
  *
  * The rule set is fixed for the life of the process (a new scan result applies on next start);
  * per-SDK switches and turning protection off apply live.
+ *
+ * Advertising SDKs are also blocked by origin ([AdOrigin], [OriginNetGuard], [OriginWebGuard],
+ * [AdPageGuard]): only when
+ * the scan found one (or suspected ad packages), so other protected apps get no extra hook at all.
  *
  * Status goes through system_server ([StatusRelay]): this app never resolves the module package,
  * which stays hidden from it.
@@ -35,6 +44,18 @@ internal object TrackerGuards {
         log.verbose = { switches.observe }
         log.info("tracker protection for $packageName: ${detected.size} SDKs detected, ${rules.size} rules")
         val relay = { switches.secret?.let(StatusRelay::method) }
-        AppGuards(xposed, log, packageName, classLoader, rules, switches, relay).install()
+        val origin = { env: GuardEnv -> installOrigin(env, raw, switches) { prefs.all } }
+        AppGuards(xposed, log, packageName, classLoader, rules, switches, relay, origin).install()
+    }
+
+    private fun installOrigin(env: GuardEnv, raw: Map<String, *>, switches: RuleSwitches, read: () -> Map<String, *>) {
+        if (!AdOrigin.canEverMatch(raw, env.packageName)) return
+        val origin = AdOrigin(env.log, env.packageName, env.reporter)
+        origin.rebuild(raw)
+        switches.addListener { env.log.guard("read origin config") { read() }?.let(origin::rebuild) }
+        val hooks = OriginHooks(env, origin)
+        val count = OriginNetGuard(hooks).install() + OriginWebGuard(hooks).install() +
+            AdPageGuard(env, origin).install()
+        env.log.info("origin protection for ${env.packageName}: $count entry points, active=${origin.active}")
     }
 }

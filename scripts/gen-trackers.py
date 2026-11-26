@@ -5,7 +5,8 @@ Usage: python3 -I scripts/gen-trackers.py [trackers.json]
 
 The JSON is the tracker SDK signature database (schema 1): code prefixes that identify an SDK in
 an app's dex, and the hosts / URL prefixes it reports to. Only what the app needs at runtime is
-kept (names, optional display names, vendor, categories, defaultBlock, prefixes, hosts); evidence
+kept (names, optional display names, vendor, categories, defaultBlock, prefixes, manifest anchors,
+hosts); evidence
 and notes stay in the JSON. Output is deterministic: trackers sorted by id, list fields in source order.
 
 The generated file also records SHA-256 digests of the source JSON and of the emitted table, so
@@ -27,11 +28,15 @@ SCHEMA = 1
 CATEGORIES = {"ADS", "ANALYTICS", "CRASH", "IDENTIFICATION", "PROFILING", "LOCATION", "PUSH", "ATTRIBUTION"}
 ID_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 PREFIX_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z0-9_$]+)*\.?$")
+# A manifest anchor: a fully qualified component class name (no trailing dot).
+ANCHOR_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z0-9_$]+)+$")
 HOST_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
 PATH_PATTERN = re.compile(r"^/[\x21-\x7e]+$")
 # Text goes into a Kotlin raw string, one field per line.
 TEXT_FORBIDDEN = re.compile(r"[\r\n$\"\x00-\x1f]")
 MAX_LINE = 100
+# Deeply nested anchor class names get a line of their own, within the Kotlin line limit.
+MAX_LONG_LINE = 120
 # Kotlin constant strings are limited to 65535 bytes of modified UTF-8; stay well below.
 MAX_PART_BYTES = 30000
 
@@ -42,8 +47,8 @@ package io.github.hyperprivacy.core.tracker
  * Raw [Trackers] table, one record per SDK. A record starts with `sdk <id> <defaultBlock 1|0>
  * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
  * display name (zh / en), `v` vendor, and the space-separated, repeatable lists `p` code
- * prefixes, `b` block hosts, `u` block URLs (`host/path`) and `k` keep hosts. Unknown tags are
- * ignored by the parser.
+ * prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs (`host/path`) and `k` keep
+ * hosts. Unknown tags are ignored by the parser.
  */
 internal object TrackerData {
     const val VERSION: String = "{version}"
@@ -87,6 +92,16 @@ def strings(tracker: dict, field: str, pattern: re.Pattern, required: bool = Fal
     return values
 
 
+def anchors(tracker: dict, prefixes: list) -> list:
+    """Component class names under one of the entry's own package prefixes, with a class part left."""
+    values = strings(tracker, "anchors", ANCHOR_PATTERN)
+    for value in values:
+        owner = max((p for p in prefixes if p.endswith(".") and value.startswith(p)), key=len, default=None)
+        if owner is None or len(value) == len(owner):
+            fail(f"{tracker['id']}: anchor {value!r} is not a class under one of its package prefixes")
+    return values
+
+
 def urls(tracker: dict) -> list:
     out = []
     for entry in tracker.get("blockUrls", []):
@@ -100,11 +115,17 @@ def urls(tracker: dict) -> list:
 
 
 def wrapped(tag: str, values: list) -> list:
-    """`tag v1 v2 ...` lines of at most MAX_LINE characters."""
+    """`tag v1 v2 ...` lines of at most MAX_LINE characters; a longer value gets a line of its own."""
     lines, current = [], tag
     for value in values:
-        if len(tag) + 1 + len(value) > MAX_LINE:
+        if len(tag) + 1 + len(value) > MAX_LONG_LINE:
             fail(f"value longer than a line: {value!r}")
+        if len(tag) + 1 + len(value) > MAX_LINE:
+            if current != tag:
+                lines.append(current)
+            lines.append(f"{tag} {value}")
+            current = tag
+            continue
         if current != tag and len(current) + 1 + len(value) > MAX_LINE:
             lines.append(current)
             current = tag
@@ -140,7 +161,9 @@ def record(tracker: dict) -> list:
             if len(line) > MAX_LINE:
                 fail(f"{tid}: {field} longer than {MAX_LINE - 3} characters")
             lines.append(line)
-    lines += wrapped("p", strings(tracker, "codePrefixes", PREFIX_PATTERN, required=True))
+    prefixes = strings(tracker, "codePrefixes", PREFIX_PATTERN, required=True)
+    lines += wrapped("p", prefixes)
+    lines += wrapped("a", anchors(tracker, prefixes))
     lines += wrapped("b", strings(tracker, "blockHosts", HOST_PATTERN))
     lines += wrapped("u", urls(tracker))
     lines += wrapped("k", strings(tracker, "keepHosts", HOST_PATTERN))

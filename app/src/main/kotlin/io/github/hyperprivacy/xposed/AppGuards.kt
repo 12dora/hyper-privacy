@@ -12,7 +12,8 @@ import io.github.libxposed.api.XposedInterface
 /**
  * Installs the in-process guards (DOMAIN, URL, METHOD and IDENTIFIER rules) for one app process.
  * All work is proportional to [rules], the rules targeting this package. [customSwitches] defaults
- * to the catalog's; tracker-protected apps pass their own and a [relayMethod] (see [TrackerGuards]).
+ * to the catalog's; tracker-protected apps pass their own, a [relayMethod] and [extraGuards] (see
+ * [TrackerGuards]), installed with the same environment after the regular guards.
  */
 internal class AppGuards(
     private val xposed: XposedInterface,
@@ -22,6 +23,7 @@ internal class AppGuards(
     private val rules: List<Rule>,
     private val customSwitches: RuleSwitches? = null,
     private val relayMethod: (() -> String?)? = null,
+    private val extraGuards: ((GuardEnv) -> Unit)? = null,
 ) {
     fun install() {
         val switches = customSwitches ?: RuleSwitches.open(xposed, log, rules)
@@ -31,6 +33,7 @@ internal class AppGuards(
         log.guard("network guards") { NetworkGuards(env, rules).install() }
         installMethodRules(env)
         installIdentifierRules(env)
+        extraGuards?.let { log.guard("extra guards") { it(env) } }
         // Diagnostics only; like the observe-only network sinks, it needs the switch at process start.
         if (switches.observe) log.guard("code-load diagnostics") { CodeLoadGuard(env).install() }
     }

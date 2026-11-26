@@ -256,6 +256,8 @@
     <string name="sdk_impact_verification">拦截后登录或支付可能需要额外验证</string>
     <string name="sdk_impact_updates">拦截后应用内更新可能失效</string>
     <string name="sdk_impact_features">拦截后部分功能可能受影响</string>
+    <string name="sdk_suspect_title">疑似广告组件</string>
+    <string name="sdk_suspect_summary">不属于已知 SDK，默认不拦截</string>
     <string name="tracker_cat_ads">广告</string>
     <string name="tracker_cat_analytics">统计分析</string>
     <string name="tracker_cat_crash">崩溃与性能</string>
