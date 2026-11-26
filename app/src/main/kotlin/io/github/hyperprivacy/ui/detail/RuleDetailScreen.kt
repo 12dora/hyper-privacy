@@ -160,7 +160,7 @@ private fun EnableCard(item: RuleItem, module: ModuleState, onToggle: (Boolean) 
             checked = item.enabled,
             enabled = module.canEdit,
             onCheckedChange = onToggle,
-            summary = if (item.enabled) statusText(item.status, item.hits) else null,
+            summary = if (item.enabled) statusText(item.health, item.status, item.hits) else null,
         )
     }
 }
@@ -266,7 +266,7 @@ private fun AppRow(app: AppStatus, ruleEnabled: Boolean) {
         if (ruleEnabled) {
             val issue = app.health.takeIf { it.needsAttention }
             Text(
-                text = issue?.let { stringResource(it.labelRes()) } ?: statusText(app.status, app.hits),
+                text = issue?.let { stringResource(it.labelRes()) } ?: statusText(app.health, app.status, app.hits),
                 style = MaterialTheme.typography.labelMedium,
                 color = issue?.tint() ?: MaterialTheme.colorScheme.onSurfaceVariant,
             )

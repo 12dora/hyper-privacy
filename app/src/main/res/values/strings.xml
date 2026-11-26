@@ -120,6 +120,7 @@
     <string name="health_idle">Idle</string>
     <string name="health_ok">OK</string>
     <string name="health_not_run">Not running</string>
+    <string name="health_not_applicable">Not applicable</string>
     <string name="health_not_installed">Not installed</string>
     <string name="health_broken_desc">The app changed internally; this rule no longer applies</string>
     <string name="health_review_desc">The app was updated; this rule may need a check</string>
