@@ -61,6 +61,14 @@ public enum class IdentifierSource {
      * third-party apps ([Catalog.protectedAppRules]), never for vendor packages.
      */
     MEDIA_DRM_ID,
+
+    /**
+     * Hardware characteristics readable without a permission and hashed into device fingerprints
+     * (sensor resolution, power and version, the file system id, the battery cycle count), made
+     * different per app; see `core.fingerprint.HardwareTraits`. Only for protected third-party apps
+     * ([Catalog.protectedAppRules]), never for vendor packages, and off unless the user enables it.
+     */
+    HARDWARE_TRAITS,
 }
 
 /**

@@ -44,6 +44,9 @@ internal class IdentifierGuard(private val env: GuardEnv) {
 
             // Enforced per app by MediaDrmGuard; AppGuards never routes it here.
             IdentifierSource.MEDIA_DRM_ID -> return 0
+
+            // Enforced per app by xposed.fp.HardwareFingerprintGuard; AppGuards never routes it here.
+            IdentifierSource.HARDWARE_TRAITS -> return 0
         }
         env.reporter.sink(
             env.packageName,

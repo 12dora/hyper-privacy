@@ -89,7 +89,7 @@ class AppWideRulesTest {
         assertEquals(Catalog.protectedAppRules, protectedRules.inProcess(Catalog.PROTECTED_APPS))
         Catalog.allPackages.forEach { assertEquals(emptyList(), protectedRules.inProcess(it), it) }
         assertEquals(
-            mapOf(MEDIA_DRM to true, PROTECTED_HTTPDNS to true),
+            mapOf(MEDIA_DRM to true, PROTECTED_HTTPDNS to true, HARDWARE to false),
             ConfigCodec.decode(emptyMap<String, Any>(), Catalog.protectedAppRules),
         )
     }
@@ -117,5 +117,6 @@ class AppWideRulesTest {
         const val HTTPDNS = "httpdns.resolvers"
         const val MEDIA_DRM = "mediadrm.device-id"
         const val PROTECTED_HTTPDNS = "httpdns.protected-apps"
+        const val HARDWARE = "fingerprint.hardware"
     }
 }
