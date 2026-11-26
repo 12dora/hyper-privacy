@@ -21,6 +21,7 @@ class MainActivity : ComponentActivity() {
         val onPackagesChanged = {
             viewModel.device.refresh()
             viewModel.trackers.refresh()
+            viewModel.conflicts.refresh()
         }
         lifecycle.addObserver(PackageWatcher(applicationContext, onPackagesChanged))
         setContent {

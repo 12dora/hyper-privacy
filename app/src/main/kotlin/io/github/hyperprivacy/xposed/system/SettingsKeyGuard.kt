@@ -11,6 +11,7 @@ import io.github.hyperprivacy.core.system.SettingsTable
 import io.github.hyperprivacy.xposed.FailOpenHooker
 import io.github.hyperprivacy.xposed.HookLog
 import io.github.hyperprivacy.xposed.Reflection
+import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
@@ -71,7 +72,7 @@ internal class SettingsKeyGuard(
         // PROTECTIVE: we only ever proceed (possibly with another argument), never throw on purpose.
         xposed.hook(method)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
-            .intercept(FailOpenHooker(log, "settings keys", hook::decide))
+            .intercept(FailOpenHooker(log, Sinks.SETTINGS_KEYS, hook::decide))
         hookedLoaders += classLoader
         if (hookedLoaders.size > 1) log.warn("settings: hooked a second class loader via $via")
         hooked = true

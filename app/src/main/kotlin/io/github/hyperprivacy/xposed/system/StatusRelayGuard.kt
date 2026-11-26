@@ -8,6 +8,7 @@ import io.github.hyperprivacy.status.StatusContract
 import io.github.hyperprivacy.xposed.FailOpenHooker
 import io.github.hyperprivacy.xposed.HookLog
 import io.github.hyperprivacy.xposed.Reflection
+import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
@@ -59,7 +60,7 @@ internal class StatusRelayGuard(
         }
         xposed.hook(call)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
-            .intercept(FailOpenHooker(log, "status relay", ::decide))
+            .intercept(FailOpenHooker(log, Sinks.STATUS_RELAY, ::decide))
         hookedLoaders += classLoader
         hooked = true
         log.info("status relay: hooked $PROVIDER_CLASS#$CALL via $via")

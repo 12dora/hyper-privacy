@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.config.ProtectionPause
 import io.github.hyperprivacy.ui.CategoryGroup
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
@@ -62,6 +63,10 @@ internal class HomeActions(
     val onOpenHealth: () -> Unit,
     val onEnableScope: () -> Unit = {},
     val onOpenApps: () -> Unit = {},
+    val onPause: (ProtectionPause.Option) -> Unit = {},
+    val onResume: () -> Unit = {},
+    val onDisableAppListHiding: () -> Unit = {},
+    val onDismissConflict: () -> Unit = {},
 )
 
 /**
@@ -92,15 +97,7 @@ internal fun HomeScreen(
             contentPadding = listPadding(inner),
         ) {
             item(key = STATUS_KEY, contentType = STATUS_KEY) {
-                StatusCard(
-                    module = state.module,
-                    enabledCount = state.enabledCount,
-                    totalHits = state.totalHits,
-                    attention = state.attention,
-                    onOpenHealth = actions.onOpenHealth,
-                    scope = state.scope,
-                    onEnableScope = actions.onEnableScope,
-                )
+                StatusCard(state, actions)
             }
             item(key = VIEW_KEY, contentType = VIEW_KEY) {
                 ViewSwitcher(view, actions.onViewChange, Modifier.padding(top = Dimens.Gutter + Dimens.Tiny))
