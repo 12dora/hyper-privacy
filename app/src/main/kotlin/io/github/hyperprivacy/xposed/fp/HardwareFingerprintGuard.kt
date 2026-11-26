@@ -59,8 +59,10 @@ internal class HardwareFingerprintGuard(private val env: GuardEnv) {
         return hooked
     }
 
-    private companion object {
-        const val ARMED = 1
+    companion object {
+        private const val ARMED = 1
+
+        /** Sink names: hook state per group, and the group's cost in diagnostics mode. */
         const val SENSOR_SINK = "fp.sensor"
         const val FS_SINK = "fp.fsid"
         const val BATTERY_SINK = "fp.battery"

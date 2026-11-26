@@ -2,6 +2,7 @@ package io.github.hyperprivacy.xposed.fp
 
 import io.github.hyperprivacy.core.fingerprint.HardwareTraits
 import io.github.hyperprivacy.xposed.GuardEnv
+import io.github.hyperprivacy.xposed.SinkStats
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -82,20 +83,57 @@ internal class FingerprintState(private val env: GuardEnv, private val ruleId: S
 /**
  * After the original ran: [body] maps its result to a replacement, or returns `null` to keep it.
  * Installed with [ExceptionMode.PROTECTIVE], so a failure in [body] returns the real result, while
- * the original's own exceptions still reach the caller.
+ * the original's own exceptions still reach the caller. In diagnostics mode the cost of [body] is
+ * recorded under [sink] (one volatile read otherwise).
  */
-internal class ResultHook(private val state: FingerprintState, private val body: (Any?) -> Any?) : Hooker {
+internal class ResultHook(
+    private val state: FingerprintState,
+    sink: String,
+    private val body: (Any?) -> Any?,
+) : Hooker {
+    private val cell = SinkStats.cell(sink)
+
     override fun intercept(chain: Chain): Any? {
         val real = chain.proceed()
-        return if (state.enabled) body(real) ?: real else real
+        if (!state.enabled) return real
+        if (!SinkStats.enabled) return body(real) ?: real
+        val start = System.nanoTime()
+        try {
+            return body(real) ?: real
+        } finally {
+            cell.record(System.nanoTime() - start)
+        }
     }
 }
 
-/** Before the original runs: [body] may adjust the call's arguments in place. Fail-open like [ResultHook]. */
-internal class ArgumentHook(private val state: FingerprintState, private val body: (Chain) -> Unit) : Hooker {
+/**
+ * Before the original runs: [body] maps the first argument to a replacement, or returns `null` to
+ * proceed with the arguments unchanged (nothing is copied then). The call's argument array is
+ * never written to. Fail-open and measured like [ResultHook].
+ */
+internal class ArgumentHook(
+    private val state: FingerprintState,
+    sink: String,
+    private val body: (Any?) -> Any?,
+) : Hooker {
+    private val cell = SinkStats.cell(sink)
+
     override fun intercept(chain: Chain): Any? {
-        if (state.enabled) body(chain)
-        return chain.proceed()
+        if (!state.enabled) return chain.proceed()
+        val replacement = if (SinkStats.enabled) measured(chain) else body(chain.getArg(0))
+        if (replacement == null) return chain.proceed()
+        val args = chain.args.toTypedArray()
+        args[0] = replacement
+        return chain.proceed(args)
+    }
+
+    private fun measured(chain: Chain): Any? {
+        val start = System.nanoTime()
+        try {
+            return body(chain.getArg(0))
+        } finally {
+            cell.record(System.nanoTime() - start)
+        }
     }
 }
 
