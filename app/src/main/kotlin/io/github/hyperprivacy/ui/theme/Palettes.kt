@@ -117,7 +117,7 @@ private fun lightScheme(x: Tones): ColorScheme = with(x) {
     )
 }
 
-@Suppress("MagicNumber")
+@Suppress("MagicNumber") // Material 3 tonal-palette steps (0–100), not tunable constants.
 private fun darkScheme(x: Tones): ColorScheme = with(x) {
     darkColorScheme(
         primary = p.tone(80), onPrimary = p.tone(20),
