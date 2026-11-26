@@ -121,6 +121,9 @@ public sealed interface RulePayload {
  * @property packages target package names the rule applies to.
  * @property evidence where the reporting channel was observed, e.g.
  *   `traffic: com.miui.analytics → tracking.miui.com` or `dex: Lcom/xiaomi/onetrack/OneTrack`.
+ * @property impact null when blocking cannot affect any vendor service. Non-null for a channel
+ *   that shares its endpoint with a service (e.g. cloud virus scan uploads app fingerprints):
+ *   such a rule describes the side effect here and must ship disabled.
  */
 public data class Rule(
     val id: String,
@@ -131,6 +134,7 @@ public data class Rule(
     val category: Category,
     val evidence: String,
     val defaultOn: Boolean = true,
+    val impact: Text? = null,
 ) {
     val kind: RuleKind get() = payload.kind
 
@@ -139,6 +143,7 @@ public data class Rule(
         require(packages.isNotEmpty()) { "Rule $id has no target package" }
         require(packages.all { PACKAGE_PATTERN.matches(it) }) { "Rule $id has an invalid package name" }
         require(evidence.isNotBlank()) { "Rule $id has no evidence" }
+        require(impact == null || !defaultOn) { "Rule $id affects a service and must ship disabled" }
     }
 
     private companion object {
