@@ -2,12 +2,15 @@ package io.github.hyperprivacy.core
 
 import io.github.hyperprivacy.core.match.HostMatcher
 import io.github.hyperprivacy.core.match.HostNames
+import io.github.hyperprivacy.core.match.UrlMatcher
+import io.github.hyperprivacy.core.match.UrlPattern
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CatalogTest {
@@ -126,6 +129,23 @@ class CatalogTest {
             assertEquals(rule, Catalog.byId(rule.id))
             rule.packages.forEach { assertTrue(rule in Catalog.rulesFor(it)) }
         }
+    }
+
+    @Test
+    fun `activation receipt prefix leaves SIM binding paths open`() {
+        val prefixes = (Catalog.byId("simactivate.activation-receipt")!!.payload as RulePayload.Urls).prefixes
+        val matcher = UrlMatcher.of(prefixes.map { UrlPattern(it.host, it.pathPrefix) to Unit })
+        assertEquals(Unit, matcher.find("https://ac.account.xiaomi.com/pass/activation/report"))
+        assertNull(matcher.find("https://ac.account.xiaomi.com/pass/activation/activationReport"))
+        assertNull(matcher.find("https://ac.account.xiaomi.com/pass/activation/activate"))
+    }
+
+    @Test
+    fun `scan result prefix leaves cloud scan on the same host open`() {
+        val prefixes = (Catalog.byId("guard.scan-result-report")!!.payload as RulePayload.Urls).prefixes
+        val matcher = UrlMatcher.of(prefixes.map { UrlPattern(it.host, it.pathPrefix) to Unit })
+        assertEquals(Unit, matcher.find("https://virus-engine.sec.miui.com/virus/localResult/report"))
+        assertNull(matcher.find("https://virus-engine.sec.miui.com/risk/scan"))
     }
 
     private companion object {

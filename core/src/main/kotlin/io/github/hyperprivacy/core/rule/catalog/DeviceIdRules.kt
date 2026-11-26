@@ -2,6 +2,7 @@ package io.github.hyperprivacy.core.rule.catalog
 
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.IdentifierSource
+import io.github.hyperprivacy.core.rule.MethodPattern
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
@@ -115,5 +116,61 @@ internal val deviceIdRules: List<Rule> = listOf(
         category = Category.DEVICE_ID,
         evidence = "evidence.md L581 misightservice data.pt.xiaomi.com/dataplatform/api/v1/trial-records/oaid/check " +
             "(sends OAID)",
+    ),
+    Rule(
+        id = "systemhelper.firewall",
+        packages = setOf("com.mobiletools.systemhelper"),
+        title = Text("联通终端管理", "Unicom device reporting"),
+        summary = Text("禁止上报设备标识与位置", "Blocks device ID and location uploads"),
+        payload = RulePayload.Firewall,
+        category = Category.DEVICE_ID,
+        evidence = "dex: g1/d.java https://dm.wo.com.cn:18081/register (+http :18080) — CU-DMS uploads dual " +
+            "IMEI/IMSI/ICCID, cell TAC/CID, Wi-Fi BSSID, paired BT MACs, IPv6, app usage (RegType A) and lat/lon " +
+            "signal logs (RegType R) over Wi-Fi or Unicom data; embeds Baidu LBS (loc/ofloc/daup/itsdata.map." +
+            "baidu.com); traffic: loc.map.baidu.com x11 idle; appops: FINE_LOCATION, WIFI_SCAN, READ_CELL_INFO " +
+            "while idle; own uid (sharedUserId with one package)",
+    ),
+    Rule(
+        id = "ct-autoreg.http",
+        packages = setOf("com.xiaomi.registration"),
+        title = Text("电信自注册", "Telecom auto-registration"),
+        summary = Text("阻止上报设备与 SIM 卡标识", "Blocks device and SIM ID uploads"),
+        payload = RulePayload.Domains(listOf("zzhc.vnet.cn", "typdm.tydevice.com")),
+        category = Category.DEVICE_ID,
+        evidence = "dex: i1/j.java POST https://zzhc.vnet.cn (Base64 JSON: IMEI/MEID/IMSI/ICCID, Wi-Fi MAC, cell " +
+            "id, TAC, RAM/ROM) on boot/SIM change/15-day period; GET http://typdm.tydevice.com?jsonstr= (CTEI, " +
+            "MAC, BSSID, IPv4) on Wi-Fi-only SKUs; China Telecom terminal auto-registration; shared uid " +
+            "android.uid.phone so no firewall",
+        defaultOn = false,
+        impact = Text("电信入网登记将失败", "Telecom registration will fail"),
+    ),
+    Rule(
+        id = "ct-autoreg.sms",
+        packages = setOf("com.xiaomi.registration"),
+        title = Text("电信自注册短信", "Telecom registration SMS"),
+        summary = Text("阻止发送设备登记短信", "Blocks device registration SMS"),
+        payload = RulePayload.Method(
+            className = "android.telephony.SmsManager",
+            method = MethodPattern.parse("send*"),
+        ),
+        category = Category.DEVICE_ID,
+        evidence = "dex: i1/m.java SmsManager.sendDataMessage to 10659401 (port 0) with model, both IMEIs, IMSI, " +
+            "SW version; appops: SEND_SMS by com.xiaomi.registration; runs in its own process (no android:process), " +
+            "so hooking SmsManager there does not affect the user's SMS",
+        defaultOn = false,
+        impact = Text("电信入网登记将失败", "Telecom registration will fail"),
+    ),
+    Rule(
+        id = "simactivate.activation-receipt",
+        packages = setOf("com.xiaomi.simactivate.service"),
+        title = Text("SIM 激活回执", "SIM activation receipt"),
+        summary = Text("阻止上报手机号与卡信息", "Blocks phone number and SIM uploads"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("ac.account.xiaomi.com", "/pass/activation/report"))),
+        category = Category.DEVICE_ID,
+        evidence = "dex: POST https://ac.account.xiaomi.com/pass/activation/report after activation with hashed " +
+            "SIM/device ids, phone number, userId and encrypted SMS; server use unproven; other /pass/activation/* " +
+            "paths (activate, activationReport) are SIM binding and stay open",
+        defaultOn = false,
+        impact = Text("可能影响 SIM 卡激活", "SIM activation may fail"),
     ),
 )

@@ -353,4 +353,25 @@ internal val diagnosticsRules: List<Rule> = listOf(
         evidence = "evidence.md L1111 youpin verify.baidubce.com/verify/1.0/sdk/report; L1102 xmsf sdk.faceid.qq.com/" +
             "api/common/error-report. Verification requests themselves untouched",
     ),
+    Rule(
+        id = "simactivate.tee-report",
+        packages = setOf("com.xiaomi.simactivate.service"),
+        title = Text("TEE 异常上报", "TEE error reports"),
+        summary = Text("阻止上报安全芯片异常", "Blocks secure chip error reports"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("tz.sec.xiaomi.com", "/session"))),
+        category = Category.DIAGNOSTICS,
+        evidence = "dex: SIM activation service POST https://tz.sec.xiaomi.com/session with OAID, deviceId and " +
+            "cpuId when TEE checks fail (telemetry only)",
+    ),
+    Rule(
+        id = "guard.scan-result-report",
+        packages = setOf("com.miui.guardprovider"),
+        title = Text("查杀结果上报", "Scan result reports"),
+        summary = Text("阻止上报本地查杀结果", "Blocks local scan result uploads"),
+        payload = RulePayload.Urls(listOf(UrlPrefix("virus-engine.sec.miui.com", "/virus/localResult/"))),
+        category = Category.DIAGNOSTICS,
+        evidence = "dex: guardprovider POST https://virus-engine.sec.miui.com/virus/localResult/report with threat " +
+            "names, package, app name, certs, APK hashes, device, uuid, MIUI/Android versions (telemetry of local " +
+            "hits; cloud lists and cloud scan on the same host stay open)",
+    ),
 )
