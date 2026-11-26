@@ -22,6 +22,7 @@ public enum class TrackerCategory {
  * @property blockHosts hosts blocked exactly or as a dot-suffix (same semantics as DOMAIN rules).
  * @property blockUrls reporting paths on hosts that also serve features (same semantics as URL rules).
  * @property keepHosts hosts the SDK needs for user-visible features; never blocked at host level.
+ * @property shortName explicit list-row name per language from the database, if any; see [displayName].
  * @property defaultBlock `false` for SDKs whose blocking can affect sign-in, payment or app updates:
  *   protection skips them unless the user opts in for that app.
  */
@@ -35,6 +36,7 @@ public data class TrackerSdk(
     val blockUrls: List<UrlPrefix>,
     val keepHosts: List<String>,
     val defaultBlock: Boolean = true,
+    val shortName: ShortName = ShortName(),
 ) {
     init {
         require(categories.isNotEmpty()) { "Tracker $id has no category" }
@@ -42,10 +44,10 @@ public data class TrackerSdk(
     }
 
     /**
-     * [name] without the parenthesised or slash-separated aliases the database keeps for search
-     * ("Amazon Publisher Services (APS / ...)" → "Amazon Publisher Services"), for list rows.
+     * The concise product name for list rows: the database's explicit display name per language,
+     * else [name] without its parenthesised aliases ("AMap (Gaode) Location SDK" → "AMap Location SDK").
      */
-    val displayName: Text get() = Text(shorten(name.zh), shorten(name.en))
+    val displayName: Text get() = Text(shortName.zh ?: shorten(name.zh), shortName.en ?: shorten(name.en))
 
     /** The category the SDK is grouped under. */
     val category: TrackerCategory get() = categories.first()
@@ -53,10 +55,14 @@ public data class TrackerSdk(
     /** Whether protection can do anything about it; detection-only SDKs (push, unverified hosts) cannot. */
     val blockable: Boolean get() = blockHosts.isNotEmpty() || blockUrls.isNotEmpty()
 
-    private companion object {
-        val ALIAS_START = Regex(" \\(|（| / ")
+    /** Optional explicit display names (`displayName` / `displayNameEn` in the database). */
+    public data class ShortName(val zh: String? = null, val en: String? = null)
 
-        fun shorten(text: String): String = text.split(ALIAS_START, limit = 2).first().trim().ifEmpty { text }
+    private companion object {
+        val PARENTHESISED = Regex("\\s*[(（][^()（）]*[)）]")
+        val SPACES = Regex("\\s+")
+
+        fun shorten(text: String): String = text.replace(PARENTHESISED, "").replace(SPACES, " ").trim().ifEmpty { text }
     }
 }
 
@@ -103,6 +109,8 @@ public object Trackers {
     private class Builder(val id: String, val defaultBlock: Boolean, val categories: List<TrackerCategory>) {
         var zh: String? = null
         var en: String? = null
+        var displayZh: String? = null
+        var displayEn: String? = null
         var vendor: String? = null
         val prefixes = ArrayList<String>()
         val hosts = ArrayList<String>()
@@ -113,6 +121,8 @@ public object Trackers {
             when (tag) {
                 "n" -> zh = rest
                 "e" -> en = rest
+                "dn" -> displayZh = rest.trim().ifEmpty { null }
+                "de" -> displayEn = rest.trim().ifEmpty { null }
                 "v" -> vendor = rest
                 "p" -> prefixes += tokens(rest)
                 "b" -> hosts += tokens(rest)
@@ -133,6 +143,7 @@ public object Trackers {
                 blockUrls = urls,
                 keepHosts = keep,
                 defaultBlock = defaultBlock,
+                shortName = TrackerSdk.ShortName(displayZh, displayEn),
             )
         }.getOrNull()
 

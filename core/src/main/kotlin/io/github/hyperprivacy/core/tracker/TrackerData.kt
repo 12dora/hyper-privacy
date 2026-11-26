@@ -3,18 +3,19 @@ package io.github.hyperprivacy.core.tracker
 
 /**
  * Raw [Trackers] table, one record per SDK. A record starts with `sdk <id> <defaultBlock 1|0>
- * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), `v` vendor, and the
- * space-separated, repeatable lists `p` code prefixes, `b` block hosts, `u` block URLs
- * (`host/path`) and `k` keep hosts.
+ * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
+ * display name (zh / en), `v` vendor, and the space-separated, repeatable lists `p` code
+ * prefixes, `b` block hosts, `u` block URLs (`host/path`) and `k` keep hosts. Unknown tags are
+ * ignored by the parser.
  */
 internal object TrackerData {
-    const val VERSION: String = "2026.11.27c"
+    const val VERSION: String = "2026.11.27d"
 
     /** SHA-256 of data/trackers.json as generated. */
-    const val SOURCE_SHA256: String = "2b08a123e8496bda99c4f95353f5e4908713256b242cf41bfec12c567e11deee"
+    const val SOURCE_SHA256: String = "eb7224d7357ab0100375a52876311d2f1e97ad83a3ad8ecb9127af890103c141"
 
     /** SHA-256 of [PARTS] joined, so a hand edit of the table is caught by tests. */
-    const val TABLE_SHA256: String = "e02e219412cc3078eef70c999bebf99f9453fb01d5637ff33ea2383a068451a7"
+    const val TABLE_SHA256: String = "8b77256852d810d6d961bfbfde530602eb8572ba84155a5bfd2db88cf067dc11"
 
     val PARTS: List<String> = listOf(PART_0, PART_1)
 }
@@ -51,12 +52,16 @@ sdk adobe-experience-platform 1 ANALYTICS,PROFILING
 n Adobe Experience Platform SDK
 e Adobe Experience Platform Mobile SDK (Edge / Analytics / Launch)
 v Adobe
+dn Adobe AEP SDK
+de Adobe Experience Platform
 p com.adobe.marketing.mobile.
 k assets.adobedtm.com
 sdk adsuyi-tianmu 1 ADS
 n ADSuyi 聚合 / 天目广告
 e ADSuyi Mediation / Tianmu Ads
 v 艾狄墨搏 (ADmobile)
+dn ADSuyi 天目广告
+de ADSuyi Tianmu Ads
 p cn.admobiletop.adsuyi. cn.admobiletop.materialutil. com.tianmu.ad. com.tianmu.biz.
 p com.tianmu.apilib.
 b monitor.ssp.admobile.top sdk.ssp.admobile.top sdk.tianmu.mobi
@@ -122,9 +127,8 @@ p com.amap.api.location. com.autonavi.aps.amapapi. com.amap.location.
 b cgicol.amap.com logs.amap.com dualstack-logs.amap.com
 u aloc-gnss-eph.amap.com/collect-hot-grid
 k apilocate.amap.com a.apilocate.amap.com dualstack-a.apilocate.amap.com abroad.apilocate.amap.com
-k httpdns.apilocate.amap.com aps.amap.com restsdk.amap.com restapi.amap.com
-k dualstack-arestapi.amap.com m5.amap.com aloc-offline.amap.com aloc-modeldata.amap.com
-k aloc-control-plus.amap.com control.aps.amap.com
+k aps.amap.com restsdk.amap.com restapi.amap.com dualstack-arestapi.amap.com m5.amap.com
+k aloc-offline.amap.com aloc-modeldata.amap.com aloc-control-plus.amap.com control.aps.amap.com
 sdk amazon-aps 1 ADS
 n 亚马逊广告 (APS)
 e Amazon Publisher Services (APS / Amazon Mobile Ads)
@@ -145,6 +149,7 @@ sdk appharbr 1 ADS
 n AppHarbr 广告质量
 e AppHarbr ad quality / ad-blocking SDK
 v AppHarbr
+de AppHarbr Ad Quality
 p com.appharbr.
 sdk appicplay-ads 1 ADS
 n AppicPlay 广告
@@ -155,6 +160,8 @@ sdk applovin 1 ADS
 n AppLovin 广告 (MAX)
 e AppLovin SDK / MAX mediation
 v AppLovin
+dn AppLovin MAX 广告
+de AppLovin MAX
 p com.applovin.
 b a.applovin.com b.applovin.com d.applovin.com ms.applovin.com md.applovin.com rt.applovin.com
 b sts.applovin.com prod-a.applovin.com assets.applovin.com img.applovin.com res.applovin.com
@@ -180,6 +187,7 @@ sdk baidu-device-id 1 IDENTIFICATION
 n 百度 CUID 设备标识
 e Baidu CUID / Helios device ID
 v Baidu
+de Baidu CUID device ID
 p com.baidu.cesium. com.baidu.helios.
 sdk baidu-location 1 LOCATION
 n 百度定位 SDK
@@ -193,6 +201,7 @@ sdk baidu-mobads 1 ADS
 n 百度联盟 / 百青藤广告
 e Baidu Mobile Ads (Baidu Union)
 v 百度 (Baidu)
+dn 百青藤广告
 p com.baidu.mobads.sdk. com.baidu.mobads.container. com.baidu.mobads.proxy. com.baidu.mobads.cid.
 p com.baidu.mobads.annotation. com.baidu.mobads.upgrade. com.baidu.ad.magic.
 b cpro.baidustatic.com mobads-logs.baidu.com mobads-pre-config.bj.bcebos.com
@@ -213,12 +222,14 @@ sdk baidu-sofire 0 IDENTIFICATION
 n 百度安全 Sofire 风控
 e Baidu Sofire security / risk SDK
 v Baidu
+de Baidu Sofire security SDK
 p com.baidu.sofire.
 b sofire.baidu.com
 sdk beizi-adscope 1 ADS
 n 倍业 AdScope / BeiZi 聚合
 e BeiZi (AdScope) Ads
 v 倍业科技 (AdScope)
+dn BeiZi 聚合广告
 p com.beizi.fusion. com.beizi.ad.
 b api.htp.ad-scope.com.cn
 sdk bidmachine 1 ADS
@@ -255,6 +266,8 @@ sdk bytedance-applog 1 ANALYTICS
 n 火山引擎 DataRangers / AppLog
 e ByteDance AppLog / Volcengine DataRangers
 v ByteDance (Volcengine)
+dn 火山引擎 DataRangers
+de Volcengine DataRangers
 p com.bytedance.applog. com.bytedance.bdtracker.
 b toblog.ctobsnssdk.com tobapplog.ctobsnssdk.com toblog.volceapplog.com tobapplog.volceapplog.com
 b klink.volceapplog.com applog.snssdk.com rtlog.snssdk.com rtapplog.snssdk.com applog.zijieapi.com
@@ -268,6 +281,8 @@ sdk bytedance-csj-pangle 1 ADS
 n 穿山甲 / Pangle 广告（CN + 全球版）
 e Pangle / CSJ (ByteDance Ads, CN + global builds)
 v 字节跳动 / 巨量引擎 (ByteDance)
+dn 穿山甲广告
+de Pangle Ads
 p com.bytedance.sdk.openadsdk. com.bykv.vk. com.bytedance.pangle. com.bytedance.adsdk.
 b 5log-api.pangolin-sdk-toutiao-b.com api-access.pangolin-sdk-toutiao-b.com
 b api-access.pangolin-sdk-toutiao.com api-access.pangolin-sdk-toutiao1.com api16-access-sg.pangle.io
@@ -285,10 +300,11 @@ sdk bytedance-metasec 1 IDENTIFICATION
 n 字节跳动 MetaSec 安全 SDK
 e ByteDance MetaSec (metasec-ml)
 v ByteDance (Volcengine)
+dn 字节 MetaSec 安全 SDK
 p ms.bd.c. com.bytedance.mobsec.metasec.
 sdk bytedance-pgl-secsdk 0 IDENTIFICATION
 n 字节跳动 SecSDK (com.pgl)
-e ByteDance Pangle SecSDK (device security / anti-fraud signals)
+e ByteDance Pangle SecSDK (device security signals)
 v ByteDance (Pangle)
 p com.pgl.ssdk. com.pgl.sys.ces.
 b ssdk-sg.pangle.io ssdk-va.pangle.io
@@ -338,6 +354,7 @@ sdk ctcc-quicklogin 1 ANALYTICS
 n 中国电信 天翼账号一键登录 SDK
 e China Telecom one-tap login
 v 中国电信 China Telecom
+dn 中国电信 一键登录 SDK
 p cn.com.chinatelecom.account. cn.com.chinatelecom.gateway.
 k e.189.cn open.e.189.cn card.e.189.cn id6.me api-e189.21cn.com e189.21cn.com
 sdk cucc-quicklogin 1 ANALYTICS
@@ -350,6 +367,7 @@ sdk datadog-rum 1 ANALYTICS,CRASH,PROFILING
 n Datadog RUM 监控
 e Datadog RUM / Logs / Session Replay
 v Datadog
+de Datadog RUM
 p com.datadog.android.
 b browser-intake-datadoghq.com browser-intake-datadoghq.eu browser-intake-us3-datadoghq.com
 b browser-intake-us5-datadoghq.com browser-intake-ap1-datadoghq.com browser-intake-ap2-datadoghq.com
@@ -358,6 +376,7 @@ sdk dingxiang-risk 1 IDENTIFICATION
 n 顶象设备指纹/风控
 e Dingxiang (DX) risk SDK
 v 顶象技术 Dingxiang
+dn 顶象设备指纹
 p com.dx.mobile.risk.
 sdk dt-exchange 1 ADS
 n DT Exchange (Fyber Marketplace) 广告
@@ -370,6 +389,7 @@ sdk dynatrace 1 ANALYTICS,CRASH
 n Dynatrace 移动监控
 e Dynatrace OneAgent for Android
 v Dynatrace
+de Dynatrace OneAgent
 p com.dynatrace.android.
 sdk embrace 1 CRASH,ANALYTICS
 n Embrace 移动监控
@@ -381,6 +401,7 @@ sdk facebook-app-events 1 ANALYTICS,ATTRIBUTION
 n Facebook SDK 应用事件
 e Facebook SDK App Events / Analytics
 v Meta Platforms
+de Facebook App Events
 p com.facebook.appevents. com.facebook.marketing.
 sdk fingerprint-pro 0 IDENTIFICATION
 n Fingerprint 设备指纹
@@ -414,6 +435,7 @@ sdk geetest-risk 0 IDENTIFICATION
 n 极验 设备风控 (GT4 gtc4)
 e Geetest device risk collection (gtc4)
 v 极验 Geetest
+de Geetest device risk SDK
 p com.geetest.gtc4.
 u riskct.geetest.com/g2/api/v1/client_report
 k api.geetest.com apiv6.geetest.com api-na.geetest.com static.geetest.com api.geevisit.com
@@ -428,6 +450,8 @@ sdk getui-gtc 1 PROFILING
 n 个推 GTC 基础组件 / 个像 IDO
 e Getui GTC component & IDO user profiling
 v 每日互动 Getui
+dn 个推 GTC 基础组件
+de Getui GTC & IDO
 p com.getui.gtc.
 b gtc.getui.net gtc.gepush.com b-gtc.getui.net b-gtc.gepush.com c-gtc.getui.net c-gtc.gepush.com
 b ido.getui.net ido.gepush.com c-ido.getui.net c-ido.gepush.com b-qj.gepush.com
@@ -465,6 +489,8 @@ sdk google-analytics-legacy 1 ANALYTICS
 n 谷歌分析 (旧版 GA)
 e Google Analytics (Universal / legacy Android SDK)
 v Google
+dn 谷歌分析 旧版
+de Google Analytics legacy
 p com.google.android.gms.analytics. com.google.analytics.tracking.
 b google-analytics.com
 sdk google-datatransport 1 ANALYTICS
@@ -484,6 +510,7 @@ sdk google-firebase-analytics 1 ANALYTICS,ATTRIBUTION
 n Firebase 统计 (Google Analytics for Firebase)
 e Google Analytics for Firebase
 v Google
+de Firebase Analytics
 p com.google.firebase.analytics.FirebaseAnalytics com.google.firebase.analytics.ktx.
 p com.google.android.gms.measurement. com.google.android.gms.internal.measurement.
 b app-measurement.com
@@ -494,6 +521,7 @@ sdk google-firebase-crashlytics 1 CRASH
 n Firebase Crashlytics 崩溃上报
 e Firebase Crashlytics
 v Google
+dn Firebase Crashlytics
 p com.google.firebase.crashlytics. com.crashlytics.android. io.fabric.sdk.android.
 b firebase-settings.crashlytics.com reports.crashlytics.com update.crashlytics.com
 b crashlyticsreports-pa.googleapis.com firebaselogging-pa.googleapis.com
@@ -504,6 +532,7 @@ sdk google-firebase-performance 1 ANALYTICS
 n Firebase 性能监控
 e Firebase Performance Monitoring
 v Google
+de Firebase Performance
 p com.google.firebase.perf.
 b firebaselogging.googleapis.com firebaselogging-pa.googleapis.com
 k firebaseinstallations.googleapis.com firebaseremoteconfig.googleapis.com
@@ -513,6 +542,7 @@ sdk google-ima 1 ADS
 n 谷歌互动媒体广告 (IMA)
 e Google Interactive Media Ads SDK
 v Google
+de Google IMA SDK
 p com.google.ads.interactivemedia.
 b imasdk.googleapis.com pubads.g.doubleclick.net
 sdk google-tag-manager 1 ANALYTICS
@@ -557,11 +587,15 @@ sdk huawei-agc-crash-apms 1 CRASH,ANALYTICS
 n 华为 AGC 崩溃服务/应用性能管理
 e Huawei AppGallery Connect Crash & APM (APMS)
 v Huawei
+dn 华为 AGC 崩溃与性能
+de Huawei AGC Crash & APM
 p com.huawei.agconnect.crash. com.huawei.agconnect.apms.
 sdk huawei-analytics 1 ANALYTICS
 n 华为分析服务 Analytics Kit
 e Huawei Analytics Kit / HiAnalytics
 v Huawei
+dn 华为分析服务
+de Huawei Analytics Kit
 p com.huawei.hms.analytics. com.huawei.hianalytics.
 b datacollector-drcn.dt.dbankcloud.cn datacollector-dra.dt.dbankcloud.cn
 b datacollector-dre.dt.dbankcloud.cn datacollector-drru.dt.dbankcloud.ru
@@ -629,6 +663,7 @@ sdk ironsource-levelplay 1 ADS
 n ironSource 广告 (LevelPlay)
 e ironSource / Unity LevelPlay mediation
 v Unity (ironSource)
+de ironSource LevelPlay
 p com.ironsource. com.supersonicads. com.supersonic.adapters. com.unity3d.mediation.
 p com.unity3d.ironsourceads.
 b iads.unity3d.com mediation.unity3d.com postlog.supersonic.com ssacdn.com ssadscdn.cn
@@ -664,7 +699,7 @@ b int.dewrain.world int.kvaedit.site int.vaicore.site int.vaicore.store int.vaic
 b kvinit-prod.api.kochava.com token.api.kochava.com
 k smart.link
 sdk kount 0 IDENTIFICATION
-n Kount 反欺诈
+n Kount 风控
 e Kount Data Collector
 v Kount (Equifax)
 p com.kount.api.
@@ -746,6 +781,7 @@ sdk microsoft-clarity 1 PROFILING,ANALYTICS
 n Microsoft Clarity 会话回放
 e Microsoft Clarity (mobile session replay)
 v Microsoft
+dn 微软 Clarity 会话回放
 p com.microsoft.clarity.
 b www.clarity.ms
 sdk mintegral 1 ADS
@@ -780,6 +816,8 @@ sdk mobtech-sharesdk 1 PROFILING,ANALYTICS
 n MobTech 基础/ShareSDK
 e MobTech MobCommons / ShareSDK
 v MobTech 秒验 (Mob)
+dn MobTech ShareSDK
+de MobTech ShareSDK
 p com.mob.commons. com.mob.tools. cn.sharesdk.
 b v.data.mob.com dfe.mic.mob.com api.exc.mob.com api.utag.mob.com
 k api-share.mob.com l.mob.com
@@ -805,6 +843,8 @@ sdk ms-appcenter 1 ANALYTICS,CRASH
 n 微软 App Center 统计/崩溃
 e Microsoft App Center Analytics & Crashes
 v Microsoft
+dn 微软 App Center
+de Microsoft App Center
 p com.microsoft.appcenter.analytics. com.microsoft.appcenter.crashes.
 b in.appcenter.ms mobile.events.data.microsoft.com
 sdk msa-oaid 1 IDENTIFICATION
@@ -818,15 +858,20 @@ e myTarget (VK Ads SDK)
 v VK
 p com.my.target. io.github.mytargetsdk.
 b ad.mail.ru
+"""
+
+private const val PART_1: String = """
 sdk mytracker 1 ANALYTICS,ATTRIBUTION
 n myTracker 统计 (VK)
 e myTracker (VK analytics & attribution)
 v VK
 p com.my.tracker.
-sdk netease-yidun-anticheat 0 IDENTIFICATION
-n 网易易盾 反作弊/设备指纹
-e NetEase Yidun anti-cheat (mobsec)
+sdk netease-yidun-mobsec 0 IDENTIFICATION
+n 网易易盾 设备安全/设备指纹
+e NetEase Yidun device security (mobsec)
 v 网易易盾 NetEase Yidun
+dn 网易易盾 设备安全
+de NetEase Yidun security
 p com.netease.mobsec.
 u ac.dun.163.com/v2/m/ ac.dun.163yun.com/v2/m/
 k c-v6.dun.163.com
@@ -834,11 +879,10 @@ sdk netease-yidun-sdk-stats 1 ANALYTICS,CRASH
 n 网易易盾 SDK 统计/崩溃上报
 e NetEase Yidun SDK stats & crash report
 v 网易易盾 NetEase Yidun
+dn 网易易盾 SDK 统计
+de NetEase Yidun SDK stats
 p com.netease.nis.basesdk. com.netease.nis.crashreport.
 b crash.163.com da.dun.163.com
-"""
-
-private const val PART_1: String = """
 sdk newrelic-mobile 1 ANALYTICS,CRASH
 n New Relic 移动监控
 e New Relic Mobile
@@ -880,6 +924,7 @@ sdk oneapm 1 ANALYTICS,CRASH
 n OneAPM
 e OneAPM / Blueware mobile agent
 v OneAPM
+de OneAPM mobile agent
 p com.oneapm.agent.android. com.blueware.agent.android.
 sdk onesignal 1 PUSH
 n OneSignal 推送
@@ -891,6 +936,7 @@ sdk openinstall 1 ATTRIBUTION
 n openinstall 安装来源/深度链接
 e openinstall Attribution
 v openinstall（分骨科技）
+dn openinstall 安装来源
 p com.fm.openinstall.
 sdk oppo-mobad 1 ADS
 n OPPO 广告联盟 (Heytap MobAd)
@@ -903,6 +949,7 @@ sdk oppo-push 1 PUSH
 n OPPO 推送 (HeyTap MSP)
 e OPPO / HeyTap Push
 v OPPO
+de OPPO Push
 p com.heytap.msp.push. com.heytap.mcssdk. com.mcs.aidl.
 sdk pendo 1 ANALYTICS,PROFILING
 n Pendo 产品分析
@@ -947,6 +994,7 @@ sdk salesforce-marketing-cloud 1 PUSH,ANALYTICS
 n Salesforce Marketing Cloud 推送
 e Salesforce Marketing Cloud (MobilePush)
 v Salesforce
+dn Salesforce 营销云推送
 p com.salesforce.marketingcloud.
 k app.igodigital.com
 sdk segment 1 ANALYTICS
@@ -987,7 +1035,7 @@ e ShuMeng (Digital Union) trusted device ID
 v 数字联盟 ShuMeng
 p cn.shuzilm.core.
 sdk sift 0 IDENTIFICATION
-n Sift 反欺诈
+n Sift 风控
 e Sift
 v Sift Science
 p siftscience.android.
@@ -1003,6 +1051,7 @@ sdk sigmob-windmill 1 ADS
 n ToBid / WindMill 聚合 (Sigmob)
 e ToBid (WindMill) Mediation
 v Sigmob（创智汇聚）
+dn ToBid 聚合
 p com.windmill.sdk.
 b adservice.sigmob.cn dc.sigmob.cn
 sdk singular 1 ATTRIBUTION,ANALYTICS
@@ -1083,6 +1132,7 @@ sdk tencent-gdt 1 ADS
 n 腾讯优量汇（广点通）
 e Tencent GDT / Youlianghui Ads
 v 腾讯 (Tencent)
+de Tencent GDT Ads
 p com.qq.e. com.android.gdt.
 b adsmind.ugdtimg.com c.gdt.qq.com c2.gdt.qq.com c3.gdt.qq.com fv.gdt.qq.com h5.gdt.qq.com
 b ii.gdt.qq.com mi.gdt.qq.com pgdt.ugdtimg.com qzs.gdtimg.com rpt.gdt.qq.com sdk.e.qq.com
@@ -1093,6 +1143,7 @@ sdk tencent-gdt-action 1 ATTRIBUTION
 n 腾讯广告用户行为数据源 SDK (GDTAction)
 e Tencent Ads Conversion SDK (GDTAction)
 v 腾讯 (Tencent)
+dn 腾讯广告转化 SDK
 p com.qq.gdt.action.
 b a.gdt.qq.com
 sdk tencent-klevin 1 ADS
@@ -1124,18 +1175,21 @@ sdk tencent-rmonitor 1 ANALYTICS,CRASH
 n 腾讯 RMonitor 性能监控 (Bugly 专业版)
 e Tencent RMonitor / Bugly Pro APM
 v Tencent
+de Tencent RMonitor
 p com.tencent.rmonitor.
 b rmonitor.qq.com
 sdk tencent-tpns 1 PUSH
 n 腾讯移动推送 TPNS (信鸽)
 e Tencent Push Notification Service (TPNS/XG)
 v Tencent
+de Tencent TPNS
 p com.tencent.android.tpush. com.tencent.android.tpns. com.tencent.tpns.
 k api.tpns.tencent.com tpns.tencent.com tpns.hk.tencent.com tpns.sgp.tencent.com
 sdk tencent-turing 0 IDENTIFICATION
 n 腾讯图灵盾 (TuringFD)
 e Tencent Turing Shield device fingerprint
 v Tencent
+de Tencent Turing Shield
 p com.tencent.turingfd.
 b tdid.m.qq.com
 sdk tencentmusic-ads 1 ADS
@@ -1170,18 +1224,21 @@ sdk tingyun 1 ANALYTICS,CRASH
 n 听云
 e Tingyun APM (NetworkBench)
 v 听云 Tingyun
+dn 听云 APM
 p com.networkbench.agent.
 b mobile-symbol-upload.tingyun.com
 sdk tongdun 0 IDENTIFICATION
 n 同盾设备指纹
 e Tongdun / TrustDecision device fingerprint
 v 同盾科技 Tongdun
+de Tongdun device fingerprint
 p cn.tongdun.android.
 b fp.tongdun.net sgfp.tongdun.net
 sdk topon-anythink 1 ADS
 n TopOn 聚合 (AnyThink / Taku)
 e TopOn / AnyThink Mediation
 v TopOn（上海弧心）
+de TopOn Mediation
 p com.anythink.
 b adx.anythinktech.com adxtk.anythinktech.com api.anythinktech.com bidding.anythinktech.com
 b da.anythinktech.com img.anythinktech.com tk.anythinktech.com
@@ -1203,6 +1260,7 @@ sdk uc-crashsdk 1 CRASH
 n UC 崩溃 SDK (啄木鸟)
 e UC CrashSDK / Woodpecker
 v UC (Alibaba)
+de UC CrashSDK
 p com.uc.crashsdk.
 b up4.ucweb.com up4-intl.ucweb.com px.wpk.quark.cn woodpecker.uc.cn wpk-auth.ucweb.com
 b auth.wpk.quark.cn applog.uc.cn gjapplog.ucweb.com applog.lc.quark.cn
@@ -1226,6 +1284,7 @@ sdk umeng-apm 1 CRASH
 n 友盟应用性能监控 U-APM
 e Umeng U-APM / crash
 v 友盟+ (Alibaba)
+de Umeng U-APM
 p com.umeng.umcrash. com.umeng.crash. com.umeng.pagesdk. com.umeng.powersdk. com.umeng.logsdk.
 p com.umeng.umefs. com.umeng.innner. com.efs.sdk.
 b errnewlog.umeng.com errnewlogos.umeng.com errlog.umeng.com
@@ -1233,6 +1292,8 @@ sdk umeng-link 1 ATTRIBUTION
 n 友盟 U-Link 智能超链/归因
 e Umeng U-Link deferred deep link & attribution
 v 友盟+ (Alibaba)
+dn 友盟 U-Link
+de Umeng U-Link
 p com.umeng.umlink.
 u deeplink.umeng.com/deeplink/deviceFingerprint
 k one.umops.com
@@ -1345,6 +1406,7 @@ sdk xinstall 1 ATTRIBUTION
 n Xinstall 安装来源/深度链接
 e Xinstall Attribution
 v Xinstall（舒宝）
+dn Xinstall 安装来源
 p com.xinstall. com.shubao.xinstall.
 sdk yandex-appmetrica 1 ANALYTICS,ATTRIBUTION,CRASH
 n AppMetrica 统计 (Yandex)
