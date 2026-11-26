@@ -5,7 +5,9 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.core.config.AppearanceBackup
 import io.github.hyperprivacy.core.config.ConfigBackup
+import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.trackers.AppScan
 import io.github.hyperprivacy.trackers.AppScanner
 import io.github.hyperprivacy.trackers.TrackerStore
 import io.github.hyperprivacy.ui.theme.Appearance
@@ -54,7 +56,7 @@ internal class ConfigTransfer(
         val target = prefs() ?: return@withContext ImportOutcome.Failed
         val raw = runCatching { target.all }.getOrNull() ?: return@withContext ImportOutcome.Failed
         val scans = withContext(Dispatchers.IO) { scansFor(backup, raw) }
-        val plan = backup.plan(raw) { scans[it] }
+        val plan = backup.plan(raw) { scans[it]?.ids }
         val written = runCatching {
             target.edit {
                 plan.removes.forEach(::remove)
@@ -62,6 +64,13 @@ internal class ConfigTransfer(
                     when (value) {
                         is Boolean -> putBoolean(key, value)
                         is String -> putString(key, value)
+                    }
+                }
+                // A restored protection also needs this device's origin hints (relocated ad SDK roots).
+                scans.forEach { (pkg, scan) ->
+                    val origin = scan?.hints?.encode().orEmpty()
+                    if (origin.isNotEmpty() && TrackerProtection.protectKey(pkg) in plan.puts) {
+                        putString(TrackerOrigin.originKey(pkg), origin)
                     }
                 }
             }
@@ -74,7 +83,7 @@ internal class ConfigTransfer(
     }
 
     /** The SDK ids a restored protection starts with: this device's own scan of each installed app. */
-    private fun scansFor(backup: ConfigBackup, current: Map<String, *>): Map<String, Set<String>?> {
+    private fun scansFor(backup: ConfigBackup, current: Map<String, *>): Map<String, AppScan?> {
         val wanted = backup.apps.filter { (pkg, app) ->
             app.protect && current[TrackerProtection.protectKey(pkg)] == null
         }.keys
