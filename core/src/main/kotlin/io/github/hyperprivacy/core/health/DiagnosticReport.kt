@@ -2,6 +2,7 @@ package io.github.hyperprivacy.core.health
 
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.status.ObservedEndpoint
+import io.github.hyperprivacy.core.status.SinkPerf
 import io.github.hyperprivacy.core.status.SinkReport
 
 /**
@@ -34,6 +35,8 @@ public data class RuleHealthRow(
  * @property onSurveyedDevice whether the static baseline applies to this device (else versions are
  *   compared with device-local history).
  * @property missedSinks sinks that reported MISSED this boot.
+ * @property sinkPerf what each enforcement point cost, collected in diagnostics mode: per sink name,
+ *   never per package, so it needs no redaction and is always included.
  * @property includeUserApps the user chose, at export time, to include rows about packages outside
  *   the catalog (protected third-party apps, apps whose Settings reads were observed). Default:
  *   such rows are left out and only counted ([DiagnosticReport.userAppRows]).
@@ -49,6 +52,7 @@ public data class DiagnosticInput(
     val missedSinks: List<SinkReport>,
     val suspectedEndpoints: List<ObservedEndpoint>,
     val includeUserApps: Boolean = false,
+    val sinkPerf: List<SinkPerf> = emptyList(),
 )
 
 /**
@@ -97,6 +101,7 @@ public object DiagnosticReport {
         appendNotApplicable(input.rules)
         appendSinks(input.missedSinks.filter { keep(it.packageName) })
         appendEndpoints(input.suspectedEndpoints.filter { keep(it.packageName) })
+        PerfReport.append(this, input.sinkPerf)
         if (omitted > 0) {
             appendLine()
             appendLine("($omitted rows about user-installed apps left out)")

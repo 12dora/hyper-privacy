@@ -11,8 +11,10 @@ public data class StatusBatch(
     val sinks: List<SinkReport> = emptyList(),
     val observed: List<ObservedEndpoint> = emptyList(),
     val meta: List<ProcessMeta> = emptyList(),
+    val perf: List<SinkPerf> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = reports.isEmpty() && sinks.isEmpty() && observed.isEmpty() && meta.isEmpty()
+    val isEmpty: Boolean
+        get() = reports.isEmpty() && sinks.isEmpty() && observed.isEmpty() && meta.isEmpty() && perf.isEmpty()
 }
 
 /**
@@ -70,6 +72,8 @@ public object StatusRelay {
             observed = batch.observed.asSequence().filter { owned(it.packageName) && it.count >= 0 }
                 .take(MAX_ROWS_PER_TABLE).toList(),
             meta = batch.meta.asSequence().filter { owned(it.packageName) }.take(MAX_ROWS_PER_TABLE).toList(),
+            // Per sink name, not per package: nothing about the app, so no ownership to check.
+            perf = batch.perf.take(PerfCodec.MAX_ROWS),
         )
     }
 }
