@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.status.DisplayStatus
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
@@ -109,6 +110,14 @@ internal fun statusText(status: DisplayStatus, hits: Long): String = when {
     status == DisplayStatus.MISSED -> stringResource(R.string.rule_missed)
     else -> stringResource(R.string.rule_not_run)
 }
+
+/**
+ * [statusText], except that where the app does not ship what the rule targets
+ * ([Health.NOT_APPLICABLE]) it says so instead of "not effective".
+ */
+@Composable
+internal fun statusText(health: Health, status: DisplayStatus, hits: Long): String =
+    if (health == Health.NOT_APPLICABLE) stringResource(health.labelRes()) else statusText(status, hits)
 
 @Preview(showBackground = true)
 @Composable

@@ -2,6 +2,7 @@ package io.github.hyperprivacy.status
 
 import android.content.pm.PackageManager
 import android.os.Build
+import io.github.hyperprivacy.core.health.ActivationHistory
 import io.github.hyperprivacy.core.health.DiagnosticInput
 import io.github.hyperprivacy.core.health.DiagnosticReport
 import io.github.hyperprivacy.core.health.Health
@@ -13,6 +14,7 @@ import io.github.hyperprivacy.core.health.RuleHealthRow
 import io.github.hyperprivacy.core.health.TelemetryHeuristics
 import io.github.hyperprivacy.core.rule.Baseline
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.rule.DeviceBuild
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.ObservedEndpoint
@@ -41,16 +43,26 @@ internal fun StatusStore.healthSummary(isEnabled: (Rule) -> Boolean = { true }):
 internal fun StatusStore.suspectedEndpoints(): List<ObservedEndpoint> =
     TelemetryHeuristics.suspected(observedEndpoints())
 
+/** This device's model, codename and ROM build; no serials or ids. */
+private fun currentBuild(): DeviceBuild = DeviceBuild(
+    model = Build.MODEL.orEmpty(),
+    device = Build.DEVICE.orEmpty(),
+    incremental = Build.VERSION.INCREMENTAL.orEmpty(),
+)
+
 /**
- * The shareable Markdown report ([DiagnosticReport]): rule health with versions, sinks MISSED
- * this boot and suspected endpoints. Contains no personal data.
+ * The shareable Markdown report ([DiagnosticReport]): device model and ROM build, rule health with
+ * versions, sinks MISSED this boot and suspected endpoints. Contains no personal data.
  */
 internal fun StatusStore.diagnosticReport(moduleVersion: String, isEnabled: (Rule) -> Boolean): String {
     val snapshot = HealthSnapshot(this)
     val input = DiagnosticInput(
         moduleVersion = moduleVersion,
         sdkInt = Build.VERSION.SDK_INT,
-        romIncremental = Build.VERSION.INCREMENTAL.orEmpty(),
+        romIncremental = snapshot.build.incremental,
+        deviceModel = snapshot.build.model,
+        deviceCodename = snapshot.build.device,
+        onSurveyedDevice = snapshot.onSurveyedDevice,
         rules = Catalog.rules.map { snapshot.row(it, isEnabled(it)) },
         missedSinks = sinkStates(since = snapshot.clock.bootAt).filter { it.state == HookState.MISSED },
         suspectedEndpoints = suspectedEndpoints(),
@@ -61,6 +73,10 @@ internal fun StatusStore.diagnosticReport(moduleVersion: String, isEnabled: (Rul
 /** The inputs of [RuleHealth] at one instant; package lookups are memoised for the pass. */
 private class HealthSnapshot(private val store: StatusStore) {
     val clock: HealthClock = System.currentTimeMillis().let { now -> HealthClock(now, bootAt = bootTimeMillis()) }
+    val build: DeviceBuild = currentBuild()
+
+    /** Whether the static [Baseline] pins apply here; elsewhere versions are compared with local history. */
+    val onSurveyedDevice: Boolean = Baseline.isSurveyed(build)
 
     /** Installed versionCode per package; a `null` value means not installed. */
     private val installed = HashMap<String, Long?>()
@@ -71,6 +87,8 @@ private class HealthSnapshot(private val store: StatusStore) {
             .mapValues { (_, reports) -> reports.associate { it.sink to it.state } }
     }
 
+    private val sinksEverActive: Map<String, Set<String>> by lazy { store.sinksEverActive() }
+
     fun row(rule: Rule, enabled: Boolean): RuleHealthRow {
         val packages = rule.packages.sorted().map { pkg ->
             val signals = signals(rule, pkg, enabled)
@@ -79,6 +97,7 @@ private class HealthSnapshot(private val store: StatusStore) {
                 health = RuleHealth.evaluate(rule, signals, clock),
                 currentVersionCode = signals.currentVersionCode,
                 baselineVersionCode = signals.baselineVersionCode,
+                lastActiveVersionCode = signals.history.lastActiveVersion,
             )
         }
         return RuleHealthRow(rule.id, enabled, Health.worst(packages.map { it.health }), packages)
@@ -92,9 +111,12 @@ private class HealthSnapshot(private val store: StatusStore) {
             installed = version != null,
             currentVersionCode = version,
             baselineVersionCode = Baseline.of(pkg)?.versionCode,
+            onSurveyedDevice = onSurveyedDevice,
+            history = status?.history ?: ActivationHistory.NEVER,
             ruleState = status?.state,
             ruleReportedAt = status?.reportedAt,
             sinkStates = sinksByPackage[pkg].orEmpty(),
+            sinksEverActive = sinksEverActive[pkg].orEmpty(),
             lastProcessSeenAt = meta?.lastSeenAt,
             activeSince = status?.activeSince,
             lastHitAt = status?.lastHitAt,

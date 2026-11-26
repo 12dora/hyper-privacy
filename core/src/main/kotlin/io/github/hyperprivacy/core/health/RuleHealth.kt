@@ -18,14 +18,23 @@ import java.util.concurrent.TimeUnit
  *   MISSED report); the start of the idle clock when nothing was ever blocked.
  * @property lastHitAt when the rule last blocked something in this package.
  * @property enabled whether the user has the rule switched on; a disabled rule cannot be idle.
+ * @property onSurveyedDevice whether this device and ROM build are the ones [baselineVersionCode]
+ *   was surveyed on (see `Baseline.isSurveyed`); elsewhere the baseline says nothing and
+ *   [history] is the version reference.
+ * @property history whether the rule was ever active in this package on this device, and with
+ *   which app version last.
+ * @property sinksEverActive sinks of this package that were ACTIVE at least once on this device.
  */
 public data class HealthSignals(
     val installed: Boolean,
     val currentVersionCode: Long? = null,
     val baselineVersionCode: Long? = null,
+    val onSurveyedDevice: Boolean = false,
+    val history: ActivationHistory = ActivationHistory.NEVER,
     val ruleState: HookState? = null,
     val ruleReportedAt: Long? = null,
     val sinkStates: Map<String, HookState> = emptyMap(),
+    val sinksEverActive: Set<String> = emptySet(),
     val lastProcessSeenAt: Long? = null,
     val activeSince: Long? = null,
     val lastHitAt: Long? = null,
@@ -61,18 +70,22 @@ public object RuleHealth {
     /**
      * First match wins:
      * 1. [Health.NOT_INSTALLED];
-     * 2. [Health.BROKEN]: the rule reported MISSED this boot, or (DOMAIN/URL) every relevant sink
-     *    reported this boot is MISSED;
-     * 3. [Health.NEEDS_REVIEW]: both the installed and the baseline version are known and differ;
-     * 4. [Health.NOT_RUN]: nothing from this package since boot;
-     * 5. [Health.IDLE]: see [isIdle];
-     * 6. [Health.OK].
+     * 2. [Health.BROKEN]: the target is missing this boot (the rule reported MISSED, or for
+     *    DOMAIN/URL every relevant sink reported this boot is MISSED) and it was active here
+     *    before (see [wasActive]);
+     * 3. [Health.NOT_APPLICABLE]: the target is missing this boot and never was active here;
+     * 4. [Health.NEEDS_REVIEW]: the installed version and the [reviewReference] are known and differ;
+     * 5. [Health.NOT_RUN]: nothing from this package since boot;
+     * 6. [Health.IDLE]: see [isIdle];
+     * 7. [Health.OK].
      */
     public fun evaluate(kind: RuleKind, signals: HealthSignals, clock: HealthClock): Health {
         val ruleState = signals.ruleState.takeIf { isThisBoot(signals.ruleReportedAt, clock) }
+        val missing = ruleState == HookState.MISSED || allSinksMissed(kind, signals.sinkStates)
         return when {
             !signals.installed -> Health.NOT_INSTALLED
-            ruleState == HookState.MISSED || allSinksMissed(kind, signals.sinkStates) -> Health.BROKEN
+            missing && wasActive(kind, signals) -> Health.BROKEN
+            missing -> Health.NOT_APPLICABLE
             versionChanged(signals) -> Health.NEEDS_REVIEW
             ruleState == null && !isThisBoot(signals.lastProcessSeenAt, clock) -> Health.NOT_RUN
             ruleState == HookState.ACTIVE && isIdle(kind, signals, clock) -> Health.IDLE
@@ -99,11 +112,24 @@ public object RuleHealth {
 
     private fun isThisBoot(at: Long?, clock: HealthClock): Boolean = at != null && at >= clock.bootAt
 
+    /**
+     * The version the installed one is compared with: the surveyed baseline on the surveyed device
+     * and ROM build, else the version this rule was last ACTIVE with on this device. In the latter
+     * case every ACTIVE report refreshes the reference, so a difference means no process of the
+     * installed version has shown the rule active yet; once one does, the review clears itself.
+     */
+    public fun reviewReference(signals: HealthSignals): Long? =
+        if (signals.onSurveyedDevice) signals.baselineVersionCode else signals.history.lastActiveVersion
+
     private fun versionChanged(signals: HealthSignals): Boolean {
         val current = signals.currentVersionCode ?: return false
-        val baseline = signals.baselineVersionCode ?: return false
-        return current != baseline
+        val reference = reviewReference(signals) ?: return false
+        return current != reference
     }
+
+    /** The rule, or (DOMAIN/URL) one of its relevant sinks, was ACTIVE in this package on this device before. */
+    private fun wasActive(kind: RuleKind, signals: HealthSignals): Boolean =
+        signals.history.everActive || signals.sinksEverActive.any { isRelevantSink(kind, it) }
 
     private fun allSinksMissed(kind: RuleKind, sinks: Map<String, HookState>): Boolean {
         val relevant = sinks.filterKeys { isRelevantSink(kind, it) }.values
