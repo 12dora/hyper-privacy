@@ -3,6 +3,7 @@ package io.github.hyperprivacy.core
 import io.github.hyperprivacy.core.match.HostMatcher
 import io.github.hyperprivacy.core.match.HostNames
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
 import org.junit.jupiter.api.Test
@@ -64,6 +65,59 @@ class CatalogTest {
             .toSet() + Catalog.SYSTEM_SCOPE
         assertEquals(expected, Catalog.scope)
         assertTrue("com.miui.analytics" !in Catalog.scope)
+    }
+
+    @Test
+    fun `url rules never target a vendor apex host`() {
+        val offenders = Catalog.rules.flatMap { rule ->
+            (rule.payload as? RulePayload.Urls)?.prefixes.orEmpty()
+                .filter { HostNames.normalize(it.host) in OVERLY_BROAD_SUFFIXES }
+                .map { "${rule.id}:${it.host}${it.pathPrefix}" }
+        }
+        assertTrue(offenders.isEmpty(), "URL host would hit vendor services: $offenders")
+    }
+
+    @Test
+    fun `rules that affect a service ship disabled`() {
+        val offenders = Catalog.rules.filter { it.impact != null && it.defaultOn }
+        assertTrue(offenders.isEmpty(), "Rules with impact must not default on: ${offenders.map { it.id }}")
+    }
+
+    @Test
+    fun `firewall-only targets are never injected`() {
+        val hooked = Catalog.rules.filter { it.kind != RuleKind.FIREWALL }.flatMap { it.packages }.toSet()
+        val firewallOnly = Catalog.rules.filter { it.kind == RuleKind.FIREWALL }
+            .flatMap { it.packages }
+            .toSet() - hooked
+        assertTrue(firewallOnly.isNotEmpty())
+        assertTrue(firewallOnly.none { it in Catalog.scope }, "Firewall-only targets leaked into scope")
+        assertTrue(firewallOnly.all { it in Catalog.allPackages })
+    }
+
+    @Test
+    fun `rules are grouped by category in a stable order`() {
+        val sequence = Catalog.rules.map { it.category }
+        val blocks = sequence.zipWithNext().count { (a, b) -> a != b } + 1
+        assertEquals(Category.entries.toSet(), sequence.toSet(), "Every category must have rules")
+        assertEquals(Category.entries.size, blocks, "Categories must not interleave")
+    }
+
+    @Test
+    fun `url prefixes are unique within a rule`() {
+        val offenders = Catalog.rules.filter { rule ->
+            val prefixes = (rule.payload as? RulePayload.Urls)?.prefixes.orEmpty()
+            prefixes.size != prefixes.toSet().size
+        }
+        assertTrue(offenders.isEmpty(), "Duplicate url prefixes: ${offenders.map { it.id }}")
+    }
+
+    @Test
+    fun `domain suffixes are unique within a rule`() {
+        val offenders = Catalog.rules.filter { rule ->
+            val suffixes = (rule.payload as? RulePayload.Domains)?.suffixes.orEmpty()
+            suffixes.size != suffixes.map(HostNames::normalize).toSet().size
+        }
+        assertTrue(offenders.isEmpty(), "Duplicate domain suffixes: ${offenders.map { it.id }}")
     }
 
     @Test
