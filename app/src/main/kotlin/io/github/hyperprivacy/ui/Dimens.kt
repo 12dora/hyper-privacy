@@ -2,20 +2,21 @@ package io.github.hyperprivacy.ui
 
 import androidx.compose.ui.unit.dp
 
-/** Spacing and shape tokens on a 4dp grid: 16dp gutters, 24dp between sections. */
+/** Spacing and shape tokens on a 4dp grid. Dense, system-settings style: 16dp margins, 12dp between groups. */
 internal object Dimens {
     val Gutter = 16.dp
-    val Section = 24.dp
+    val GroupGap = 12.dp
     val Small = 8.dp
     val Tiny = 4.dp
     val RowGap = 2.dp
-    val CornerOuter = 20.dp
+    val RowVertical = 10.dp
+    val CornerOuter = 16.dp
     val CornerInner = 4.dp
-    val CornerHero = 28.dp
     val TouchTarget = 48.dp
-    val RowMinHeight = 64.dp
-    val AppIcon = 40.dp
-    val AppIconSmall = 28.dp
-    val HeroIcon = 48.dp
-    val InfoIcon = 20.dp
+    val RowMinHeight = 56.dp
+    val HeaderHeight = 36.dp
+    val SwitcherHeight = 36.dp
+    val AppIcon = 32.dp
+    val HeaderIcon = 20.dp
+    val StatusIcon = 20.dp
 }

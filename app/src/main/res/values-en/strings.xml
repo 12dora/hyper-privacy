@@ -9,22 +9,21 @@
 
     <!-- Module state -->
     <string name="module_checking">Checking status</string>
-    <string name="module_checking_hint">Connecting to LSPosed</string>
     <string name="module_active">Active</string>
     <string name="module_inactive">Not activated</string>
-    <string name="module_inactive_hint">Enable this module in LSPosed</string>
+    <string name="module_inactive_hint">Enable in LSPosed</string>
     <string name="module_unavailable">Not connected</string>
-    <string name="module_unavailable_hint">The connection to LSPosed was lost. Reopen the app.</string>
+    <string name="module_unavailable_hint">Reopen the app</string>
     <string name="module_reboot">Restart required</string>
-    <string name="module_reboot_hint">Rules take effect after you restart your device</string>
-    <string name="module_no_rules">No rules turned on</string>
+    <string name="module_reboot_hint">Restart your device</string>
+    <string name="module_no_rules">No rules on</string>
     <plurals name="summary_enabled">
         <item quantity="one">%1$s rule on</item>
         <item quantity="other">%1$s rules on</item>
     </plurals>
     <plurals name="summary_blocked">
-        <item quantity="one">%1$s request blocked</item>
-        <item quantity="other">%1$s requests blocked</item>
+        <item quantity="one">%1$s blocked</item>
+        <item quantity="other">%1$s blocked</item>
     </plurals>
 
     <!-- Home -->

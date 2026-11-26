@@ -9,20 +9,19 @@
 
     <!-- 模块状态 -->
     <string name="module_checking">正在检查状态</string>
-    <string name="module_checking_hint">正在连接 LSPosed</string>
     <string name="module_active">已生效</string>
     <string name="module_inactive">未激活</string>
-    <string name="module_inactive_hint">在 LSPosed 中启用本模块</string>
+    <string name="module_inactive_hint">在 LSPosed 中启用</string>
     <string name="module_unavailable">未连接</string>
-    <string name="module_unavailable_hint">与 LSPosed 的连接已断开，请重新打开应用</string>
+    <string name="module_unavailable_hint">请重新打开应用</string>
     <string name="module_reboot">需要重启</string>
-    <string name="module_reboot_hint">重启设备后规则开始生效</string>
-    <string name="module_no_rules">尚未开启任何规则</string>
+    <string name="module_reboot_hint">重启设备后生效</string>
+    <string name="module_no_rules">未开启规则</string>
     <plurals name="summary_enabled">
-        <item quantity="other">已开启 %1$s 项</item>
+        <item quantity="other">%1$s 项已开启</item>
     </plurals>
     <plurals name="summary_blocked">
-        <item quantity="other">累计拦截 %1$s 次</item>
+        <item quantity="other">拦截 %1$s 次</item>
     </plurals>
 
     <!-- 首页 -->
