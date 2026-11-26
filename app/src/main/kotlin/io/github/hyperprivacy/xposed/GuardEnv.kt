@@ -26,6 +26,9 @@ internal object Sinks {
     const val URL_WEBVIEW = "url.webview"
     const val MIUI_ID_PROVIDER = "id.miui"
 
+    /** Every METHOD rule's hooks, measured together in diagnostics mode. */
+    const val METHOD = "method"
+
     /** system_server: `SettingsState#getSettingLocked`, reported under `Catalog.SYSTEM_SCOPE`. */
     const val SETTINGS_KEYS = "settings.keys"
 

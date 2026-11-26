@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Process
 import android.os.SystemClock
+import io.github.hyperprivacy.BuildConfig
 import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.status.EndpointRecorder
 import io.github.hyperprivacy.core.status.HookState
@@ -11,6 +12,7 @@ import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RetryBackoff
 import io.github.hyperprivacy.core.status.RuleReport
+import io.github.hyperprivacy.core.status.SinkPerf
 import io.github.hyperprivacy.core.status.SinkReport
 import io.github.hyperprivacy.core.status.StatusBatch
 import io.github.hyperprivacy.status.StatusContract
@@ -64,7 +66,12 @@ internal class StatusReporter(
     private val scheduled = AtomicBoolean(false)
     private val heartbeatStarted = AtomicBoolean(false)
 
-    /** This process's facts; read once on the executor thread, never for system_server. */
+    init {
+        // Diagnostics mode just turned off: ship the last sink costs instead of leaving them unsent.
+        SinkStats.addDisabledListener { if (SinkStats.hasSamples()) markDirty() }
+    }
+
+    /** This process's facts; read once on the executor thread. */
     private var processMeta: ProcessMeta? = null
     private var processMetaRead = false
 
@@ -123,6 +130,8 @@ internal class StatusReporter(
         batch.sinks.forEach { sinks[SinkKey(it.packageName, it.sink)] = it.state }
         batch.observed.forEach(relayedObserved::offer)
         batch.meta.forEach { if (relayedMeta.size < MAX_RELAYED_META) relayedMeta[it.packageName] = it }
+        // Per sink name only; folded into this process's counters and sent with its own next flush.
+        SinkStats.restore(batch.perf)
         markDirty()
     }
 
@@ -167,11 +176,13 @@ internal class StatusReporter(
         val deltas = hits.mapValues { (_, count) -> count.getAndSet(0) }.filterValues { it > 0 }
         val relayed = relayedObserved.drain()
         val observed = endpoints.drain() + relayed
-        val outcome = log.guard("deliver status") { deliver(deltas, observed) } ?: ReportDelivery.Outcome.FAILED
+        val perf = SinkStats.drain()
+        val outcome = log.guard("deliver status") { deliver(deltas, observed, perf) } ?: ReportDelivery.Outcome.FAILED
         val delivered = outcome == ReportDelivery.Outcome.DELIVERED || outcome == ReportDelivery.Outcome.REJECTED
         if (delivered) {
             failures = 0
         } else {
+            SinkStats.restore(perf)
             deltas.forEach { (key, count) -> hits.getOrPut(key) { AtomicLong() }.addAndGet(count) }
             endpoints.restore(observed)
             relayed.forEach(relayedObserved::offer)
@@ -181,32 +192,40 @@ internal class StatusReporter(
         if (!delivered || dirty.get()) schedule()
     }
 
-    private fun deliver(deltas: Map<RuleKey, Long>, observed: List<ObservedEndpoint>): ReportDelivery.Outcome {
+    private fun deliver(
+        deltas: Map<RuleKey, Long>,
+        observed: List<ObservedEndpoint>,
+        perf: List<SinkPerf>,
+    ): ReportDelivery.Outcome {
         val reports = (states.keys + deltas.keys).mapNotNull { key ->
             states[key]?.let { RuleReport(key.packageName, key.ruleId, it, deltas[key] ?: 0) }
         }
         val sinkReports = sinks.map { (key, state) -> SinkReport(key.packageName, key.sink, state) }
-        if (reports.isEmpty() && sinkReports.isEmpty() && observed.isEmpty()) return ReportDelivery.Outcome.DELIVERED
+        val nothingToSend = reports.isEmpty() && sinkReports.isEmpty() && observed.isEmpty()
+        if (nothingToSend && perf.isEmpty()) return ReportDelivery.Outcome.DELIVERED
         val meta = listOfNotNull(readProcessMeta()) + relayedMeta.values
-        return delivery.send(StatusContract.encode(StatusBatch(reports, sinkReports, observed, meta)))
+        return delivery.send(StatusContract.encode(StatusBatch(reports, sinkReports, observed, meta, perf)))
     }
 
     /**
      * The host's own versionCode and wall-clock start time. Read at most once (a PackageManager
-     * IPC); `null` in system_server, which reports on behalf of other packages.
+     * IPC). system_server reports on behalf of other packages and has no package of its own: it
+     * reports the module build it loaded instead ([ProcessMeta.MODULE]; compiled in, so no IPC),
+     * which the app compares with the installed one to tell that a restart is due.
      */
     private fun readProcessMeta(): ProcessMeta? {
         if (processMetaRead) return processMeta
+        val started = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime())
         if (Process.myUid() % UidPolicy.PER_USER_RANGE == Process.SYSTEM_UID) {
             processMetaRead = true
-            return null
+            processMeta = ProcessMeta(ProcessMeta.MODULE, BuildConfig.VERSION_CODE.toLong(), started)
+            return processMeta
         }
         val ctx = context() ?: return null
         processMetaRead = true
         processMeta = log.guard("read process meta") {
             val info = ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.PackageInfoFlags.of(0))
-            val uptime = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
-            ProcessMeta(ctx.packageName, info.longVersionCode, System.currentTimeMillis() - uptime)
+            ProcessMeta(ctx.packageName, info.longVersionCode, started)
         }
         return processMeta
     }

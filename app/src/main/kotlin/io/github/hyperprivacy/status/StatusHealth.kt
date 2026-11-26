@@ -19,6 +19,7 @@ import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.ObservedEndpoint
+import io.github.hyperprivacy.core.status.ProcessMeta
 
 /*
  * Rule health queries over a [StatusStore], for the UI. All of them read SharedPreferences and the
@@ -38,6 +39,20 @@ internal fun StatusStore.healthSummary(isEnabled: (Rule) -> Boolean = { true }):
     val snapshot = HealthSnapshot(this)
     val counts = Catalog.rules.groupingBy { snapshot.row(it, isEnabled(it)).health }.eachCount()
     return Health.entries.associateWith { counts[it] ?: 0 }
+}
+
+/**
+ * What system_server has told the module since this boot: whether it reported at all, and the
+ * module build it runs ([ProcessMeta.MODULE]; `null` if it reported none, i.e. it runs a build that
+ * predates reporting it).
+ */
+internal data class SystemReport(val reportedThisBoot: Boolean, val moduleVersion: Long?)
+
+internal fun StatusStore.systemReport(): SystemReport {
+    val bootAt = bootTimeMillis()
+    val meta = meta.get(ProcessMeta.MODULE)?.takeIf { it.lastSeenAt >= bootAt }
+    val sinksReported = sinkStates(since = bootAt).any { it.packageName == Catalog.SYSTEM_SCOPE }
+    return SystemReport(reportedThisBoot = meta != null || sinksReported, moduleVersion = meta?.versionCode)
 }
 
 /** Observed endpoints that no catalog rule covers, were never blocked, and look like reporting. */
@@ -73,6 +88,7 @@ internal fun StatusStore.diagnosticInput(
         missedSinks = sinkStates(since = snapshot.clock.bootAt).filter { it.state == HookState.MISSED },
         suspectedEndpoints = suspectedEndpoints(),
         includeUserApps = includeUserApps,
+        sinkPerf = perf.all(),
     )
     return input
 }

@@ -49,6 +49,9 @@ internal class StatusStore(context: Context) {
     private val sinks = SinkTable(context.getSharedPreferences(SINKS_FILE_NAME, Context.MODE_PRIVATE))
     private val observed = ObservedTable(context.getSharedPreferences(OBSERVED_FILE_NAME, Context.MODE_PRIVATE))
 
+    /** Running per-sink cost totals (diagnostics mode); one row per sink, never per package. */
+    val perf = PerfTable(context.getSharedPreferences(PERF_FILE_NAME, Context.MODE_PRIVATE))
+
     /** Process facts (version that ran, start and last-seen times) per package. */
     val meta = MetaTable(context.getSharedPreferences(META_FILE_NAME, Context.MODE_PRIVATE))
 
@@ -111,7 +114,11 @@ internal class StatusStore(context: Context) {
     /** Observed endpoints (running totals), most recently seen first. */
     fun observedEndpoints(): List<ObservedEndpoint> = observed.all()
 
-    fun clearObserved() = observed.clear()
+    /** Clears what diagnostics mode collected: observed endpoints and sink costs. */
+    fun clearObserved() {
+        observed.clear()
+        perf.clear()
+    }
 
     /** Listens to every table: rule status, sinks, process facts and observed endpoints. */
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) =
@@ -125,6 +132,7 @@ internal class StatusStore(context: Context) {
         const val SINKS_FILE_NAME = "status_sinks"
         const val OBSERVED_FILE_NAME = "status_observed"
         const val META_FILE_NAME = "status_meta"
+        const val PERF_FILE_NAME = "status_perf"
         const val KEY_SEPARATOR = "|"
         const val SEPARATOR = ","
 

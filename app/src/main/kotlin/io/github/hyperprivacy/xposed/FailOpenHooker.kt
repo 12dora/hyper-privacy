@@ -25,6 +25,10 @@ internal sealed interface Verdict {
  * Runs [decide] and acts on its [Verdict]. Any exception thrown by [decide] itself is treated as
  * [Verdict.Proceed] (fail-open: a module bug must never break the host). Exceptions from
  * `chain.proceed()` are the original method's and propagate unchanged.
+ *
+ * In diagnostics mode the cost of [decide] is recorded per sink ([SinkStats], keyed by [name]
+ * unless [measuredAs] says otherwise). With it off, the only addition on this path is one
+ * volatile boolean read.
  */
 internal class FailOpenHooker(
     private val log: HookLog,
@@ -33,9 +37,18 @@ internal class FailOpenHooker(
 ) : Hooker {
     private val failures = AtomicInteger()
 
+    /** Resolved on the first measured call (diagnostics mode only); set before the hook is installed if renamed. */
+    private var cell: SinkStats.Cell? = null
+
+    /** Records this hook's cost under sink [key] instead of its [name], e.g. to group many hooks of one kind. */
+    fun measuredAs(key: String): FailOpenHooker {
+        cell = SinkStats.cell(key)
+        return this
+    }
+
     override fun intercept(chain: Chain): Any? {
         val verdict = try {
-            decide(chain)
+            if (SinkStats.enabled) measured(chain) else decide(chain)
         } catch (t: Throwable) {
             // Bounded so a persistent bug on a hot path cannot flood the log.
             if (failures.incrementAndGet() <= MAX_LOGGED_FAILURES) log.error("$name hook logic failed", t)
@@ -46,6 +59,16 @@ internal class FailOpenHooker(
             is Verdict.Return -> verdict.value
             is Verdict.Throw -> throw StackScrub.scrub(verdict.error, chain.executable, verdict.top)
             is Verdict.ProceedWith -> chain.proceed(verdict.args)
+        }
+    }
+
+    private fun measured(chain: Chain): Verdict {
+        val sink = cell ?: SinkStats.cell(name).also { cell = it }
+        val start = System.nanoTime()
+        try {
+            return decide(chain)
+        } finally {
+            sink.record(System.nanoTime() - start)
         }
     }
 
