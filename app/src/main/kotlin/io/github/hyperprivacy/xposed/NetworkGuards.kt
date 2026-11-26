@@ -10,7 +10,7 @@ import io.github.hyperprivacy.xposed.url.UrlGuard
  * sharing one [NetworkPolicy] snapshot:
  * - DNS + TLS (host-only) when there are DOMAIN rules;
  * - the URL layer when there are DOMAIN or URL rules (DOMAIN rules are enforced there too, which
- *   covers Cronet-style stacks whose DNS/TLS is native).
+ *   covers Cronet-style stacks and WebView, whose DNS/TLS is native).
  *
  * If diagnostics mode is on when the process starts, every sink is installed even without rules
  * so endpoints can be observed. Toggling diagnostics later is live for installed sinks only.

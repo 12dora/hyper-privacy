@@ -9,6 +9,8 @@ import java.io.ByteArrayOutputStream
 public data class UrlParts(val host: String, val path: String) {
     public companion object {
         private const val SCHEME_SEPARATOR = "://"
+        private const val HTTP_PREFIX = "http://"
+        private const val HTTPS_PREFIX = "https://"
         private const val ROOT = "/"
         private const val HEX_RADIX = 16
         private const val ESCAPE_LENGTH = 3
@@ -29,6 +31,13 @@ public data class UrlParts(val host: String, val path: String) {
             val rawPath = text.substring(authorityEnd, pathEnd)
             return UrlParts(host, decodePath(rawPath.ifEmpty { ROOT }))
         }
+
+        /**
+         * Whether [url] is an `http:` / `https:` URL. Allocation-free, so hot paths can skip `data:`,
+         * `blob:` and other schemes (which may be megabytes long) before [parse].
+         */
+        public fun isHttp(url: String): Boolean =
+            url.startsWith(HTTPS_PREFIX, ignoreCase = true) || url.startsWith(HTTP_PREFIX, ignoreCase = true)
 
         /**
          * Decodes `%XX` escapes as UTF-8. Malformed escapes are kept literally; `+` is left alone
