@@ -2,6 +2,7 @@ package io.github.hyperprivacy.core.config
 
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 
 /** Appearance as stored by the app (plain names; the app validates them against its own enums). */
@@ -121,8 +122,12 @@ public class ConfigBackup(
         /** Rule ids a backup may carry: the catalog's and the protected-app rules'. */
         internal fun isRuleId(id: String): Boolean = Catalog.byId(id) != null || id in Catalog.protectedAppRuleIds
 
-        /** Preference keys an import replaces wholesale; protect keys are only ever added. */
+        /**
+         * Preference keys an import replaces wholesale; protect keys are only ever added, and the
+         * device-local suspected-package switches ([TrackerOrigin.isSuspectKey]) are kept.
+         */
         private fun isManagedKey(key: String): Boolean {
+            if (TrackerOrigin.isSuspectKey(key)) return false
             val ruleId = ConfigCodec.ruleIdOf(key)
             return (ruleId != null && isRuleId(ruleId)) || key == AppListConfig.ALLOW_KEY ||
                 key == AppListConfig.SELF_HIDE_KEY || listOf(
