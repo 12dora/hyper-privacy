@@ -131,7 +131,8 @@ public sealed interface RulePayload {
  *   that shares its endpoint with a service (e.g. cloud virus scan uploads app fingerprints):
  *   such a rule describes the side effect here and must ship disabled, unless it is [highRisk].
  * @property highRisk data so sensitive that the rule ships enabled even though [impact] describes a
- *   side effect. The side effect is still shown to the user.
+ *   side effect. The side effect is still shown to the user. A high-risk rule must therefore be
+ *   [defaultOn] and carry an [impact].
  */
 public data class Rule(
     val id: String,
@@ -154,6 +155,9 @@ public data class Rule(
         require(evidence.isNotBlank()) { "Rule $id has no evidence" }
         require(impact == null || !defaultOn || highRisk) {
             "Rule $id affects a service and must ship disabled unless highRisk"
+        }
+        require(!highRisk || (defaultOn && impact != null)) {
+            "Rule $id is highRisk, so it must ship enabled and describe its impact"
         }
     }
 

@@ -109,9 +109,9 @@ internal val personalDataRules: List<Rule> = listOf(
         summary = Text("阻止上传短信与网页链接", "Blocks uploads of SMS and web links"),
         payload = RulePayload.Domains(listOf("url-detect.engine.mi.com")),
         category = Category.PERSONAL_DATA,
-        evidence = "dex: security center anti-fraud POST https://url-detect.engine.mi.com/url/detect with each URL " +
-            "found in SMS/web pages (url, timestamp, c=2, sign) for scam checks; links can carry personal tokens",
-        impact = Text("无法识别诈骗链接", "Scam links won't be flagged"),
+        evidence = "dex: security center cloud link check POST https://url-detect.engine.mi.com/url/detect with " +
+            "each URL found in SMS/web pages (url, timestamp, c=2, sign); links can carry personal tokens",
+        impact = Text("云端链接检测不可用", "Cloud link check unavailable"),
         highRisk = true,
     ),
 )

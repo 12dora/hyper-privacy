@@ -93,6 +93,12 @@ class CatalogTest {
     }
 
     @Test
+    fun `high risk rules describe their impact`() {
+        val offenders = Catalog.rules.filter { it.highRisk && it.impact == null }
+        assertTrue(offenders.isEmpty(), "highRisk rules need an impact: ${offenders.map { it.id }}")
+    }
+
+    @Test
     fun `firewall-only targets are never injected`() {
         val hooked = Catalog.rules.filter { it.kind != RuleKind.FIREWALL }.flatMap { it.packages }.toSet()
         val firewallOnly = Catalog.rules.filter { it.kind == RuleKind.FIREWALL }
