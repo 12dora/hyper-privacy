@@ -5,8 +5,8 @@ Usage: python3 -I scripts/gen-trackers.py [trackers.json]
 
 The JSON is the tracker SDK signature database (schema 1): code prefixes that identify an SDK in
 an app's dex, and the hosts / URL prefixes it reports to. Only what the app needs at runtime is
-kept (names, optional display names, vendor, categories, defaultBlock, prefixes, manifest anchors,
-hosts); evidence
+kept (names, optional display names, vendor, categories, defaultBlock, originBlock, prefixes,
+manifest anchors, hosts); evidence
 and notes stay in the JSON. Output is deterministic: trackers sorted by id, list fields in source order.
 
 The generated file also records SHA-256 digests of the source JSON and of the emitted table, so
@@ -46,7 +46,8 @@ package io.github.hyperprivacy.core.tracker
 /**
  * Raw [Trackers] table, one record per SDK. A record starts with `sdk <id> <defaultBlock 1|0>
  * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
- * display name (zh / en), `v` vendor, and the space-separated, repeatable lists `p` code
+ * display name (zh / en), `v` vendor, optional `o 0` (not blocked by origin unless the user turns
+ * the SDK on; its defaultBlock is then 0), and the space-separated, repeatable lists `p` code
  * prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs (`host/path`) and `k` keep
  * hosts. Unknown tags are ignored by the parser.
  */
@@ -147,9 +148,16 @@ def record(tracker: dict) -> list:
     default_block = tracker.get("defaultBlock", True)
     if not isinstance(default_block, bool):
         fail(f"{tid}: defaultBlock must be a boolean")
+    origin_block = tracker.get("originBlock", True)
+    if not isinstance(origin_block, bool):
+        fail(f"{tid}: originBlock must be a boolean")
+    if "originBlock" in tracker and ("ADS" not in categories or "IDENTIFICATION" in categories):
+        fail(f"{tid}: originBlock applies to ADS entries without IDENTIFICATION only")
     if not tracker.get("evidence"):
         fail(f"{tid}: evidence must not be empty")
-    lines = [f"sdk {tid} {1 if default_block else 0} {','.join(categories)}"]
+    # An SDK kept out of default origin blocking is opt-in as a whole: its switch starts off.
+    default_on = default_block and origin_block
+    lines = [f"sdk {tid} {1 if default_on else 0} {','.join(categories)}"]
     for tag, field in (("n", "name"), ("e", "nameEn"), ("v", "vendor")):
         line = f"{tag} {text(tracker, field)}"
         if len(line) > MAX_LINE:
@@ -161,6 +169,8 @@ def record(tracker: dict) -> list:
             if len(line) > MAX_LINE:
                 fail(f"{tid}: {field} longer than {MAX_LINE - 3} characters")
             lines.append(line)
+    if not origin_block:
+        lines.append("o 0")
     prefixes = strings(tracker, "codePrefixes", PREFIX_PATTERN, required=True)
     lines += wrapped("p", prefixes)
     lines += wrapped("a", anchors(tracker, prefixes))

@@ -1,4 +1,4 @@
-# Tracker SDK database — data contract (v1, + optional `defaultBlock`, `anchors`)
+# Tracker SDK database — data contract (v1, + optional `defaultBlock`, `anchors`, `originBlock`)
 
 Purpose: detect third-party tracking/ad SDKs inside ANY installed APK (offline dex scan) and block their
 network endpoints inside apps the user chooses to protect, without breaking app features.
@@ -24,6 +24,7 @@ network endpoints inside apps the user chooses to protect, without breaking app 
       "blockUrls": [{"host": "x.example.com", "pathPrefix": "/track/"}],   // optional: reporting paths on hosts that also serve features
       "keepHosts": ["..."],                    // optional: hosts the SDK uses for user-visible features that must NEVER be blocked (push delivery, login, payment, maps)
       "defaultBlock": true,                    // optional boolean, default true. false = the entry is detected and listed, but its blockHosts/blockUrls are NOT applied by generic protection; the user must opt in per app
+      "originBlock": true,                     // optional boolean, default true, ADS entries only. false = never blocked by origin by default (offerwall / reward / consent roles); the entry's switch starts off, like defaultBlock false
       "evidence": [
         "doc: https://developer.umeng.com/... (integration package names)",
         "apk: com.example.app classes contain Lcom/umeng/analytics/ (device survey)"
@@ -46,6 +47,7 @@ Rules:
 - Identical hosts may appear in `blockHosts` of sibling entries (e.g. smaato/verve-hybid, tencent-gdt/tencent-ams-ads, sigmob/sigmob-windmill) when each entry must stay self-contained so that detecting either SDK blocks them; this is intentional and harmless. Within one entry, a host already covered by a parent suffix in the same `blockHosts` must not be repeated. Shared telemetry hosts such as `firebaselogging-pa.googleapis.com` are blocked host-wide in every entry that uses them (path-scope only when the host also carries feature traffic).
 - `displayName` / `displayNameEn` (optional strings, each independent): the concise product name shown in list rows. Without one, the app derives it from `name` / `nameEn` by removing parenthesised segments (` (...)`, `（...）`) only. Set it explicitly whenever that is not a clean, recognisable product name: names with ` / ` alternatives (`"OPPO / HeyTap Push"` → `"OPPO Push"`), long descriptive tails, or names wider than a list row (zh ≤ 12 by the copy-width measure: CJK and full-width punctuation 1, others 0.5; en ≤ 28 characters). Never shorten to the bare vendor when the product name says more (not `"Tongdun"` for a Tongdun fingerprint SDK). No leading/trailing separators or unbalanced brackets.
 - Wording (public repo): describe every entry by function and data channel. No text field or id may use the words in `AppsCopyTest.BANNED_WORDS` (core tests check names, vendors and ids); use neutral terms such as risk control, device verification, device security (风控, 设备验证, 设备安全). Cite third-party packages or artifacts whose names do by their parent package.
+- `originBlock` (optional boolean, default `true`; only on `ADS` entries without `IDENTIFICATION`): set `false` on advertising SDKs that also serve user-visible features — offerwalls and earned rewards (Tapjoy, Fyber offerwall), consent dialogs — where blocking by origin would break what the user sees. Such an entry is opt-in as a whole: the generator emits it with `defaultBlock` off (allowed even for detection-only entries), and origin blocking applies only after the user turns its switch on for an app. Note the reason in `notes`.
 - `anchors` (optional list of fully qualified class names): activities, services or providers the SDK declares in its manifest, each under one of the entry's own package prefixes (ending with "."). The scanner reads the app manifest and, when a declared component ends with the part of an anchor after that prefix (e.g. `activity.RewardActivity`) under a different package, treats that package as the SDK relocated there. Use only names seen in the SDK's own published manifest (cite it in `evidence`); prefer distinctive names, never generic ones such as `MainActivity` or `FileProvider`.
 - `version` is hand-maintained: bump it whenever trackers change (it is part of scan cache keys, so a new version triggers rescans).
 - Every tracker needs ≥1 evidence entry; prefer vendor docs + observed dex/traffic. Uncertain hosts go to `notes`, not `blockHosts`.
@@ -54,5 +56,5 @@ Rules:
 
 ## Engine expectations (for reference)
 - Scanner reads dex string table type descriptors `Lcom/umeng/analytics/X;` → dot form → prefix trie match on `codePrefixes`; it also reads the binary manifest: declared components under `codePrefixes` count as detections, and `anchors` map relocated copies of an SDK to the package actually used.
-- ADS entries (without IDENTIFICATION) are additionally blocked by origin in protected apps: network requests and ad pages that originate in the SDK's code are blocked, whatever host they use.
+- ADS entries (without IDENTIFICATION) are additionally blocked by origin in protected apps: network requests and ad pages that originate in the SDK's code are blocked, whatever host they use — except requests to any entry's `keepHosts`, and entries with `"originBlock": false` until the user turns them on.
 - Generic protection for a user-chosen app blocks `blockHosts`/`blockUrls` of categories ADS, ANALYTICS, CRASH, PROFILING, IDENTIFICATION, ATTRIBUTION, LOCATION (per-category toggles in UI); PUSH never blocked. Entries with `"defaultBlock": false` are skipped by generic protection unless the user opts in for that app.
