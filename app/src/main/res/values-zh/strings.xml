@@ -212,4 +212,47 @@
     <plurals name="detail_not_installed">
         <item quantity="other">另有 %1$d 个应用未安装</item>
     </plurals>
+
+    <!-- 应用（第三方应用追踪防护） -->
+    <string name="apps_title">应用</string>
+    <string name="action_apps">应用防护</string>
+    <string name="apps_intro">识别已安装应用中的追踪 SDK，开启防护后拦截其上报。</string>
+    <string name="apps_filter_trackers">含追踪 SDK</string>
+    <string name="apps_scanning">正在检查 %1$d/%2$d</string>
+    <plurals name="apps_sdk_count">
+        <item quantity="other">%1$d 个追踪 SDK</item>
+    </plurals>
+    <string name="apps_no_sdk">未发现追踪 SDK</string>
+    <string name="apps_scan_pending">等待检查</string>
+    <string name="apps_scan_failed">无法读取安装包</string>
+    <string name="apps_protected">已防护</string>
+    <string name="apps_awaiting_scope">待 LSPosed 确认</string>
+    <string name="apps_empty">没有可显示的应用</string>
+    <string name="apps_empty_filtered">未发现含追踪 SDK 的应用</string>
+    <string name="apps_protect_description">为 %1$s 开启追踪防护</string>
+    <string name="app_protection">追踪防护</string>
+    <string name="app_protection_summary">应用重新启动后生效</string>
+    <string name="app_scope_pending">需在 LSPosed 通知中确认</string>
+    <string name="app_scope_retry">重新请求</string>
+    <string name="app_section_privacy">应用列表</string>
+    <string name="app_hide_apps">隐藏已安装应用</string>
+    <string name="app_hide_apps_summary">该应用将看不到你安装的其他应用</string>
+    <string name="app_strict">严格模式</string>
+    <string name="app_strict_summary">常用的分享、登录和支付应用也一并隐藏</string>
+    <string name="app_note_checking">正在检查此应用…</string>
+    <string name="app_note_failed">无法读取此应用的安装包。</string>
+    <string name="app_note_no_sdk">未在此应用中发现追踪 SDK。部分加固应用无法识别；开启防护后，仍会隔离 DRM 设备号并强制使用系统 DNS。</string>
+    <string name="app_note_protection">开启后拦截下列 SDK 的上报，并隔离 DRM 设备号、强制使用系统 DNS。</string>
+    <string name="sdk_detect_only">仅识别，不拦截</string>
+    <string name="sdk_impact_verification">拦截后登录或支付可能需要额外验证</string>
+    <string name="sdk_impact_updates">拦截后应用内更新可能失效</string>
+    <string name="sdk_impact_features">拦截后部分功能可能受影响</string>
+    <string name="tracker_cat_ads">广告</string>
+    <string name="tracker_cat_analytics">统计分析</string>
+    <string name="tracker_cat_crash">崩溃与性能</string>
+    <string name="tracker_cat_identification">设备识别</string>
+    <string name="tracker_cat_profiling">用户画像</string>
+    <string name="tracker_cat_location">位置</string>
+    <string name="tracker_cat_push">推送</string>
+    <string name="tracker_cat_attribution">广告归因</string>
 </resources>
