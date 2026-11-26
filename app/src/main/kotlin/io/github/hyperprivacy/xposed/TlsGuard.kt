@@ -4,6 +4,7 @@ import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
+import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -42,7 +43,10 @@ internal class TlsGuard(private val sinks: SinkContext) {
         val socket = chain.thisObject ?: return Verdict.Proceed
         val getter = hostnameGetter(socket.javaClass) ?: return Verdict.Proceed
         val host = getter.invoke(socket) as? String
-        sinks.checkHost(host) ?: return Verdict.Proceed
+        if (sinks.checkHost(host) == null) {
+            if (host != null) (socket as? Socket)?.inetAddress?.let { sinks.recordPeer(host, it) }
+            return Verdict.Proceed
+        }
         return Verdict.Throw(NetErrors.tlsHandshake(host))
     }
 

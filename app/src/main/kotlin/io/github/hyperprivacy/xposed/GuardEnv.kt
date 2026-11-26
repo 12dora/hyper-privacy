@@ -16,6 +16,8 @@ internal class GuardEnv(
 internal object Sinks {
     const val DNS = "dns"
     const val TLS = "tls"
+    const val CONNECT = "ip"
+    const val URL_JAVA_HOST = "url.java.host"
     const val URL_JAVA = "url.java"
     const val URL_OKHTTP = "url.okhttp"
     const val URL_CRONET = "url.cronet"

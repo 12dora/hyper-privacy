@@ -1,5 +1,7 @@
 package io.github.hyperprivacy.xposed.url
 
+import io.github.hyperprivacy.core.match.UrlParts
+import io.github.hyperprivacy.core.net.IpLiterals
 import io.github.hyperprivacy.xposed.FailOpenHooker
 import io.github.hyperprivacy.xposed.Reflection
 import io.github.hyperprivacy.xposed.SinkContext
@@ -21,7 +23,8 @@ import java.lang.reflect.Modifier
  * `getResponseWithInterceptorChain$okhttp`); when R8 renamed it, by shape: the declared no-arg
  * methods returning the call's `Response` type, minus `execute()` when another one remains (it
  * only forwards to the entry, so hooking both would check every request twice). The request URL
- * is read by [OkHttpUrlReader].
+ * is read by [OkHttpUrlReader]. When the URL host is an IP literal, an explicit `Host` header (manual
+ * HTTPDNS) is checked as the host too.
  */
 internal class OkHttpSink(private val sinks: SinkContext) {
     fun install(): Boolean {
@@ -68,7 +71,13 @@ internal class OkHttpSink(private val sinks: SinkContext) {
         val call = chain.thisObject ?: return Verdict.Proceed
         if (!sinks.urlChecksActive) return Verdict.Proceed
         val url = reader.read(call)
-        sinks.checkUrl(url) ?: return Verdict.Proceed
+        val parts = UrlParts.parse(url) ?: return Verdict.Proceed
+        if (sinks.checkParsed(parts) != null) return Verdict.Throw(sinks.urlFailure(url))
+        // HTTPDNS by hand: IP in the URL, the real name in an explicit Host header.
+        if (!IpLiterals.isIpLiteral(parts.host)) return Verdict.Proceed
+        val host = UrlParts.hostOfHeader(reader.readHostHeader(call)) ?: return Verdict.Proceed
+        if (IpLiterals.isIpLiteral(host)) return Verdict.Proceed
+        sinks.checkParsed(UrlParts(host, parts.path)) ?: return Verdict.Proceed
         return Verdict.Throw(sinks.urlFailure(url))
     }
 

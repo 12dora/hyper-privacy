@@ -35,6 +35,14 @@ internal class Getter private constructor(val type: Class<*>, private val handle
  * `url()`, field `url`, then any no-arg method or field whose type has the shape of an `HttpUrl`.
  */
 internal class OkHttpUrlReader private constructor(private val request: Getter, private val url: Getter) {
+    /** `Request.header("Host")` as an `(Object)Object` handle; `null` when R8 renamed `header(String)`. */
+    private val hostHeader: MethodHandle? = runCatching {
+        val method = request.type.getMethod(HEADER, String::class.java).takeIf { it.returnType == String::class.java }
+        method?.let {
+            MethodHandles.insertArguments(MethodHandles.lookup().unreflect(it), 1, HOST).asType(GENERIC_GETTER)
+        }
+    }.getOrNull()
+
     /** The `Request` class, for recognising the `Response` type of entry methods. */
     val requestType: Class<*> get() = request.type
 
@@ -43,7 +51,17 @@ internal class OkHttpUrlReader private constructor(private val request: Getter, 
         return url.get(req)?.toString()
     }
 
+    /** The request's explicit `Host` header, or `null` (none, or not readable in this build). */
+    fun readHostHeader(call: Any): String? {
+        val handle = hostHeader ?: return null
+        val req = request.get(call) ?: return null
+        return handle.invoke(req) as? String
+    }
+
     companion object {
+        private const val HEADER = "header"
+        private const val HOST = "Host"
+        private val GENERIC_GETTER = MethodType.methodType(Any::class.java, Any::class.java)
         private const val REQUEST = "request"
         private const val ORIGINAL_REQUEST = "originalRequest"
         private const val URL = "url"

@@ -43,6 +43,9 @@ internal object NetErrors {
         return ConnectException(message).apply { initCause(ErrnoException(call, OsConstants.ECONNREFUSED)) }
     }
 
+    /** NIO's native refusal (`sun.nio.ch.Net.connect`), which carries no address. */
+    fun nioConnectRefused(): ConnectException = ConnectException("Connection refused")
+
     /**
      * An HTTP client's failure for a request to [host] blocked at the URL layer: when [hostBlocked]
      * (a DOMAIN rule, so in reality DNS would already have failed) the resolver error, otherwise the

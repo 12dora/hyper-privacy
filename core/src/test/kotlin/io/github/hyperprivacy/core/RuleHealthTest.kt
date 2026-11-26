@@ -271,6 +271,14 @@ class RuleHealthTest {
     }
 
     @Test
+    fun `preventive rules are never idle`() {
+        val preventive = Catalog.byId("httpdns.resolvers")!!
+        assertEquals(true, preventive.preventive)
+        assertEquals(Health.OK, RuleHealth.evaluate(preventive, quiet(window + day), clock))
+        assertEquals(Health.IDLE, RuleHealth.evaluate(preventive.copy(preventive = false), quiet(window + day), clock))
+    }
+
+    @Test
     fun `worst picks the most urgent state`() {
         assertEquals(Health.NOT_INSTALLED, Health.worst(emptyList()))
         assertEquals(Health.OK, Health.worst(listOf(Health.NOT_INSTALLED, Health.NOT_RUN, Health.OK)))
