@@ -2,6 +2,7 @@ package io.github.hyperprivacy.core.config
 
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.system.VendorTrust
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 
 /** Appearance as stored by the app (plain names; the app validates them against its own enums). */
@@ -45,6 +46,8 @@ public data class PrefsPlan(
     val removes: Set<String>,
     /** Apps whose protection could not be restored (not installed here, or not scanned). */
     val skippedProtection: Int,
+    /** Apps whose options were all left out: not a third-party app installed here (see [ConfigBackup.plan]). */
+    val skippedApps: Int = 0,
 )
 
 /** Why a file cannot be imported. */
@@ -91,16 +94,33 @@ public class ConfigBackup(
 
     /**
      * The preference writes that make [current] match this backup. [detected] gives the SDK ids of
-     * a protected app's scan (`null`: not installed or not scanned, so protection is skipped and
-     * counted).
+     * a protected app's scan (`null`: not scanned, so protection is skipped and counted).
+     *
+     * Per-app options (protection, SDK and rule choices, app-list hiding) are only ever written for
+     * packages the Apps page can show: [isConfigurable] must hold, and [installedUserApp] must
+     * confirm, on this device, that the package is a third-party app installed here. Every other
+     * app in the file (system apps, the launcher, installers, module managers, this module) is
+     * skipped whole and counted in [PrefsPlan.skippedApps]. system_server applies the same rule
+     * again on its side ([io.github.hyperprivacy.core.system.AppListPolicy.resolve]).
      */
-    public fun plan(current: Map<String, *>, detected: (String) -> Set<String>?): PrefsPlan {
+    public fun plan(
+        current: Map<String, *>,
+        selfPackage: String,
+        installedUserApp: (String) -> Boolean,
+        detected: (String) -> Set<String>?,
+    ): PrefsPlan {
         val puts = LinkedHashMap<String, Any>()
         rules.forEach { (id, on) -> puts[ConfigCodec.key(id)] = on }
         appList.hideSelf?.let { puts[AppListConfig.SELF_HIDE_KEY] = it }
         appList.allow?.let { puts[AppListConfig.ALLOW_KEY] = AppListConfig.encodeAllowlist(it) }
         var skipped = 0
+        var skippedApps = 0
         apps.forEach { (pkg, app) ->
+            if (app.isEmpty) return@forEach
+            if (!isConfigurable(pkg, selfPackage) || !installedUserApp(pkg)) {
+                skippedApps++
+                return@forEach
+            }
             if (app.hide) puts[AppListConfig.hideKey(pkg)] = true
             if (app.strict) puts[AppListConfig.strictKey(pkg)] = true
             (app.sdk + app.rules).forEach { (id, on) -> puts[TrackerProtection.blockKey(pkg, id)] = on }
@@ -111,20 +131,60 @@ public class ConfigBackup(
         }
         val removes = current.keys.filterTo(LinkedHashSet(), ::isManagedKey)
         removes.removeAll(puts.keys)
-        return PrefsPlan(puts, removes, skipped)
+        return PrefsPlan(puts, removes, skipped, skippedApps)
     }
 
     public companion object {
         public const val FORMAT: String = "hyperprivacy-config"
         public const val SCHEMA: Int = 1
 
-        /** Rule ids a backup may carry: the catalog's and the protected-app rules'. */
-        internal fun isRuleId(id: String): Boolean = Catalog.byId(id) != null || id in Catalog.protectedAppRuleIds
+        /**
+         * Rule ids a backup may carry at the top level: the catalog's, each of which has a switch.
+         * Protected-app rules only exist per app (`apps.<pkg>.rules`); a global key for them has
+         * no switch, so it is neither exported nor imported.
+         */
+        internal fun isRuleId(id: String): Boolean = Catalog.byId(id) != null
 
-        /** Preference keys an import replaces wholesale; protect keys are only ever added. */
+        /**
+         * Packages that never get per-app options, whatever a file says: this module, the catalog's
+         * targets, module managers, the vendor's own namespaces and the platform's installer,
+         * permission and shell packages. The device check in [plan] catches the rest (every other
+         * system app, the default launcher).
+         */
+        public fun isConfigurable(packageName: String, selfPackage: String): Boolean =
+            BackupExtractor.isPackageName(packageName) &&
+                packageName != selfPackage &&
+                packageName !in Catalog.allPackages &&
+                packageName !in AppListConfig.MODULE_MANAGERS &&
+                packageName !in PLATFORM_PACKAGES &&
+                !VendorTrust.isVendorNamespace(packageName)
+
+        private val PLATFORM_PACKAGES = setOf(
+            VendorTrust.PLATFORM_PACKAGE,
+            "com.android.shell",
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.android.systemui",
+            "com.android.settings",
+        )
+
+        /**
+         * Keys "Restore defaults" removes: every key an import writes or replaces ([isManagedKey]).
+         * Protection itself stays: turning it off also leaves the LSPosed scope behind, which the
+         * user does on the Apps page.
+         */
+        public fun resetKeys(current: Map<String, *>): Set<String> = current.keys.filterTo(LinkedHashSet(), ::isManagedKey)
+
+        /**
+         * Preference keys an import replaces wholesale; protect keys are only ever added. Global
+         * keys of protected-app rules (written by older versions, no switch) are removed too.
+         */
         private fun isManagedKey(key: String): Boolean {
             val ruleId = ConfigCodec.ruleIdOf(key)
-            return (ruleId != null && isRuleId(ruleId)) || key == AppListConfig.ALLOW_KEY ||
+            val isRuleKey = ruleId != null && (isRuleId(ruleId) || ruleId in Catalog.protectedAppRuleIds)
+            return isRuleKey || key == AppListConfig.ALLOW_KEY ||
                 key == AppListConfig.SELF_HIDE_KEY || listOf(
                     TrackerProtection.BLOCK_PREFIX,
                     AppListConfig.HIDE_PREFIX,

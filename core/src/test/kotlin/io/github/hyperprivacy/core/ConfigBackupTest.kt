@@ -153,11 +153,14 @@ class ConfigBackupTest {
                        "com.missing.app":{"protect":true}}}""",
         )
         val current = raw + (TrackerProtection.blockKey("com.stale.app", sdkId) to false)
-        val plan = backup.plan(current) { pkg -> setOf(sdkId).takeIf { pkg == "com.example.app" } }
+        val plan = backup.plan(current, SELF, installedUserApp = { it == "com.example.app" }) { pkg ->
+            setOf(sdkId).takeIf { pkg == "com.example.app" }
+        }
         assertEquals(true, plan.puts[ConfigCodec.key(ruleId)])
         assertEquals(true, plan.puts[AppListConfig.hideKey("com.example.app")])
         assertEquals(true, plan.puts[TrackerProtection.blockKey("com.example.app", sdkId)])
-        assertEquals(1, plan.skippedProtection)
+        assertEquals(0, plan.skippedProtection)
+        assertEquals(1, plan.skippedApps, "not installed here")
         // Replaced: the other rule switch, stale per-app choices and the app-list settings not in the file.
         assertTrue(ConfigCodec.key(otherRuleId) in plan.removes)
         assertTrue(TrackerProtection.blockKey("com.stale.app", sdkId) in plan.removes)
@@ -177,9 +180,89 @@ class ConfigBackupTest {
     @Test
     fun `plan restores protection with the scan of this device`() {
         val backup = import("""{"format":"hyperprivacy-config","schema":1,"apps":{"com.new.app":{"protect":true}}}""")
-        val plan = backup.plan(emptyMap<String, Any>()) { setOf(sdkId, "other.sdk") }
+        val plan = backup.plan(emptyMap<String, Any>(), SELF, { true }) { setOf(sdkId, "other.sdk") }
         val expected = TrackerProtection.encodeDetected(setOf(sdkId, "other.sdk"))
         assertEquals(expected, plan.puts[TrackerProtection.protectKey("com.new.app")])
         assertEquals(0, plan.skippedProtection)
+    }
+
+    @Test
+    fun `scan failures of installed apps are counted apart`() {
+        val backup = import("""{"format":"hyperprivacy-config","schema":1,"apps":{"com.new.app":{"protect":true}}}""")
+        val plan = backup.plan(emptyMap<String, Any>(), SELF, { true }) { null }
+        assertEquals(1, plan.skippedProtection)
+        assertEquals(0, plan.skippedApps)
+    }
+
+    @Test
+    fun `import never configures system apps, managers or this module`() {
+        val never = listOf(
+            "com.miui.home",
+            "com.miui.packageinstaller",
+            "com.android.permissioncontroller",
+            "com.google.android.packageinstaller",
+            "org.lsposed.manager",
+            "io.github.lsposed.manager",
+            SELF,
+            Catalog.hookedPackages.first(),
+        )
+        val apps = (never + "com.example.app").joinToString(",") { """"$it":{"hide":true,"strict":true,"protect":true}""" }
+        val backup = import("""{"format":"hyperprivacy-config","schema":1,"apps":{$apps}}""")
+        // The device check says every one of them is an installed user app: the static list still wins.
+        val plan = backup.plan(emptyMap<String, Any>(), SELF, { true }) { setOf(sdkId) }
+        never.forEach { pkg ->
+            assertFalse(plan.puts.keys.any { pkg in it }, pkg)
+            assertFalse(ConfigBackup.isConfigurable(pkg, SELF), pkg)
+        }
+        assertEquals(never.size, plan.skippedApps)
+        assertEquals(true, plan.puts[AppListConfig.hideKey("com.example.app")])
+        // A launcher or other system app outside the static list: the live device check decides.
+        val launcher = import("""{"format":"hyperprivacy-config","schema":1,"apps":{"com.vendor.launcher":{"hide":true}}}""")
+        val refused = launcher.plan(emptyMap<String, Any>(), SELF, { it != "com.vendor.launcher" }) { null }
+        assertTrue(refused.puts.isEmpty())
+        assertEquals(1, refused.skippedApps)
+    }
+
+    @Test
+    fun `global keys of protected-app rules are neither imported nor kept`() {
+        val backup = import("""{"format":"hyperprivacy-config","schema":1,"rules":{"$appRuleId":false,"$ruleId":true}}""")
+        assertEquals(mapOf(ruleId to true), backup.rules)
+        assertEquals(1, backup.ignored)
+        val legacy = mapOf(ConfigCodec.key(appRuleId) to false)
+        assertTrue(ConfigCodec.key(appRuleId) in backup.plan(legacy, SELF, { true }) { null }.removes)
+        assertFalse(appRuleId in ConfigBackup.encode(ConfigBackup.of(legacy, look), "1"))
+    }
+
+    @Test
+    fun `restore defaults clears every key an import can write`() {
+        val backup = import(export())
+        val written = backup.plan(emptyMap<String, Any>(), SELF, { true }) { setOf(sdkId) }.puts.keys
+        val current = raw + written.associateWith { true } + (ConfigCodec.key(appRuleId) to true)
+        val reset = ConfigBackup.resetKeys(current)
+        written.filterNot { it.startsWith(TrackerProtection.PROTECT_PREFIX) }.forEach { assertTrue(it in reset, it) }
+        assertTrue(ConfigCodec.key(appRuleId) in reset)
+        listOf(ModuleSecret.KEY, ProtectionPause.KEY, TrackerProtection.protectKey("com.example.app"), "status.something")
+            .forEach { assertFalse(it in reset, it) }
+    }
+
+    @Test
+    fun `package names and entry counts are capped`() {
+        val long = "com." + "a".repeat(300)
+        val many = (0 until 600).joinToString(",") { """"com.example.a$it":{"hide":true}""" }
+        val backup = import("""{"format":"hyperprivacy-config","schema":1,"apps":{"$long":{"hide":true},$many}}""")
+        assertFalse(long in backup.apps)
+        assertEquals(500, backup.apps.size)
+        assertEquals(101, backup.ignored)
+        val sdk = (0 until 5_000).joinToString(",") { """"s$it":true""" }
+        val rules = Catalog.rules.joinToString(",") { """"${it.id}":true""" }
+        val wide = import(
+            """{"format":"hyperprivacy-config","schema":1,"rules":{$rules},"apps":{"com.example.app":{"sdk":{$sdk}}}}""",
+        )
+        assertEquals(Catalog.rules.size, wide.rules.size)
+        assertTrue(wide.ignored >= 5_000 - 4_000)
+    }
+
+    private companion object {
+        const val SELF = "io.github.hyperprivacy"
     }
 }

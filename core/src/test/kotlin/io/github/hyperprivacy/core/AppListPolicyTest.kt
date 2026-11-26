@@ -167,14 +167,29 @@ class AppListPolicyTest {
     }
 
     @Test
-    fun `an exempt caller keeps seeing the module even when restricted`() {
+    fun `system, exempt and module callers can never be restricted`() {
         val config = AppListConfig.decode(
-            mapOf(AppListConfig.hideKey(LAUNCHER) to true, AppListConfig.hideKey(PROBER) to true),
+            listOf(LAUNCHER, PROBER, VENDOR, SHARED_USER, MODULE, MANAGER, "android")
+                .flatMap { listOf(AppListConfig.hideKey(it) to true, AppListConfig.strictKey(it) to true) }
+                .toMap(),
         )
         val p = AppListPolicy.resolve(config, index, MODULE, setOf(LAUNCHER))
         assertFalse(p.shouldHide(id(LAUNCHER), id(MODULE)), "exempt")
-        assertTrue(p.shouldHide(id(LAUNCHER), id(BANK)), "still restricted for other apps")
+        assertFalse(p.shouldHide(id(LAUNCHER), id(BANK)), "the default home app is never restricted")
+        assertFalse(p.isRestricted(id(VENDOR)), "system app")
+        assertFalse(p.isRestricted(id(SHARED_USER)), "uid shared with a system app")
+        assertFalse(p.isRestricted(id(MODULE)), "this module")
+        assertFalse(p.isRestricted(id(MANAGER)), "module manager")
+        assertFalse(p.shouldHide(id(MODULE), id(BANK)))
+        assertFalse(p.shouldHide(id(MANAGER), id(BANK)))
         assertTrue(p.shouldHide(id(PROBER), id(MODULE)), "restricted and not exempt")
+        assertTrue(p.shouldHide(id(PROBER), id(BANK)))
+        val selfOff = AppListPolicy.resolve(
+            AppListConfig.decode(mapOf(AppListConfig.hideKey(MODULE) to true, AppListConfig.SELF_HIDE_KEY to false)),
+            index,
+            MODULE,
+        )
+        assertTrue(selfOff.isInactive, "the module stays unrestricted with self-hiding off too")
     }
 
     @Test
