@@ -70,6 +70,10 @@ internal class ScopeSync(
     private var missing: List<String> = emptyList()
     private var pending: Request? = null
 
+    /** Whether the LSPosed scope covers system_server; `null` while unknown (no service, binder error). */
+    var systemInScope: Boolean? = null
+        private set
+
     val ui: ScopeUi
         get() = ScopeUi(
             missingApps = missing.count { it != Catalog.SYSTEM_SCOPE },
@@ -102,6 +106,7 @@ internal class ScopeSync(
         val apps = installed()
         val granted = service()?.let { runCatching { it.scope }.getOrNull() }
         missing = if (apps == null || granted == null) emptyList() else DeviceCoverage.missingScope(apps, granted)
+        systemInScope = if (apps == null || granted == null) null else Catalog.SYSTEM_SCOPE !in missing
     }
 
     private fun requestNow() {

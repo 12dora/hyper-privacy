@@ -61,6 +61,7 @@ internal fun SettingsScreen(
     onBack: () -> Unit,
     onOpenHealth: () -> Unit,
     onExport: () -> Unit,
+    backup: BackupActions,
     onDiagnosticChange: (Boolean) -> Unit,
     onSelfHideChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
@@ -85,6 +86,7 @@ internal fun SettingsScreen(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             appearanceSection(appearance, onAppearanceChange)
             stealthSection(state, onSelfHideChange)
+            backupSection(state.module.canEdit, backup)
             diagnosticsSection(state, onOpenHealth, onExport, onDiagnosticChange)
             endpointsSection(state, onClearObserved)
             dataSection(state.module.canEdit) { confirmReset = true }
@@ -128,6 +130,29 @@ private fun LazyListScope.stealthSection(state: UiState, onSelfHideChange: (Bool
                 checked = state.selfHidden,
                 enabled = state.module.canEdit,
                 onCheckedChange = onSelfHideChange,
+            )
+        }
+    }
+}
+
+private enum class BackupRow { EXPORT, IMPORT }
+
+private fun LazyListScope.backupSection(canEdit: Boolean, backup: BackupActions) {
+    item(key = "backup-title") { SectionHeader(stringResource(R.string.settings_backup)) }
+    groupedItems(BackupRow.entries, key = { "backup/$it" }) { row ->
+        when (row) {
+            BackupRow.EXPORT -> NavRow(
+                title = stringResource(R.string.backup_export),
+                summary = stringResource(R.string.backup_export_summary),
+                onClick = { if (canEdit) backup.onExport() },
+                modifier = Modifier.alpha(if (canEdit) 1f else DISABLED_ALPHA),
+            )
+
+            BackupRow.IMPORT -> NavRow(
+                title = stringResource(R.string.backup_import),
+                summary = stringResource(R.string.backup_import_summary),
+                onClick = { if (canEdit) backup.onImport() },
+                modifier = Modifier.alpha(if (canEdit) 1f else DISABLED_ALPHA),
             )
         }
     }
@@ -221,5 +246,20 @@ private fun ResetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsPreview() {
-    HyperPrivacyTheme { SettingsScreen(sampleState(), Appearance(), {}, {}, {}, {}, {}, {}, {}, {}, {}) }
+    HyperPrivacyTheme {
+        SettingsScreen(
+            state = sampleState(),
+            appearance = Appearance(),
+            onAppearanceChange = {},
+            onBack = {},
+            onOpenHealth = {},
+            onExport = {},
+            backup = BackupActions({}, {}),
+            onDiagnosticChange = {},
+            onSelfHideChange = {},
+            onResetDefaults = {},
+            onRefreshObserved = {},
+            onClearObserved = {},
+        )
+    }
 }

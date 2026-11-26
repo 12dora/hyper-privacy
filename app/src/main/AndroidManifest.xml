@@ -3,7 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- The Apps page lists and scans user-installed apps: launcher apps are visible without
-         QUERY_ALL_PACKAGES. Catalog targets come from the generated <queries> manifest. -->
+         QUERY_ALL_PACKAGES. Catalog targets, the well-known overlapping modules and the module
+         settings intent come from the generated <queries> manifest (the Home overlap hint). -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
