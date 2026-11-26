@@ -342,7 +342,11 @@ internal val XIAOMI_ANALYTICS_APPS: Set<String> = setOf(
     "com.xiaomi.market",
 )
 
-/** OneTrack apps that do not ship the `OneTrack` class, so the method hook has nothing to patch there. */
+/**
+ * OneTrack apps whose `OneTrack` class is absent or stripped of `track*` methods (verified on device and
+ * in dex class_defs), so the method hook has nothing to patch there. Their uploads are still covered by
+ * the OneTrack domain rule.
+ */
 internal val ONETRACK_WITHOUT_SDK_APPS: Set<String> = setOf(
     "com.android.updater",
     "com.mi.car.mobile",
@@ -355,6 +359,7 @@ internal val ONETRACK_WITHOUT_SDK_APPS: Set<String> = setOf(
     "com.miui.uireporter",
     "com.xiaomi.aiservice",
     "com.xiaomi.bluetooth",
+    "com.xiaomi.hypercomm",
     "com.xiaomi.metoknlp",
     "com.xiaomi.mis",
     "com.xiaomi.phone",
