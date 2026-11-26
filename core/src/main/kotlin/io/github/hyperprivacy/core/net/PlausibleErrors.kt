@@ -66,15 +66,44 @@ public object PlausibleErrors {
     public fun plausibleSslPointer(random: Long): Long = HEAP_TAG or (random and HEAP_OFFSET_MASK)
 
     /**
-     * libcore `IoBridge.connect` when the peer refuses: [address] is `InetAddress.toString()`
-     * (`host/ip` or `/ip`). With a timeout libcore polls and the failing call is `isConnected`;
-     * without one it is `connect` itself.
+     * libcore `IoBridge.createMessageForException` for a refused connect: [address] and [local] are
+     * `InetAddress.toString()` (`host/ip` or `/ip`). The ` from <local> (port <n>)` clause is present
+     * whenever `getsockname` on the socket succeeds, i.e. practically always; pass `null` only when
+     * the local address cannot be determined. With a timeout libcore polls and the failing call is
+     * `isConnected`; without one it is `connect` itself.
      */
-    public fun connectRefusedMessage(address: String, port: Int, timeoutMs: Int): String = if (timeoutMs > 0) {
-        "failed to connect to $address (port $port) after ${timeoutMs}ms: isConnected failed: $CONNECTION_REFUSED"
-    } else {
-        "failed to connect to $address (port $port): connect failed: $CONNECTION_REFUSED"
+    public fun connectRefusedMessage(
+        address: String,
+        port: Int,
+        timeoutMs: Int,
+        local: String? = null,
+        localPort: Int = 0,
+    ): String = buildString {
+        append("failed to connect to ").append(address).append(" (port ").append(port).append(')')
+        if (local != null) append(" from ").append(local).append(" (port ").append(localPort).append(')')
+        if (timeoutMs > 0) append(" after ").append(timeoutMs).append("ms")
+        append(": ").append(if (timeoutMs > 0) "isConnected" else "connect").append(" failed: ")
+        append(CONNECTION_REFUSED)
     }
+
+    /** First and last port of Linux's default `ip_local_port_range`, where connect picks the source port. */
+    public const val FIRST_EPHEMERAL_PORT: Int = 32_768
+    public const val LAST_EPHEMERAL_PORT: Int = 60_999
+
+    /** An ephemeral source port derived from [random], as the kernel would pick for an unbound socket. */
+    public fun ephemeralPort(random: Int): Int =
+        FIRST_EPHEMERAL_PORT + Math.floorMod(random, LAST_EPHEMERAL_PORT - FIRST_EPHEMERAL_PORT + 1)
+
+    /**
+     * A line number for a stack frame of [className]#[methodName] when no genuine frame is at hand:
+     * stable per method (a real frame always shows the same line) and in the range real platform
+     * source files use. Never `-1` / absent, which genuine Java frames never show.
+     */
+    public fun plausibleLine(className: String, methodName: String): Int =
+        FIRST_PLAUSIBLE_LINE + Math.floorMod("$className#$methodName".hashCode(), PLAUSIBLE_LINE_SPAN)
+
+    private const val FIRST_PLAUSIBLE_LINE = 60
+    private const val PLAUSIBLE_LINE_SPAN = 840
 
     /**
      * An HTTP client's failure for a request to an otherwise reachable [host] (path-level block):

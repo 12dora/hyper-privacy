@@ -12,9 +12,10 @@ internal sealed interface Verdict {
 
     /**
      * Deliberately surface [error] to the caller, e.g. a blocked DNS lookup. Its stack trace is
-     * rewritten by [StackScrub] so it reads as thrown by the hooked method itself.
+     * rewritten by [StackScrub] so it reads as thrown by the hooked method itself, under [top] when
+     * the sink has genuine platform frames for this failure.
      */
-    data class Throw(val error: Throwable) : Verdict
+    class Throw(val error: Throwable, val top: TopFrames? = null) : Verdict
 
     /** Run the original with [args] substituted, e.g. a request URL rewritten to a black hole. */
     class ProceedWith(val args: Array<Any?>) : Verdict
@@ -43,7 +44,7 @@ internal class FailOpenHooker(
         return when (verdict) {
             Verdict.Proceed -> chain.proceed()
             is Verdict.Return -> verdict.value
-            is Verdict.Throw -> throw StackScrub.scrub(verdict.error, chain.executable)
+            is Verdict.Throw -> throw StackScrub.scrub(verdict.error, chain.executable, verdict.top)
             is Verdict.ProceedWith -> chain.proceed(verdict.args)
         }
     }
