@@ -21,5 +21,6 @@ internal object Sinks {
     const val URL_CRONET = "url.cronet"
     const val URL_TURBONET = "url.turbonet"
     const val URL_HTTP_ENGINE = "url.httpengine"
+    const val URL_WEBVIEW = "url.webview"
     const val MIUI_ID_PROVIDER = "id.miui"
 }
