@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextOverflow
 
 /** The large, collapsing title bar of a bottom-bar destination; it has no back button. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -18,7 +19,7 @@ internal fun TabTopBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     LargeTopAppBar(
-        title = { Text(title) },
+        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.background,

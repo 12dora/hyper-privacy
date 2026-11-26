@@ -48,14 +48,19 @@ private val KeysSaver = Saver<List<String>?, ArrayList<String>>(
     restore = { it },
 )
 
-/** The System tab: grouping, unfolded categories and scroll. */
+/** The System tab: grouping, unfolded categories, the search text and scroll. */
 @Stable
 internal class SystemMemory(
     view: MutableState<SystemView>,
     expanded: MutableState<List<String>?>,
+    query: MutableState<String>,
     val scroll: TabScroll,
 ) {
     var view by view
+
+    // The text typed in the search opened from this tab; it outlives the search page (a result
+    // pushes a deeper page over it) and is cleared when the search is left by going back.
+    var query by query
 
     // Null until the first state arrives, then defaulted by catalog size; afterwards the user's choice.
     var expanded by expanded
@@ -70,6 +75,7 @@ internal class SystemMemory(
 internal fun rememberSystemMemory(): SystemMemory {
     val view = rememberSaveable { mutableStateOf(SystemView.CATEGORY) }
     val expanded = rememberSaveable(stateSaver = KeysSaver) { mutableStateOf<List<String>?>(null) }
+    val query = rememberSaveable { mutableStateOf("") }
     val scroll = rememberTabScroll()
-    return remember(view, expanded, scroll) { SystemMemory(view, expanded, scroll) }
+    return remember(view, expanded, query, scroll) { SystemMemory(view, expanded, query, scroll) }
 }

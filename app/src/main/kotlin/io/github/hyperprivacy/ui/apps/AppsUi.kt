@@ -55,6 +55,9 @@ internal data class UserAppUi(
 ) {
     val sdkCount: Int get() = sdks.size
 
+    /** Everything blocked in this app: SDKs, app-level protections and suspected ad packages. */
+    val hits: Long get() = sdks.sumOf { it.hits } + appRules.sumOf { it.hits } + suspectHits
+
     /** Every detected SDK can only be detected, not blocked. */
     val detectionOnly: Boolean get() = sdks.isNotEmpty() && sdks.none { it.blockable }
 
@@ -71,20 +74,24 @@ internal data class AppsUi(
 ) {
     val scanning: Boolean get() = scanned < total
 
+    /** What the protected apps have blocked so far (only apps listed so far count). */
+    val protectedHits: Long get() = apps.sumOf { if (it.protected) it.hits else 0L }
+
     fun app(packageName: String): UserAppUi? = apps.firstOrNull { it.packageName == packageName }
 }
 
 /** The search of the Apps page: whether the search bar is open, and what is typed in it. */
 @Immutable
 internal data class AppsSearch(val active: Boolean = false, val query: String = "") {
-    private val needle: String get() = query.trim().lowercase()
+    private val needle: String = query.trim()
 
     /** Whether the typed text narrows the list. */
-    val filtering: Boolean get() = active && needle.isNotEmpty()
+    val filtering: Boolean = active && needle.isNotEmpty()
 
     /** True when [app]'s label or package name contains the typed text (case-insensitive). */
-    fun matches(app: UserAppUi): Boolean =
-        !filtering || app.label.lowercase().contains(needle) || app.packageName.lowercase().contains(needle)
+    fun matches(app: UserAppUi): Boolean = !filtering ||
+        app.label.contains(needle, ignoreCase = true) ||
+        app.packageName.contains(needle, ignoreCase = true)
 }
 
 /** Callbacks of the Apps page. */

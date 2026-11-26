@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,12 @@ private const val EXPANDED_ROTATION = 180f
 
 /** A bulk switch the user asked for and has yet to confirm. */
 internal data class BulkToggle(val category: Category, val enable: Boolean)
+
+/** Keeps a pending bulk request across rotation; `null` (no request) is simply not saved. */
+internal val BulkToggleSaver = Saver<BulkToggle?, List<Any>>(
+    save = { request -> request?.let { listOf(it.category.name, it.enable) } },
+    restore = { saved -> BulkToggle(Category.valueOf(saved[0] as String), saved[1] as Boolean) },
+)
 
 /**
  * The first row of a category card: icon, name, "3/4 on", and a chevron. The whole row folds the

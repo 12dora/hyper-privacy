@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -46,7 +47,7 @@ private fun UiState.endpoints(): List<ObservedEndpointUi> = observed.distinctBy 
 /** The endpoints row's summary in Settings: how many were recorded, or how to start recording. */
 @Composable
 internal fun endpointsSummary(state: UiState): String {
-    val count = state.endpoints().size
+    val count = remember(state.observed) { state.endpoints() }.size
     return when {
         count > 0 -> pluralStringResource(R.plurals.settings_endpoints_count, count, count)
         state.diagnosticMode -> stringResource(R.string.settings_endpoints_empty)
@@ -65,7 +66,7 @@ internal fun EndpointsScreen(
     modifier: Modifier = Modifier,
 ) {
     ObservedRefresh(polling = state.diagnosticMode, onRefresh = onRefresh)
-    val endpoints = state.endpoints()
+    val endpoints = remember(state.observed) { state.endpoints() }
     Scaffold(
         modifier = modifier,
         topBar = {
