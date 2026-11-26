@@ -13,9 +13,23 @@ public object ConfigCodec {
     /** Remote preferences group holding the switches. */
     public const val PREFS_GROUP: String = "rules"
 
+    /**
+     * Global diagnostics ("observe") switch, Boolean, default [OBSERVE_DEFAULT]. When on, hooked
+     * processes record the endpoints their network sinks see and ship them with status reports.
+     * Stored in the same [PREFS_GROUP] so hooked processes get live updates.
+     */
+    public const val OBSERVE_KEY: String = "diag.observe"
+    public const val OBSERVE_DEFAULT: Boolean = false
+
     private const val KEY_PREFIX = "rule."
 
     public fun key(ruleId: String): String = KEY_PREFIX + ruleId
+
+    /** Effective observe switch under [raw] preferences. */
+    public fun isObserveEnabled(raw: Map<String, *>): Boolean = raw[OBSERVE_KEY] as? Boolean ?: OBSERVE_DEFAULT
+
+    /** Whether a change of preference [key] can affect hooks (`null` means "everything changed"). */
+    public fun affectsHooks(key: String?): Boolean = key == null || key == OBSERVE_KEY || ruleIdOf(key) != null
 
     /** Inverse of [key]; `null` for keys not owned by this codec. */
     public fun ruleIdOf(key: String?): String? = key?.takeIf { it.startsWith(KEY_PREFIX) }?.removePrefix(KEY_PREFIX)

@@ -11,15 +11,18 @@ import android.util.Log
 import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.RuleKind
+import io.github.hyperprivacy.core.status.EndpointRecorder
+import io.github.hyperprivacy.core.status.ObservedCodec
 import io.github.hyperprivacy.core.status.RuleReport
+import io.github.hyperprivacy.core.status.SinkCodec
 import io.github.hyperprivacy.core.status.StatusCodec
 
 /**
- * Receives status batches from hooked processes via [call].
+ * Receives status batches from hooked processes via [call] (see [StatusContract]).
  *
  * The provider is exported, so every call is authenticated by Binder uid: the caller must be
  * system_server (reporting FIREWALL rules) or run as a package in the module scope, and may only
- * report rules that target its own package. Everything else is dropped.
+ * report rules, sinks and observed endpoints of its own package. Everything else is dropped.
  */
 class StatusProvider : ContentProvider() {
     private val store by lazy { StatusStore(requireNotNull(context)) }
@@ -35,9 +38,16 @@ class StatusProvider : ContentProvider() {
             Log.w(TAG, "Rejected status report from uid $uid")
             return null
         }
-        val accepted = StatusCodec.decode(extras?.getString(StatusContract.KEY_PAYLOAD))
+        val reports = StatusCodec.decode(extras?.getString(StatusContract.KEY_PAYLOAD))
             .filter { it.isAuthorized(callerPackages, isSystemServer) }
-        store.merge(accepted)
+        val sinks = SinkCodec.decode(extras?.getString(StatusContract.KEY_SINKS))
+            .filter { it.packageName in callerPackages }
+        val observed = ObservedCodec.decode(extras?.getString(StatusContract.KEY_OBSERVED))
+            .filter { it.packageName in callerPackages }
+            .take(MAX_OBSERVED_PER_CALL)
+        store.merge(reports)
+        store.mergeSinks(sinks)
+        store.mergeObserved(observed)
         return Bundle.EMPTY
     }
 
@@ -71,5 +81,8 @@ class StatusProvider : ContentProvider() {
 
     private companion object {
         const val TAG = "StatusProvider"
+
+        /** The per-process recorder bound; anything beyond it is not from our reporter. */
+        const val MAX_OBSERVED_PER_CALL = EndpointRecorder.DEFAULT_MAX_ENTRIES
     }
 }

@@ -28,7 +28,7 @@ internal class FirewallEnforcer(
     private val switches: RuleSwitches,
     private val reporter: StatusReporter,
 ) {
-    private val rules: List<Rule> = Catalog.rules.filter { it.kind == RuleKind.FIREWALL }
+    private val rules: List<Rule> get() = RULES
     private val targets: Set<String> = rules.flatMapTo(HashSet()) { it.packages }
     private val applied = HashSet<Int>()
     private var chainEnabled = false
@@ -93,5 +93,10 @@ internal class FirewallEnforcer(
         val refusal = UidPolicy.refusal(uid, sharing) ?: return uid
         log.warn("${rule.id}: refusing to firewall $pkg (uid $uid, $sharing package(s)): $refusal")
         return null
+    }
+
+    companion object {
+        /** The FIREWALL rules of the catalog: the only ones system_server enforces. */
+        val RULES: List<Rule> by lazy { Catalog.rules.filter { it.kind == RuleKind.FIREWALL } }
     }
 }
