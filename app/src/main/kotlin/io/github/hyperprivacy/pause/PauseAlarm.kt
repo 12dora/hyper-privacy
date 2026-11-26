@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.pause
 
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -52,7 +53,12 @@ internal object PauseAlarm {
         val operation = operation(app)
         runCatching {
             if (at > 0) {
-                alarms.setWindow(AlarmManager.RTC_WAKEUP, at, WINDOW_MS, operation)
+                // A user-set resume time is a timer: exact when allowed, else Android may widen the window.
+                if (alarms.canScheduleExactAlarms()) {
+                    setExact(alarms, at, operation)
+                } else {
+                    alarms.setWindow(AlarmManager.RTC_WAKEUP, at, WINDOW_MS, operation)
+                }
             } else {
                 alarms.cancel(operation)
             }
@@ -60,6 +66,11 @@ internal object PauseAlarm {
             armedFor = at
         }
     }
+
+    // Only called after canScheduleExactAlarms(); USE_EXACT_ALARM grants it, which lint does not model.
+    @SuppressLint("MissingPermission")
+    private fun setExact(alarms: AlarmManager, at: Long, operation: PendingIntent) =
+        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, operation)
 
     private fun operation(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context,
