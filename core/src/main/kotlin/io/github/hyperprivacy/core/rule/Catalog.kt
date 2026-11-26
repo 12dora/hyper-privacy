@@ -1,64 +1,29 @@
 package io.github.hyperprivacy.core.rule
 
+import io.github.hyperprivacy.core.rule.catalog.adRules
+import io.github.hyperprivacy.core.rule.catalog.analyticsRules
+import io.github.hyperprivacy.core.rule.catalog.appListRules
+import io.github.hyperprivacy.core.rule.catalog.deviceIdRules
+import io.github.hyperprivacy.core.rule.catalog.diagnosticsRules
+import io.github.hyperprivacy.core.rule.catalog.personalDataRules
+
 /**
- * The built-in rule set. Adding a rule is a data-only change: append an entry to [rules].
+ * The built-in rule set. Adding a rule is a data-only change: append an entry to the list of its
+ * category in the `catalog` package (shared target-package sets live in `PackageSets`).
  *
  * Scope policy: only privacy reporting channels. A rule must never affect a vendor service
  * (app store, security scan, push, cloud sync, find device, weather, updates …).
  *
  * Invariants (enforced by tests): ids are unique, every rule cites evidence, DOMAIN rules name
  * specific telemetry hosts rather than vendor apexes, and FIREWALL targets own a dedicated uid.
- *
- * The entries below are placeholders until the device survey supplies the real catalog.
  */
 public object Catalog {
     /** LSPosed's virtual scope name for system_server. */
     public const val SYSTEM_SCOPE: String = "system"
 
-    private const val MARKET = "com.xiaomi.market"
-    private const val THEMES = "com.android.thememanager"
-
-    public val rules: List<Rule> = listOf(
-        Rule(
-            id = "analytics.firewall",
-            packages = setOf("com.miui.analytics"),
-            title = Text("系统分析服务", "System analytics"),
-            summary = Text("禁止联网上报使用数据", "Blocks all usage data uploads"),
-            payload = RulePayload.Firewall,
-            category = Category.ANALYTICS,
-            evidence = "traffic: com.miui.analytics (own uid) → tracking.miui.com",
-        ),
-        Rule(
-            id = "market.tracking-domains",
-            packages = setOf(MARKET),
-            title = Text("商店统计上报", "Store analytics"),
-            summary = Text("阻止连接统计服务器", "Blocks analytics servers"),
-            payload = RulePayload.Domains(listOf("tracking.miui.com", "data.mistat.xiaomi.com")),
-            category = Category.ANALYTICS,
-            evidence = "traffic: com.xiaomi.market → tracking.miui.com, data.mistat.xiaomi.com",
-        ),
-        Rule(
-            id = "themes.tracking-domains",
-            packages = setOf(THEMES),
-            title = Text("主题统计上报", "Theme store analytics"),
-            summary = Text("阻止连接统计服务器", "Blocks analytics servers"),
-            payload = RulePayload.Domains(listOf("tracking.miui.com", "data.mistat.xiaomi.com")),
-            category = Category.ANALYTICS,
-            evidence = "traffic: com.android.thememanager → tracking.miui.com, data.mistat.xiaomi.com",
-        ),
-        Rule(
-            id = "onetrack.track",
-            packages = setOf(MARKET, THEMES),
-            title = Text("OneTrack 统计", "OneTrack tracking"),
-            summary = Text("阻止事件与应用列表上报", "Blocks event and app list uploads"),
-            payload = RulePayload.Method(
-                className = "com.xiaomi.onetrack.OneTrack",
-                method = MethodPattern.parse("track*"),
-            ),
-            category = Category.ANALYTICS,
-            evidence = "dex: Lcom/xiaomi/onetrack/OneTrack;",
-        ),
-    )
+    /** Rules in a stable order: grouped by category, then in the order declared in each category file. */
+    public val rules: List<Rule> = analyticsRules + adRules + diagnosticsRules + deviceIdRules +
+        appListRules + personalDataRules
 
     private val byId: Map<String, Rule> = rules.associateBy { it.id }
 
