@@ -68,6 +68,26 @@ public class CodePrefixMatcher(entries: List<Pair<String, String>>) {
         return matchDescriptor(bytes, 0, bytes.size).takeIf { it >= 0 }?.let(ids::get)
     }
 
+    /**
+     * As [match] for a dot-form class name (e.g. `StackTraceElement.className`), returning the
+     * index into [ids] or -1. Walks [className] in place: no allocation, at most one trie step
+     * (a binary search over a node's few children) per character; a non-ASCII character ends
+     * the walk with the best match so far.
+     */
+    public fun matchName(className: String): Int {
+        var node = child(0, CLASS_TAG)
+        var best = NONE
+        var i = 0
+        val end = className.length
+        while (node >= 0 && i < end) {
+            val c = className[i++]
+            if (c.code > MAX_ASCII) break
+            node = child(node, if (c == '.') SLASH else c.code.toByte())
+            if (node >= 0 && owner[node] != NONE) best = owner[node]
+        }
+        return best
+    }
+
     private fun child(node: Int, b: Byte): Int {
         val k = keys[node]
         // Fan-out is small (package name characters); binary search keeps deep, wide nodes cheap too.
@@ -88,6 +108,7 @@ public class CodePrefixMatcher(entries: List<Pair<String, String>>) {
     public companion object {
         private const val NONE = -1
         private const val CLASS_TAG = 'L'.code.toByte()
+        private const val SLASH = '/'.code.toByte()
         private const val MAX_ASCII = 0x7F
 
         /** `com.foo.` → `Lcom/foo/` as bytes; `null` for blank or non-ASCII prefixes. */
