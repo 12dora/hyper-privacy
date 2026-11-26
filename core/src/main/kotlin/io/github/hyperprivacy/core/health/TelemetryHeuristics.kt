@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.match.UrlPattern
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
+import io.github.hyperprivacy.core.status.CodeLoads
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.system.SettingsObservation
 
@@ -80,8 +81,13 @@ public object TelemetryHeuristics {
     }
 
     private fun classify(host: String, pathPrefix: String?, coverage: UrlMatcher<String>): EndpointVerdict = when {
+        // Code-load records ride the endpoint channel but are not endpoints.
+        CodeLoads.isCodeLoad(host) -> EndpointVerdict.UNREMARKABLE
+
         coverage.find(host, pathPrefix) != null -> EndpointVerdict.KNOWN
+
         looksLikeReporting(host, pathPrefix) -> EndpointVerdict.SUSPECTED_REPORTING
+
         else -> EndpointVerdict.UNREMARKABLE
     }
 
