@@ -31,6 +31,9 @@ internal class FirewallEnforcer(
     private val rules: List<Rule> get() = RULES
     private val targets: Set<String> = rules.flatMapTo(HashSet()) { it.packages }
     private val applied = HashSet<Int>()
+
+    /** The state last handed to [reporter] per "rule package"; an unchanged state is not reported again. */
+    private val reported = HashMap<String, HookState>()
     private var chainEnabled = false
 
     private val receiver = object : BroadcastReceiver() {
@@ -71,7 +74,7 @@ internal class FirewallEnforcer(
         rules.forEach { rule ->
             rule.packages.forEach { pkg ->
                 val uid = eligibleUid(rule, pkg)
-                reporter.state(pkg, rule.id, if (uid != null) HookState.ACTIVE else HookState.MISSED)
+                report(rule, pkg, if (uid != null) HookState.ACTIVE else HookState.MISSED)
                 if (uid != null && switches.isEnabled(rule.id)) desired += uid
             }
         }
@@ -79,6 +82,11 @@ internal class FirewallEnforcer(
         plan.toDeny.forEach { uid -> log.guard("deny uid $uid") { firewall.deny(uid) }?.let { applied += uid } }
         plan.toClear.forEach { uid -> log.guard("clear uid $uid") { firewall.clear(uid) }?.let { applied -= uid } }
         if (!plan.isEmpty) log.info("firewall: denied ${plan.toDeny}, cleared ${plan.toClear}")
+    }
+
+    /** Switch changes re-run [apply]; only a state that changed reaches the reporter (and so the module app). */
+    private fun report(rule: Rule, pkg: String, state: HookState) {
+        if (reported.put("${rule.id} $pkg", state) != state) reporter.state(pkg, rule.id, state)
     }
 
     /** The package's uid if it is safe to firewall, else `null` with the reason logged. */
