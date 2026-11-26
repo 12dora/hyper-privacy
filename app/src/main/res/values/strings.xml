@@ -125,11 +125,8 @@
     <string name="health_review_desc">The app was updated; this rule may need a check</string>
     <string name="health_idle_desc">Nothing blocked for a long time; reporting may have moved</string>
     <string name="health_title">Rule health</string>
-    <string name="health_all_ok">All rules are working</string>
-    <plurals name="health_ok_count">
-        <item quantity="one">%1$d rule working normally</item>
-        <item quantity="other">%1$d rules working normally</item>
-    </plurals>
+    <string name="health_all_ok">No problems found</string>
+    <string name="list_separator">", "</string>
     <string name="health_section_suspected">Possible new trackers</string>
     <string name="health_suspected_note">Requests seen in diagnostic mode that no rule covers yet</string>
     <string name="health_export">Export diagnostic report</string>

@@ -108,10 +108,8 @@
     <string name="health_review_desc">应用已更新，规则可能需要复核</string>
     <string name="health_idle_desc">长期没有拦截记录，上报方式可能已变化</string>
     <string name="health_title">规则健康</string>
-    <string name="health_all_ok">所有规则运行正常</string>
-    <plurals name="health_ok_count">
-        <item quantity="other">%1$d 项规则运行正常</item>
-    </plurals>
+    <string name="health_all_ok">未发现问题</string>
+    <string name="list_separator">、</string>
     <string name="health_section_suspected">疑似新上报</string>
     <string name="health_suspected_note">诊断模式下发现、尚未被规则覆盖的请求</string>
     <string name="health_export">导出诊断报告</string>
