@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core.rule.catalog
 
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.MethodPattern
@@ -19,6 +20,18 @@ internal val deviceIdRules: List<Rule> = listOf(
         category = Category.DEVICE_ID,
         evidence = "dex: com/miui/idprovider in securitycenter serves content://com.miui.idprovider; consumers via " +
             "com/android/id/IdentifierManager (7 apps) and com/bun/miitmdid (baidu IME, sogou, smarthome, youpin)",
+    ),
+    Rule(
+        id = "settings.identifiers",
+        packages = setOf(Catalog.SYSTEM_SCOPE),
+        title = Text("隐藏设置中的标识", "Hide IDs in settings"),
+        summary = Text("向第三方隐藏账号与设备标识", "Hides account and device IDs from apps"),
+        payload = RulePayload.Identifiers(IdentifierSource.SETTINGS_KEYS),
+        category = Category.DEVICE_ID,
+        evidence = "decompiled SettingsProvider: checkReadableAnnotation only gates AOSP-declared keys, and " +
+            "getAll{Global,Secure,System}Settings let any app enumerate vendor keys; on-device Settings hold " +
+            "ad_aaid, key_mqs_uuid, pref_mipub_random_device_id, last_synced_account, virtualsim_account_rule_<id>, " +
+            "miui_home_hide_app_list (docs/collection-techniques.md 2.3, 10.2)",
     ),
     Rule(
         id = "qimei.domains",

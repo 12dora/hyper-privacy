@@ -23,4 +23,10 @@ internal object Sinks {
     const val URL_HTTP_ENGINE = "url.httpengine"
     const val URL_WEBVIEW = "url.webview"
     const val MIUI_ID_PROVIDER = "id.miui"
+
+    /** system_server: `SettingsState#getSettingLocked`, reported under `Catalog.SYSTEM_SCOPE`. */
+    const val SETTINGS_KEYS = "settings.keys"
+
+    /** system_server: `AppsFilterBase#shouldFilterApplication`, reported under `Catalog.SYSTEM_SCOPE`. */
+    const val APP_LIST_FILTER = "applist.filter"
 }

@@ -69,7 +69,8 @@ class DeviceCoverageTest {
     @Test
     fun `real catalog on a device without targets only needs system`() {
         assertEquals(listOf(Catalog.SYSTEM_SCOPE), DeviceCoverage.missingScope(emptySet(), emptyList()))
-        assertTrue(DeviceCoverage.applicableRules(Catalog.rules, emptySet()).isEmpty())
+        val systemOnly = Catalog.rules.filter { it.packages == setOf(Catalog.SYSTEM_SCOPE) }
+        assertEquals(systemOnly, DeviceCoverage.applicableRules(Catalog.rules, emptySet()))
     }
 
     @Test

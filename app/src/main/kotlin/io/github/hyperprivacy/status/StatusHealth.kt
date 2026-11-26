@@ -16,6 +16,7 @@ import io.github.hyperprivacy.core.rule.Baseline
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.DeviceBuild
 import io.github.hyperprivacy.core.rule.Rule
+import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 
@@ -127,7 +128,8 @@ private class HealthSnapshot(private val store: StatusStore) {
     private fun installedVersion(pkg: String): Long? {
         if (pkg in installed) return installed[pkg]
         val version = runCatching {
-            store.packageManager.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0)).longVersionCode
+            val installedPkg = DeviceCoverage.versionPackage(pkg)
+            store.packageManager.getPackageInfo(installedPkg, PackageManager.PackageInfoFlags.of(0)).longVersionCode
         }.getOrNull()
         installed[pkg] = version
         return version

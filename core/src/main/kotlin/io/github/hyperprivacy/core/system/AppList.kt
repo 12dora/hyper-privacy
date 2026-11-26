@@ -1,0 +1,157 @@
+package io.github.hyperprivacy.core.system
+
+/**
+ * The user's app-list hiding choices, as stored in the remote preferences group
+ * `ConfigCodec.PREFS_GROUP` (so system_server gets live updates):
+ *
+ * - [HIDE_PREFIX]`<pkg>` → Boolean: `true` makes `<pkg>` a *restricted* app, which no longer sees
+ *   other third-party apps (enumeration, `getPackageInfo` probing, intent queries, `pm list`).
+ *   Absent or `false`: unrestricted. Default: nothing is restricted.
+ * - [STRICT_PREFIX]`<pkg>` → Boolean: a restricted app also loses sight of the [ALLOW_KEY] partner
+ *   apps. Ignored unless `<pkg>` is restricted.
+ * - [ALLOW_KEY] → String (package names separated by commas or whitespace) or String set:
+ *   partner apps that SDKs legitimately probe for share / login / pay, left visible to non-strict
+ *   restricted apps. Absent: [DEFAULT_ALLOWLIST]; present (even empty): replaces the default.
+ * - [SELF_HIDE_KEY] → Boolean, default `true`: hide this module's own package (and so its status
+ *   provider) from every third-party app, except launchers, LSPosed managers and hooked targets
+ *   (see [AppListPolicy.resolve]). SDKs otherwise detect the module by package name.
+ */
+public data class AppListConfig(
+    val restricted: Set<String>,
+    val strict: Set<String>,
+    val allowlist: Set<String>,
+    val hideSelf: Boolean = true,
+) {
+    public companion object {
+        public const val HIDE_PREFIX: String = "applist.hide."
+        public const val STRICT_PREFIX: String = "applist.strict."
+        public const val ALLOW_KEY: String = "applist.allow"
+        public const val SELF_HIDE_KEY: String = "applist.self.hide"
+
+        /** Partner apps whose presence SDKs check before offering share, login or payment. */
+        public val DEFAULT_ALLOWLIST: Set<String> = linkedSetOf(
+            "com.tencent.mm", // WeChat
+            "com.tencent.mobileqq", // QQ
+            "com.eg.android.AlipayGphone", // Alipay
+            "com.taobao.taobao", // Taobao
+            "com.unionpay", // UnionPay
+            "com.sina.weibo", // Weibo
+            "com.ss.android.ugc.aweme", // Douyin
+            "com.xingin.xhs", // Xiaohongshu
+            "com.jingdong.app.mall", // JD
+            "com.sankuai.meituan", // Meituan
+        )
+
+        /** LSPosed manager packages: they must keep seeing the module to list and configure it. */
+        public val MODULE_MANAGERS: Set<String> = setOf("org.lsposed.manager", "io.github.lsposed.manager")
+
+        public val EMPTY: AppListConfig = AppListConfig(emptySet(), emptySet(), DEFAULT_ALLOWLIST)
+
+        private val SEPARATORS = Regex("[\\s,]+")
+
+        public fun hideKey(packageName: String): String = HIDE_PREFIX + packageName
+
+        public fun strictKey(packageName: String): String = STRICT_PREFIX + packageName
+
+        /** Whether a change of preference [key] can affect the app-list policy (`null`: everything changed). */
+        public fun affects(key: String?): Boolean = key == null || key == ALLOW_KEY || key == SELF_HIDE_KEY ||
+            key.startsWith(HIDE_PREFIX) || key.startsWith(STRICT_PREFIX)
+
+        /** Resolves the config from [raw] preferences; malformed values are ignored. */
+        public fun decode(raw: Map<String, *>): AppListConfig {
+            val restricted = enabledSuffixes(raw, HIDE_PREFIX)
+            return AppListConfig(
+                restricted = restricted,
+                strict = enabledSuffixes(raw, STRICT_PREFIX).filterTo(HashSet()) { it in restricted },
+                allowlist = parseAllowlist(raw[ALLOW_KEY]) ?: DEFAULT_ALLOWLIST,
+                hideSelf = raw[SELF_HIDE_KEY] as? Boolean ?: true,
+            )
+        }
+
+        /** Package names from a [ALLOW_KEY] value; `null` when the value is absent or of the wrong type. */
+        public fun parseAllowlist(value: Any?): Set<String>? = when (value) {
+            is String -> value.split(SEPARATORS).filterTo(LinkedHashSet()) { it.isNotEmpty() }
+            is Set<*> -> value.mapNotNullTo(LinkedHashSet()) { (it as? String)?.trim()?.ifEmpty { null } }
+            else -> null
+        }
+
+        /** Encodes [allowlist] for [ALLOW_KEY]. */
+        public fun encodeAllowlist(allowlist: Collection<String>): String = allowlist.joinToString(",")
+
+        private fun enabledSuffixes(raw: Map<String, *>, prefix: String): Set<String> = raw.entries
+            .filter { (key, value) -> value == true && key.startsWith(prefix) && key.length > prefix.length }
+            .mapTo(HashSet()) { (key, _) -> key.removePrefix(prefix) }
+    }
+}
+
+/**
+ * [AppListConfig] resolved against an [AppIndex] into app-id sets, so `shouldFilterApplication`
+ * (a PackageManager hot path) decides with a few [IntSet] probes.
+ *
+ * Two independent reasons hide a target from a caller (never the caller itself):
+ * - **restricted caller**: the caller is restricted, the target is a known third-party app, and
+ *   the target is not allowlisted (unless the caller is strict);
+ * - **module self-hiding**: the target is this module, the caller is a known third-party app and
+ *   not exempt (launchers, module managers, hooked targets).
+ *
+ * System apps, unknown app ids and non-application uids are never hidden and never hidden from.
+ */
+public class AppListPolicy private constructor(
+    private val restricted: IntSet,
+    private val strict: IntSet,
+    private val allowlisted: IntSet,
+    private val thirdParty: IntSet,
+    /** The module's app id, or `-1` when self-hiding is off or the module is not indexed. */
+    private val selfAppId: Int,
+    private val selfVisibleTo: IntSet,
+) {
+    /** No restricted caller and no self-hiding: every call can return immediately. */
+    public val isInactive: Boolean get() = restricted.isEmpty() && selfAppId < 0
+
+    /** Whether any target can be hidden from [callerAppId]; the cheap pre-check before reading the target. */
+    public fun mayHideFrom(callerAppId: Int): Boolean =
+        callerAppId in restricted || (selfAppId >= 0 && callerAppId in thirdParty && callerAppId !in selfVisibleTo)
+
+    public fun isRestricted(callerAppId: Int): Boolean = callerAppId in restricted
+
+    public fun shouldHide(callerAppId: Int, targetAppId: Int): Boolean {
+        if (callerAppId == targetAppId) return false
+        if (selfAppId >= 0 && targetAppId == selfAppId) return mayHideFrom(callerAppId)
+        return callerAppId in restricted && targetAppId in thirdParty &&
+            (callerAppId in strict || targetAppId !in allowlisted)
+    }
+
+    public companion object {
+        public val INACTIVE: AppListPolicy =
+            IntSet.EMPTY_SET.let { none -> AppListPolicy(none, none, none, none, NO_APP, none) }
+
+        private const val NO_APP = -1
+
+        /**
+         * @param selfPackage this module's package name.
+         * @param selfExempt packages that keep seeing the module besides [AppListConfig.MODULE_MANAGERS]:
+         *   home apps and the module's hooked targets (they deliver status to its provider).
+         *
+         * Restricted packages that are not installed are skipped; they are resolved again on the next rebuild.
+         */
+        public fun resolve(
+            config: AppListConfig,
+            index: AppIndex,
+            selfPackage: String? = null,
+            selfExempt: Set<String> = emptySet(),
+        ): AppListPolicy {
+            fun ids(packages: Set<String>) = IntSet.of(packages.mapNotNull(index::appIdOf))
+            val selfAppId = selfPackage?.takeIf { config.hideSelf }?.let(index::appIdOf) ?: -1
+            val restricted = ids(config.restricted)
+            if (restricted.isEmpty() && selfAppId < 0) return INACTIVE
+            return AppListPolicy(
+                restricted = restricted,
+                strict = ids(config.strict),
+                allowlisted = ids(config.allowlist),
+                thirdParty = index.thirdParty,
+                selfAppId = selfAppId,
+                selfVisibleTo = ids(selfExempt + AppListConfig.MODULE_MANAGERS),
+            )
+        }
+    }
+}
