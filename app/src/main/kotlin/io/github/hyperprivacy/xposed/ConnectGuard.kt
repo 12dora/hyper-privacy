@@ -24,16 +24,20 @@ import java.net.SocketAddress
  * - the static `sun.nio.ch.Net#connect` overloads used by NIO `SocketChannel` (they call native code
  *   directly, bypassing `IoBridge`).
  *
- * The refusal is libcore's own `ECONNREFUSED` [java.net.ConnectException] ([NetErrors.connectRefused]).
+ * The refusal is libcore's own `ECONNREFUSED` [java.net.ConnectException], message and top frames
+ * included ([ConnectRefusal]).
  * Native sockets (Cronet, WebView, NDK code) never pass through here.
  *
  * Hot path: every socket connect. With no rule able to match and diagnostics off, the cost is one
  * volatile read; otherwise one hash probe per connect.
  */
 internal class ConnectGuard(private val sinks: SinkContext) {
+    private var refusal: ConnectRefusal? = null
+
     /** Returns whether at least one entry point was hooked. */
     fun install(): Boolean {
         val bridge = ioBridgeConnect()
+        refusal = ConnectRefusal(sinks.xposed, bridge)
         val primary = bridge?.let { hook(it, ADDRESS_ARG, PORT_ARG, TIMEOUT_ARG) }
             ?: socketConnect()?.let { hook(it, SOCKET_ADDRESS_ARG, NO_ARG, SOCKET_TIMEOUT_ARG) }
         val nio = nioConnect()?.let { method ->
@@ -72,7 +76,10 @@ internal class ConnectGuard(private val sinks: SinkContext) {
         sinks.checkConnect(address, port) ?: return Verdict.Proceed
         if (timeoutArg == NIO) return Verdict.Throw(NetErrors.nioConnectRefused())
         val timeout = if (timeoutArg == NO_ARG) 0 else chain.getArg(timeoutArg) as? Int ?: 0
-        return Verdict.Throw(NetErrors.connectRefused(address, port, timeout))
+        // IoBridge.connect(FileDescriptor, …): the socket whose local side the message names.
+        val fd = chain.args.firstOrNull() as? FileDescriptor
+        val refusal = refusal ?: return Verdict.Throw(NetErrors.connectRefused(address, port, timeout, null, 0))
+        return refusal.verdict(fd, address, port, timeout)
     }
 
     // Hidden core-platform API: reachable from module code where the framework exempts it. A miss
