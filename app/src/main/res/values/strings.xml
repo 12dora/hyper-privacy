@@ -98,5 +98,5 @@
     <string name="about_repository">开源仓库</string>
     <string name="common_separator" translatable="false">" · "</string>
     <!-- Placeholder: replace with the published repository URL. -->
-    <string name="repository_url" translatable="false">https://github.com/hyperprivacy/hyper-privacy</string>
+    <string name="repository_url" translatable="false">https://github.com/12dora/hyper-privacy</string>
 </resources>
