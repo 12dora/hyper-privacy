@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
@@ -196,6 +198,7 @@ private fun AppRow(app: AppStatus, ruleEnabled: Boolean) {
 private fun EvidenceCard(evidence: String, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val title = stringResource(R.string.detail_section_evidence)
+    val stateLabel = stringResource(if (expanded) R.string.state_expanded else R.string.state_collapsed)
     val rotation by animateFloatAsState(if (expanded) EXPANDED_ROTATION else 0f, label = "evidenceChevron")
     SingleCard(modifier) {
         Column(Modifier.animateContentSize()) {
@@ -206,6 +209,7 @@ private fun EvidenceCard(evidence: String, modifier: Modifier = Modifier) {
                     .clickable(role = Role.Button, onClickLabel = stringResource(R.string.detail_evidence_toggle)) {
                         expanded = !expanded
                     }
+                    .semantics { stateDescription = stateLabel }
                     .padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

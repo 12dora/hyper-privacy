@@ -20,9 +20,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -46,6 +48,7 @@ import io.github.hyperprivacy.ui.sampleState
 import kotlinx.coroutines.delay
 
 private const val OBSERVED_REFRESH_MS = 3_000L
+private const val DISABLED_ALPHA = 0.38f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,12 +58,13 @@ internal fun SettingsScreen(
     onDiagnosticChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
     onRefreshObserved: () -> Unit,
+    onClearObserved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val repository = stringResource(R.string.repository_url)
-    ObservedRefresh(onRefreshObserved)
+    ObservedRefresh(polling = state.diagnosticMode, onRefresh = onRefreshObserved)
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -73,7 +77,7 @@ internal fun SettingsScreen(
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             diagnosticsSection(state, onDiagnosticChange)
-            endpointsSection(state)
+            endpointsSection(state, onClearObserved)
             dataSection(state.module.canEdit) { confirmReset = true }
             aboutSection(state, repository, onOpenRepository = { runCatching { uriHandler.openUri(repository) } })
         }
@@ -89,15 +93,17 @@ internal fun SettingsScreen(
     }
 }
 
-/** Polls the endpoint list while the page is visible. */
+/** Loads the endpoint list when the page is shown, and keeps it fresh while diagnostic mode is on. */
 @Composable
-private fun ObservedRefresh(onRefresh: () -> Unit) {
+private fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle) {
+    val currentRefresh by rememberUpdatedState(onRefresh)
+    LaunchedEffect(lifecycle, polling) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            while (true) {
-                onRefresh()
+            currentRefresh()
+            while (polling) {
                 delay(OBSERVED_REFRESH_MS)
+                currentRefresh()
             }
         }
     }
@@ -126,6 +132,7 @@ private fun LazyListScope.dataSection(canEdit: Boolean, onReset: () -> Unit) {
                 title = stringResource(R.string.settings_reset),
                 summary = stringResource(R.string.settings_reset_summary),
                 modifier = Modifier
+                    .alpha(if (canEdit) 1f else DISABLED_ALPHA)
                     .fillMaxWidth()
                     .heightIn(min = Dimens.RowMinHeight)
                     .clickable(enabled = canEdit, role = Role.Button, onClick = onReset)
@@ -171,5 +178,5 @@ private fun ResetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 private fun SettingsPreview() {
-    HyperPrivacyTheme { SettingsScreen(sampleState(), {}, {}, {}, {}) }
+    HyperPrivacyTheme { SettingsScreen(sampleState(), {}, {}, {}, {}, {}) }
 }
