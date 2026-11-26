@@ -275,6 +275,7 @@
     <string name="app_note_checking">Checking this app…</string>
     <string name="app_note_failed">Couldn\'t read this app\'s package.</string>
     <string name="app_note_no_sdk">No tracker SDKs found in this app. Some packed apps can\'t be analyzed; the app protections below still apply.</string>
+    <string name="app_note_suspects_only">No known tracker SDKs found. Suspected ad components are listed below and stay off unless you turn them on; the app protections still apply.</string>
     <string name="app_note_detect_only">The SDKs found here can be detected but not blocked; the app protections below still apply.</string>
     <string name="app_note_protection">Blocks reporting by the SDKs below; the app protections below apply as well.</string>
     <string name="sdk_detect_only">Detected only, not blocked</string>
