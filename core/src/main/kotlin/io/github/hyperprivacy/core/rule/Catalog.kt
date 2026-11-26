@@ -52,7 +52,10 @@ public object Catalog {
 
     private fun buildRules(): List<Rule> {
         val targeted = analyticsRules + adRules + diagnosticsRules + deviceIdRules + appListRules + personalDataRules
-        val injected = targeted.filter { it.kind != RuleKind.FIREWALL }.flatMapTo(sortedSetOf()) { it.packages }
+        // App processes only: system_server rules (target SYSTEM_SCOPE) must not pull app-wide hooks into it.
+        val injected = targeted.filter { it.kind != RuleKind.FIREWALL }
+            .flatMapTo(sortedSetOf()) { it.packages }
+            .apply { remove(SYSTEM_SCOPE) }
         return analyticsRules + adRules + diagnosticsRules + deviceIdRules + mediaDrmRule(injected) +
             appListRules + personalDataRules + httpDnsRule(injected)
     }
