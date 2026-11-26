@@ -26,3 +26,87 @@ internal fun mediaDrmRule(targets: Set<String>): Rule = Rule(
         "keeps the real id, so licences and playback are unaffected",
     preventive = true,
 )
+
+/** Third-party HTTPDNS / DoH resolvers; listed with the personal-data rules. */
+internal fun httpDnsRule(targets: Set<String>): Rule = Rule(
+    id = "httpdns.resolvers",
+    packages = targets,
+    title = Text("强制系统 DNS", "Force system DNS"),
+    summary = Text("阻止应用绕过系统 DNS 解析", "Stop apps bypassing system DNS"),
+    payload = RulePayload.Domains(HttpDnsResolvers.hosts + HttpDnsResolvers.addresses),
+    category = Category.PERSONAL_DATA,
+    evidence = "docs/collection-techniques.md 7.2 (HTTPDNS endpoint list): dex aliyun httpdns SDK in the app store " +
+        "and Xiaomi shop (bootstrap IPs, resolvers-cn.httpdns.aliyuncs.com), iflytek IME HttpDnsConstants " +
+        "203.107.1.2/108507/d, Xiaomi httpdns SDK dispatch.mgslb.com + DoH fallbacks dns.alidns.com/dns.google/" +
+        "120.53.53.53, Xiaomi shop mishop.httpdns.Config (Wangsu, Kingsoft, dns-hl.mi.com), Baidu IME HttpDnsCache " +
+        "httpsdns.baidu.com, Amap httpdns.apilocate.amap.com; traffic 203.119.204.226/v2/d?dn=. Every SDK falls " +
+        "back to system DNS (Tencent documents it as mandatory), where the DNS sink sees the real host names",
+    preventive = true,
+)
+
+/**
+ * HTTPDNS and DoH resolver endpoints (docs/collection-techniques.md 7.2). Only hosts and IPs that
+ * do nothing but answer DNS queries: no CDN, no vendor apex, nothing that also serves content.
+ * Speculative entries (Volcengine, Huawei) are left out until verified.
+ */
+internal object HttpDnsResolvers {
+    /** MiPush's own resolver: blocking it would break push, so no rule may ever match it. */
+    const val ALWAYS_ALLOWED: String = "resolver.msg.xiaomi.net"
+
+    val hosts: List<String> = listOf(
+        // Aliyun EMAS HTTPDNS dispatch (resolvers-cn / -hk / -sg / -us / -de) and account resolvers.
+        "httpdns.aliyuncs.com",
+        // Aliyun public DNS over HTTPS.
+        "dns.alidns.com",
+        // Google public DNS over HTTPS.
+        "dns.google",
+        // DNSPod public DNS over HTTPS.
+        "doh.pub",
+        // Baidu HTTPDNS.
+        "httpsdns.baidu.com",
+        // Amap location SDK HTTPDNS.
+        "httpdns.apilocate.amap.com",
+        // Wangsu HTTPDNS.
+        "httpdns.wangsucloud.com",
+        // Kingsoft Cloud HTTPDNS.
+        "hdns.ksyun.com",
+        // Xiaomi httpdns SDK (app store) and Xiaomi shop resolver.
+        "dispatch.mgslb.com",
+        "dns-hl.mi.com",
+    )
+
+    /** Hard-coded resolver IPs, blocked at the connect sink on every port except 53. */
+    val addresses: List<String> = listOf(
+        // Aliyun EMAS HTTPDNS bootstrap and account endpoints.
+        "203.107.1.1",
+        "203.107.1.2",
+        "203.107.1.34",
+        "203.107.1.35",
+        "203.107.1.97",
+        "203.107.1.100",
+        "203.119.204.226",
+        "203.119.238.240",
+        "106.11.25.239",
+        "59.82.99.47",
+        // Aliyun public DNS (DoH / HTTP JSON API).
+        "223.5.5.5",
+        "223.6.6.6",
+        // Tencent Cloud HTTPDNS (CN HTTP / HTTPS, international).
+        "119.29.29.98",
+        "119.29.29.99",
+        "43.132.55.55",
+        "43.132.43.43",
+        // DNSPod public DoH.
+        "120.53.53.53",
+        "1.12.12.12",
+        // Baidu map SDK HTTPDNS.
+        "180.76.76.200",
+        // Wangsu HTTPDNS fallback.
+        "182.132.33.40",
+        // Xiaomi shop resolver (dns-hl.mi.com) fallbacks.
+        "58.83.160.209",
+        "58.83.160.210",
+        // Google public DNS (DoH JSON API).
+        "8.8.8.8",
+    )
+}

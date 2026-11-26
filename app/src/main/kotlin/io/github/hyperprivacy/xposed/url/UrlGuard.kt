@@ -10,6 +10,7 @@ internal class UrlGuard(private val sinks: SinkContext) {
     /** Returns whether at least one URL sink was hooked in this process. */
     fun install(): Boolean {
         val java = sinks.log.guard("java.net.URL sink") { JavaUrlSink(sinks).install() } ?: false
+        sinks.log.guard("Host header sink") { HostHeaderSink(sinks).install() }
         val okhttp = sinks.log.guard("OkHttp sink") { OkHttpSink(sinks).install() } ?: false
         val cronet = sinks.log.guard("Cronet sinks") { CronetSink(sinks).install() } ?: false
         val webView = sinks.log.guard("WebView sink") { WebViewSink(sinks).install() } ?: false

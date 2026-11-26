@@ -60,6 +60,12 @@ public data class UrlParts(val host: String, val path: String) {
             return out.toString(Charsets.UTF_8.name())
         }
 
+        /**
+         * The canonical host of an HTTP `Host` header value (`host`, `host:port`, `[v6]:port`), or
+         * `null` if it is not a usable host.
+         */
+        public fun hostOfHeader(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }?.let(::hostOf)
+
         private fun hostOf(authority: String): String? {
             val hostAndPort = authority.substringAfterLast('@')
             val host = if (hostAndPort.startsWith('[')) {

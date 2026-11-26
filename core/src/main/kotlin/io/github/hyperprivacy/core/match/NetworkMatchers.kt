@@ -1,7 +1,10 @@
 package io.github.hyperprivacy.core.match
 
+import io.github.hyperprivacy.core.net.AddressBook
+import io.github.hyperprivacy.core.net.IpLiterals
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
+import java.net.InetAddress
 
 /**
  * Immutable snapshot of the network rules enabled in one process, mapping matches to rule ids.
@@ -9,24 +12,47 @@ import io.github.hyperprivacy.core.rule.RulePayload
  * @property hosts DOMAIN rules, for host-only sinks (DNS, TLS SNI).
  * @property urls DOMAIN rules as host-only patterns plus URL rules, for HTTP-client sinks; DOMAIN
  *   rules are included so stacks with native DNS/TLS (Cronet and forks) are still covered.
+ * @property addresses IPv4 literals listed by DOMAIN rules (hard-coded HTTPDNS / reporting IPs),
+ *   for the IP connect sink.
  */
 public class NetworkMatchers private constructor(
     public val hosts: HostMatcher<String>,
     public val urls: UrlMatcher<String>,
+    public val addresses: Map<InetAddress, String>,
 ) {
+    /** Whether [findConnect] can ever match; lets the connect sink return before reading arguments. */
+    public val blocksConnects: Boolean get() = addresses.isNotEmpty() || !hosts.isEmpty
+
+    /**
+     * Rule blocking a connection to [address]:[port]: an IP literal listed by an enabled DOMAIN rule,
+     * or the single host [book] learned for that address when a DOMAIN rule blocks the host.
+     * Port 53 is never blocked: apps probe public resolvers on it to test connectivity, and blocking
+     * plain DNS to them would break that without hiding anything an HTTP sink could not see.
+     */
+    public fun findConnect(address: InetAddress, port: Int, book: AddressBook): String? {
+        if (port == DNS_PORT || !blocksConnects) return null
+        addresses[address]?.let { return it }
+        if (hosts.isEmpty) return null
+        return book.hostOf(address)?.let(hosts::find)
+    }
+
     public companion object {
-        public val EMPTY: NetworkMatchers = NetworkMatchers(HostMatcher.empty(), UrlMatcher.empty())
+        public const val DNS_PORT: Int = 53
+
+        public val EMPTY: NetworkMatchers = NetworkMatchers(HostMatcher.empty(), UrlMatcher.empty(), emptyMap())
 
         /** Builds matchers from the [rules] for which [isEnabled] holds; other payloads are ignored. */
         public fun of(rules: List<Rule>, isEnabled: (String) -> Boolean): NetworkMatchers {
             val hostEntries = ArrayList<Pair<String, String>>()
             val urlEntries = ArrayList<Pair<UrlPattern, String>>()
+            val addresses = HashMap<InetAddress, String>()
             for (rule in rules) {
                 if (!isEnabled(rule.id)) continue
                 when (val payload = rule.payload) {
                     is RulePayload.Domains -> payload.suffixes.forEach { suffix ->
                         hostEntries += suffix to rule.id
                         urlEntries += UrlPattern(suffix) to rule.id
+                        IpLiterals.parseIpv4(suffix)?.let { addresses.putIfAbsent(it, rule.id) }
                     }
 
                     is RulePayload.Urls -> payload.prefixes.forEach { prefix ->
@@ -37,7 +63,7 @@ public class NetworkMatchers private constructor(
                 }
             }
             if (hostEntries.isEmpty() && urlEntries.isEmpty()) return EMPTY
-            return NetworkMatchers(HostMatcher.of(hostEntries), UrlMatcher.of(urlEntries))
+            return NetworkMatchers(HostMatcher.of(hostEntries), UrlMatcher.of(urlEntries), addresses)
         }
     }
 }

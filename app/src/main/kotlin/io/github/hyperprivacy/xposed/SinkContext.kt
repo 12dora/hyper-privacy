@@ -1,9 +1,12 @@
 package io.github.hyperprivacy.xposed
 
+import io.github.hyperprivacy.core.match.HostNames
 import io.github.hyperprivacy.core.match.UrlParts
+import io.github.hyperprivacy.core.net.AddressBook
 import io.github.hyperprivacy.core.net.PlausibleErrors
 import io.github.hyperprivacy.core.status.HookState
 import java.io.IOException
+import java.net.InetAddress
 import java.net.SocketTimeoutException
 
 /**
@@ -16,11 +19,40 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
     val log get() = env.log
     val classLoader get() = env.classLoader
 
+    /** Host names this process reached each address under (DNS answers, TLS SNI); see [AddressBook]. */
+    private val addresses = AddressBook()
+
     /** Rule id blocking [host] at a host-only sink (DNS, TLS SNI), or `null` to let it through. */
     fun checkHost(host: String?): String? {
         val ruleId = policy.blockingHost(host)
         observe(host, null, ruleId)
         if (ruleId != null) env.reporter.hit(env.packageName, ruleId, host)
+        return ruleId
+    }
+
+    /** Learns the [answers] the system resolver gave for [host]. */
+    fun recordAnswers(host: String, answers: Array<*>) {
+        for (answer in answers) if (answer is InetAddress) addresses.record(answer, host)
+    }
+
+    /** Learns that [address] was reached for [host] (TLS SNI). */
+    fun recordPeer(host: String, address: InetAddress) = addresses.record(address, host)
+
+    /** Whether [checkConnect] can block or record anything; one volatile read for the connect hot path. */
+    val connectChecksActive: Boolean get() = policy.blocksConnects || env.switches.observe
+
+    /**
+     * Rule id blocking a connection to [address]:[port] (an IP listed by a DOMAIN rule, or the
+     * learned host of the address), or `null`. Local addresses are never blocked. In diagnostics
+     * mode an address with no known host name (a hard-coded or HTTPDNS-resolved IP) is recorded.
+     */
+    fun checkConnect(address: InetAddress, port: Int): String? {
+        if (!AddressBook.isPublic(address)) return null
+        val ruleId = policy.blockingConnect(address, port, addresses)
+        if (ruleId != null) env.reporter.hit(env.packageName, ruleId, address.hostAddress)
+        if (env.switches.observe && addresses.hostOf(address) == null) {
+            address.hostAddress?.let { observe(it, null, ruleId) }
+        }
         return ruleId
     }
 
@@ -40,7 +72,12 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
     /** As [checkUrl] for a full URL string; unparsable URLs are let through. */
     fun checkUrl(url: String?): String? {
         if (!urlChecksActive) return null
-        val parts = UrlParts.parse(url) ?: return null
+        return checkParsed(UrlParts.parse(url) ?: return null)
+    }
+
+    /** As [checkUrl] for an already parsed URL (decoded path). */
+    fun checkParsed(parts: UrlParts): String? {
+        if (!urlChecksActive) return null
         val ruleId = policy.blockingUrl(parts.host, parts.path)
         observe(parts.host, parts.path, ruleId)
         if (ruleId != null) env.reporter.hit(env.packageName, ruleId, parts.host + parts.path)
@@ -51,8 +88,12 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
      * The error a URL sink throws for a blocked request to [host] ([scheme] and [port] as in
      * `java.net.URL`, `-1` for the default port): see [NetErrors.httpFailure].
      */
-    fun urlFailure(host: String, scheme: String?, port: Int): IOException =
-        NetErrors.httpFailure(host, policy.blockingHost(host) != null, null, PlausibleErrors.portOf(scheme, port))
+    fun urlFailure(host: String, scheme: String?, port: Int): IOException = NetErrors.httpFailure(
+        host,
+        policy.blockingHost(host) != null,
+        HostNames.normalize(host)?.let(addresses::addressOf)?.hostAddress,
+        PlausibleErrors.portOf(scheme, port),
+    )
 
     /** [urlFailure] for a full URL string, as checked by [checkUrl]. */
     fun urlFailure(url: String?): IOException {
@@ -66,21 +107,21 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
         if (!hooked) log.info("sink $sink not available in ${env.packageName}")
     }
 
-    /** Explicit port of an absolute [url] (`scheme://host:port/…`), or `-1`. */
-    private fun portOf(url: String?): Int {
-        val authority = url?.substringAfter("://", "")?.substringBefore('/')?.substringAfterLast('@') ?: return -1
-        val portText = if (authority.startsWith('[')) {
-            authority.substringAfter("]:", "")
-        } else {
-            authority.substringAfter(':', "")
-        }
-        return portText.toIntOrNull() ?: -1
-    }
-
     /** Diagnostics: records the endpoint and logs it once (`OBS` prefix) when first seen. */
     private fun observe(host: String?, path: String?, ruleId: String?) {
         if (host == null || !env.switches.observe) return
         val fresh = env.reporter.observe(env.packageName, host, path, ruleId != null) ?: return
         log.info("OBS ${fresh.packageName} ${fresh.host}${fresh.pathPrefix.orEmpty()} blocked=${fresh.blocked}")
     }
+}
+
+/** Explicit port of an absolute [url] (`scheme://host:port/…`), or `-1`. */
+private fun portOf(url: String?): Int {
+    val authority = url?.substringAfter("://", "")?.substringBefore('/')?.substringAfterLast('@') ?: return -1
+    val portText = if (authority.startsWith('[')) {
+        authority.substringAfter("]:", "")
+    } else {
+        authority.substringAfter(':', "")
+    }
+    return portText.toIntOrNull() ?: -1
 }

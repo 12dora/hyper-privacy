@@ -8,7 +8,7 @@ import io.github.hyperprivacy.xposed.url.UrlGuard
 /**
  * Installs the network sinks of one process, each exactly once however many rules use it, all
  * sharing one [NetworkPolicy] snapshot:
- * - DNS + TLS (host-only) when there are DOMAIN rules;
+ * - DNS + TLS (host-only) and the IP connect sink when there are DOMAIN rules;
  * - the URL layer when there are DOMAIN or URL rules (DOMAIN rules are enforced there too, which
  *   covers Cronet-style stacks and WebView, whose DNS/TLS is native).
  *
@@ -33,6 +33,8 @@ internal class NetworkGuards(private val env: GuardEnv, rules: List<Rule>) {
     private fun installHostSinks(sinks: SinkContext): Boolean {
         val dns = env.log.guard("DNS guard") { DnsGuard(sinks).install() } == true
         val tls = env.log.guard("TLS guard") { TlsGuard(sinks).install() } == true
+        // Not counted towards rule state: it only complements DNS / TLS for IP-literal connects.
+        env.log.guard("connect guard") { ConnectGuard(sinks).install() }
         return dns || tls
     }
 

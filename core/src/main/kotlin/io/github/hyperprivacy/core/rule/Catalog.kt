@@ -5,6 +5,7 @@ import io.github.hyperprivacy.core.rule.catalog.analyticsRules
 import io.github.hyperprivacy.core.rule.catalog.appListRules
 import io.github.hyperprivacy.core.rule.catalog.deviceIdRules
 import io.github.hyperprivacy.core.rule.catalog.diagnosticsRules
+import io.github.hyperprivacy.core.rule.catalog.httpDnsRule
 import io.github.hyperprivacy.core.rule.catalog.mediaDrmRule
 import io.github.hyperprivacy.core.rule.catalog.personalDataRules
 
@@ -53,7 +54,7 @@ public object Catalog {
         val targeted = analyticsRules + adRules + diagnosticsRules + deviceIdRules + appListRules + personalDataRules
         val injected = targeted.filter { it.kind != RuleKind.FIREWALL }.flatMapTo(sortedSetOf()) { it.packages }
         return analyticsRules + adRules + diagnosticsRules + deviceIdRules + mediaDrmRule(injected) +
-            appListRules + personalDataRules
+            appListRules + personalDataRules + httpDnsRule(injected)
     }
 
     /** Rules applying to [packageName], in catalog order. */
