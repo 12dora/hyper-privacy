@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core
 
+import io.github.hyperprivacy.core.conflict.ModuleOverlap
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.scope.ScopeExport
 import org.junit.jupiter.api.Test
@@ -21,6 +22,13 @@ class ScopeExportTest {
             assertTrue("""android:name="$it"""" in manifest, it)
         }
         assertTrue("""android:name="${Catalog.SYSTEM_SCOPE}"""" !in manifest)
+    }
+
+    @Test
+    fun `queries manifest also covers known overlapping modules and module settings screens`() {
+        val manifest = ScopeExport.queriesManifest()
+        ModuleOverlap.KNOWN.keys.forEach { assertTrue("""android:name="$it"""" in manifest, it) }
+        assertTrue("""android:name="${ModuleOverlap.SETTINGS_CATEGORY}"""" in manifest)
     }
 
     @Test
