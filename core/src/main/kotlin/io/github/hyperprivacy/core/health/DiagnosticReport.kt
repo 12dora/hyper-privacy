@@ -56,7 +56,7 @@ public object DiagnosticReport {
     private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
 
     public fun render(input: DiagnosticInput): String = buildString {
-        appendLine("# Hyper Privacy diagnostic report")
+        appendLine("# HyperPrivacy diagnostic report")
         appendLine()
         appendLine("- module: ${field(input.moduleVersion)}")
         appendLine("- android sdk: ${input.sdkInt}")

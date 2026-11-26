@@ -78,7 +78,7 @@ class DiagnosticReportTest {
     @Test
     fun `report only contains allowed line shapes`() {
         val allowed = listOf(
-            Regex("# Hyper Privacy diagnostic report"),
+            Regex("# HyperPrivacy diagnostic report"),
             Regex("## (Rules|Missed sinks|Suspected reporting endpoints)"),
             Regex("- module: [A-Za-z0-9._+-]+"),
             Regex("- android sdk: \\d+"),
