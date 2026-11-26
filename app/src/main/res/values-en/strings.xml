@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hyper Privacy</string>
+    <string name="xposed_description">Blocks privacy reporting only; system services are unaffected</string>
+    <string name="status_inactive">Module inactive</string>
+    <string name="status_active">Active</string>
+    <string name="status_inactive_hint">Enable this module in LSPosed</string>
+    <string name="status_active_hint">%1$s %2$s · API %3$d</string>
+    <string name="rule_active">Active</string>
+    <string name="rule_missed">Not effective</string>
+    <string name="rule_not_run">Not running</string>
+    <string name="group_multiple">Multiple apps</string>
+    <plurals name="rule_hits">
+        <item quantity="one">Blocked %1$d time</item>
+        <item quantity="other">Blocked %1$d times</item>
+    </plurals>
+</resources>

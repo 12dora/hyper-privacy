@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">隐私管控</string>
+    <string name="xposed_description">仅拦截隐私上报，不影响系统服务</string>
+    <string name="status_inactive">模块未激活</string>
+    <string name="status_active">已激活</string>
+    <string name="status_inactive_hint">请在 LSPosed 中启用本模块</string>
+    <string name="status_active_hint">%1$s %2$s · API %3$d</string>
+    <string name="rule_active">已生效</string>
+    <string name="rule_missed">未生效</string>
+    <string name="rule_not_run">未运行</string>
+    <string name="group_multiple">多个应用</string>
+    <plurals name="rule_hits">
+        <item quantity="other">已拦截 %1$d 次</item>
+    </plurals>
+</resources>
