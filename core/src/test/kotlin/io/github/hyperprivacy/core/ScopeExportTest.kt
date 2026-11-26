@@ -1,0 +1,31 @@
+package io.github.hyperprivacy.core
+
+import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.scope.ScopeExport
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class ScopeExportTest {
+    @Test
+    fun `scope list equals catalog scope`() {
+        assertEquals(Catalog.scope, ScopeExport.scopeList().lines().filter { it.isNotEmpty() }.toSet())
+    }
+
+    @Test
+    fun `queries manifest lists every catalog package`() {
+        val manifest = ScopeExport.queriesManifest()
+        Catalog.allPackages.forEach { assertTrue("""android:name="$it"""" in manifest, it) }
+    }
+
+    @Test
+    fun `main writes both files`(@TempDir dir: File) {
+        val scope = File(dir, "x/scope.list")
+        val manifest = File(dir, "y/AndroidManifest.xml")
+        ScopeExport.main(arrayOf(scope.path, manifest.path))
+        assertEquals(ScopeExport.scopeList(), scope.readText())
+        assertEquals(ScopeExport.queriesManifest(), manifest.readText())
+    }
+}
