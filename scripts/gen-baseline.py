@@ -20,6 +20,11 @@ VENDOR_PATTERN = re.compile(
 PACKAGE_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$")
 # Version names go into a Kotlin raw string, space-separated: no whitespace, '$' or quotes.
 NAME_PATTERN = re.compile(r"^[^\s$\"]+$")
+# scripts/privacy-scan.sh flags private IPv4 addresses; a few version names look like one
+# (four dotted numbers starting 10.x). Those names are dropped: only versionCode drives rule health.
+PRIVATE_IPV4 = re.compile(
+    r"\b(10\.[0-9]{1,3}|192\.168|172\.(1[6-9]|2[0-9]|3[01]))\.[0-9]{1,3}\.[0-9]{1,3}\b"
+)
 MAX_LINE = 120
 UNKNOWN_NAME = "-"
 
@@ -55,6 +60,9 @@ def rows(survey: dict) -> list[str]:
         if not isinstance(code, int) or code < 0:
             sys.exit(f"{package}: versionCode must be a non-negative integer")
         name = entry.get("versionName") or UNKNOWN_NAME
+        if PRIVATE_IPV4.search(name):
+            print(f"note: {package}: dropping IP-like versionName {name!r}", file=sys.stderr)
+            name = UNKNOWN_NAME
         if not NAME_PATTERN.match(name):
             sys.exit(f"{package}: versionName {name!r} contains whitespace, '$' or quotes")
         line = f"{package} {code} {name}"

@@ -174,7 +174,7 @@ com.android.wifi.resources.overlay.spf 36 16
 com.android.wifi.resources.overlay.target 36 16
 com.android.wifi.resources.xiaomi 1 1.0
 com.android.wm.shell 37 17
-com.baidu.input_mi 7108 10.6.125.158
+com.baidu.input_mi 7108 -
 com.duokan.phone.remotecontroller 6560 7.2.5M
 com.fido.asm 220260918 220260918
 com.iflytek.inputmethod.miui 8523 8.1.8523
@@ -209,7 +209,7 @@ com.miui.guardprovider 330 3.1.4-20260902.0
 com.miui.home 801028584 RELEASE-8.01.02.8584-260918-10231931-R
 com.miui.huanji 46200 4.6.2.0
 com.miui.hybrid 13070353 1.30.7.3
-com.miui.mediaeditor 210994308 2.10.43.0.8
+com.miui.mediaeditor 210994308 -
 com.miui.mediaviewer 2104260901 v2104260901(MediaViewer-ROM)
 com.miui.micloudsync 112000200 1.12.0.2.00
 com.miui.miservice 18000100 18.0.1.0
@@ -261,7 +261,7 @@ com.miui.virtualsim 9190 9.1.9.0
 com.miui.voiceassist 508002065 8.2.65.4714
 com.miui.voiceassistProxy 8 1.6.1
 com.miui.voiceassistoverlay 2 2.0
-com.miui.voicetrigger 2036091423 10.0.19.0-xiaomi
+com.miui.voicetrigger 2036091423 -
 com.miui.vsimcore 114 1.1.4
 com.miui.wallpaper.overlay.customize 37 17
 com.miui.weather2 180001020 18.0.1.2-R
