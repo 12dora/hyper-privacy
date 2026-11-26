@@ -72,7 +72,7 @@ private val KeysSaver = Saver<List<String>?, ArrayList<String>>(
 
 /** The back stack, root first. Pushing the current top again is a no-op (double taps). */
 @Stable
-private class Navigator(private val holder: MutableState<List<Route>>) {
+internal class Navigator(private val holder: MutableState<List<Route>>) {
     val stack: List<Route> get() = holder.value
 
     fun push(route: Route) {
@@ -175,6 +175,7 @@ private fun Page(
                 onOpenSettings = { nav.push(Route.Settings) },
                 onOpenHealth = { nav.push(Route.Health) },
                 onEnableScope = viewModel.device::request,
+                onOpenApps = { nav.push(Route.Apps) },
             ),
             listState = home.listState,
             snackbarHostState = snackbar,
@@ -190,6 +191,10 @@ private fun Page(
         is Route.App -> if (state.loaded) {
             AppScreen(route.packageName, state, toggleRule, openRule, nav::pop, modifier)
         }
+
+        Route.Apps -> AppsPage(state, viewModel, nav, modifier)
+
+        is Route.UserApp -> UserAppPage(route.packageName, state, viewModel, nav, modifier)
 
         is Route.RuleDetail -> if (state.loaded) {
             RuleDetailScreen(
@@ -263,7 +268,7 @@ private fun ScopeMessages(viewModel: MainViewModel, snackbar: SnackbarHostState)
     }
 }
 
-private fun ScopeResult.messageRes(): Int = when (this) {
+internal fun ScopeResult.messageRes(): Int = when (this) {
     ScopeResult.APPROVED -> R.string.scope_approved
     ScopeResult.APPROVED_REBOOT -> R.string.scope_approved_reboot
     ScopeResult.DENIED -> R.string.scope_denied

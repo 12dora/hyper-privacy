@@ -39,6 +39,7 @@ import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.ModuleState
 import io.github.hyperprivacy.ui.UiState
+import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.components.GroupedSurface
 import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
@@ -60,6 +61,7 @@ internal class HomeActions(
     val onOpenSettings: () -> Unit,
     val onOpenHealth: () -> Unit,
     val onEnableScope: () -> Unit = {},
+    val onOpenApps: () -> Unit = {},
 )
 
 /**
@@ -135,6 +137,9 @@ private fun HomeTopBar(scrollBehavior: TopAppBarScrollBehavior, actions: HomeAct
     LargeTopAppBar(
         title = { Text(stringResource(R.string.app_name)) },
         actions = {
+            IconButton(onClick = actions.onOpenApps) {
+                Icon(AppIcons.Apps, contentDescription = stringResource(R.string.action_apps))
+            }
             IconButton(onClick = actions.onOpenSearch) {
                 Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
             }

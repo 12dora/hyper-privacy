@@ -9,6 +9,7 @@ import io.github.hyperprivacy.ModuleConnection
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.status.StatusStore
+import io.github.hyperprivacy.ui.apps.TrackerController
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -60,6 +61,15 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         installed = { backend?.view?.apps?.packages },
         refreshApps = { backend?.refreshApps() },
         onChange = { rebuildRequests.trySend(Unit) },
+    )
+
+    /** User-installed apps and tracker protection; starts when the Apps page is first opened. */
+    val trackers = TrackerController(
+        context = application,
+        scope = viewModelScope,
+        worker = worker,
+        prefs = { remotePrefs.get() },
+        service = { boundService },
     )
 
     init {
@@ -164,10 +174,12 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         prefs?.let { viewModelScope.launch(worker) { ensureModuleSecret(it) } }
         framework = service?.let { runCatching { "${it.frameworkName} ${it.frameworkVersion}" }.getOrNull() }
         device.check()
+        trackers.refresh()
         rebuildRequests.trySend(Unit)
     }
 
     private fun rebuild(backend: Backend) {
+        trackers.onPreferencesChanged()
         val prefs = remotePrefs.get()
         val stored = prefs?.let { runCatching { it.all }.getOrNull() }.orEmpty()
         val snapshot = backend.view.snapshot { rule ->

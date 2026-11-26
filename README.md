@@ -33,12 +33,24 @@
 
 - **103 条规则，覆盖 120 个系统应用**：按用途整理为统计分析、日志诊断、广告、设备标识、应用列表、个人数据 6 类，一目了然。
 - **默认配置足够省心**：103 条规则里 91 条默认开启，装好即用。其中通讯录、短信原文、应用列表、设备指纹、短信链接这类高风险泄露，即使拦截会带来一点副作用也默认阻止，并在规则里写明影响；另外 12 条拦了会影响安全、支付、账号、定位等功能的规则默认关闭，需要时可以手动开启。
+- **保护你安装的应用**：在「应用」页里，HyperPrivacy 会离线识别每个已安装应用内置的追踪 SDK（广告、统计、崩溃上报、设备识别等），为你选中的应用拦截这些 SDK 的上报，并可隐藏你装了哪些其他应用。详见下方「第三方应用防护」。
 - **隐藏设备标识**：第三方应用读取 OAID / VAID / AAID 时只会拿到全零结果（符合 MSA 规范的「限制广告追踪」值），小米自家服务不受影响。
 - **规则健康检测**：系统更新后如果厂商改了接口，会自动提示「已失效」「待复核」或「长期无拦截」；在其他机型上本来就不存在的 SDK 会显示为「不适用」，不会误报。
 - **诊断模式**：记录系统应用的网络请求，标出疑似新的上报通道；支持一键导出不含个人信息的诊断报告，方便反馈。
 - **即时生效**：切换开关后立刻作用于正在运行的应用，不需要为了试一条规则反复重启。
 - **自身零联网权限**：应用本身没有申请联网权限，不收集、也不上传任何数据。
 - **顺眼的外观设计**：支持浅色、深色模式与跟随系统，提供动态取色与 5 套内置配色。
+
+## 第三方应用防护
+
+内置规则只覆盖系统应用。对于你自己安装的应用，HyperPrivacy 提供按应用开启的追踪防护：
+
+- **离线识别**：在 HyperPrivacy 自身进程内读取安装包的 dex 类型表，按 SDK 特征识别其中的追踪 SDK。不加载、不执行目标应用的任何代码，也不需要联网；结果按应用版本缓存，应用更新后自动重新识别。部分加固应用的代码经过加密，可能无法识别。
+- **按需拦截**：为某个应用开启防护后，模块会请求将它加入 LSPosed 作用域（需在 LSPosed 通知中确认），应用重新启动后生效。随后在该应用内拦截已识别 SDK 的上报域名和接口，同时隔离 DRM 设备号、阻止绕过系统 DNS。推送送达、登录、地图等 SDK 正常功能用到的域名始终保留。
+- **可逐项调整**：每个 SDK 都有单独的开关。设备识别、风控类 SDK 默认不拦截，因为拦截后登录或支付可能需要额外验证；需要时可以手动开启。
+- **隐藏已安装应用**：可让某个应用看不到你装的其他应用；常用的分享、登录、支付应用默认仍可见，开启「严格模式」后一并隐藏。
+
+SDK 特征库位于 `data/trackers.json`，依据各 SDK 厂商的公开文档、公开发布的 SDK 制品以及真机上的安装包分析整理而成，每条都附有来源说明。
 
 ## 与其他方案的对比
 
@@ -82,6 +94,9 @@
 
 ## 常见问题
 
+**为什么从这个版本起，LSPosed 里可以勾选更多应用？**
+第三方应用防护需要在运行时把你选中的应用加入作用域，因此模块不再固定作用域。「勾选推荐」仍只勾选内置规则涉及的系统应用；没有开启防护的其他应用，即使被手动勾选，模块也不会做任何拦截。
+
 **之后才安装的小米应用（如米家、小米健康）也会被保护吗？**
 会，但需要你点一下。LSPosed 不会自动把新装的应用加入作用域，HyperPrivacy 首页会提示「N 个应用未启用防护」，点「启用」后在 LSPosed 的通知里确认即可；应用重新启动后生效。规则列表只显示本机已安装应用相关的规则。
 
@@ -113,6 +128,7 @@
 ./gradlew check            # detekt、Android Lint（警告即错误）、单元测试
 ./gradlew assembleDebug
 scripts/privacy-scan.sh    # 防止仓库中出现本机路径、主机名、个人邮箱等信息
+python3 -I scripts/gen-trackers.py   # 修改 data/trackers.json 后重新生成 SDK 特征表
 ```
 
 代码结构与工程约定：
@@ -129,6 +145,7 @@ Turning off Xiaomi's "User Experience Program" doesn't stop system apps from rep
 - **Grounded in real-device evidence**: 100 evidence-backed rules covering 120 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
 - **Six precise enforcement layers**: kernel firewall per uid, DNS, TLS SNI (defeats HTTPDNS and hard-coded IPs), HTTP client and WebView (path-level, so services sharing the same host keep working), SDK method no-op, and zeroed OAID/VAID/AAID for third-party apps.
 - **Stays reliable across updates**: rule health detection flags rules broken by vendor updates, while diagnostics mode helps discover new reporting channels.
+- **Protects the apps you install**: an offline scan of each app's dex type table identifies embedded tracker SDKs (ads, analytics, crash reporting, device identification); per app you can block what they report and hide your other installed apps. The SDK signature database (`data/trackers.json`) is compiled from vendor documentation, public SDK artifacts and on-device analysis.
 - **Lightweight and private**: uses no VPN slot, needs no root at runtime, and requests no network permission in the app itself. Rule changes apply right away without a reboot.
 
 Keywords: HyperOS privacy, MIUI telemetry blocker, Xiaomi ad blocker, OneTrack, MSA ads, LSPosed module, Xposed privacy.
