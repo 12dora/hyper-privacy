@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -111,12 +112,13 @@ internal fun MonoText(text: String, modifier: Modifier = Modifier) {
 
 /**
  * A navigation row: optional [leading] slot, title over a summary, chevron. The summary may be
- * tinted (e.g. for a health warning) via [summaryColor].
+ * tinted (e.g. for a health warning) via [summaryColor]. Without [onClick] it is a plain
+ * information row: no chevron, not clickable, read as one unit.
  */
 @Composable
 internal fun NavRow(
     title: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     summary: String? = null,
     summaryColor: Color = Color.Unspecified,
@@ -126,10 +128,16 @@ internal fun NavRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (leading != null) Dimens.TallRowMinHeight else Dimens.RowMinHeight)
-            .clickable(role = Role.Button, onClick = onClick)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier.semantics(mergeDescendants = true) {}
+                },
+            )
             .padding(
                 start = Dimens.Gutter,
-                end = Dimens.Small + Dimens.Tiny,
+                end = if (onClick != null) Dimens.Small + Dimens.Tiny else Dimens.Gutter,
                 top = Dimens.RowVertical,
                 bottom = Dimens.RowVertical,
             ),
@@ -149,11 +157,13 @@ internal fun NavRow(
                 )
             }
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (onClick != null) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

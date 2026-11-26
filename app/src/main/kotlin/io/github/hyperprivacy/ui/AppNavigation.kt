@@ -105,8 +105,14 @@ internal class Shell(
 
     fun back() {
         when {
-            nav.stack.size > 1 -> nav.pop()
+            nav.stack.size > 1 -> {
+                // Leaving the search forgets what was typed; opening a result and returning does not.
+                if (nav.stack.last() == Route.Search) system.query = ""
+                nav.pop()
+            }
+
             tab == Tab.APPS && apps.searching -> apps.closeSearch()
+
             else -> tab = Tab.OVERVIEW
         }
     }
@@ -125,9 +131,12 @@ internal fun AppNavigation(model: UiModel) {
         Shell(model, Navigator(stackHolder), tabHolder, overview, system, apps, snackbar)
     }
     ScopeMessages(model.device, snackbar)
-    if (system.expanded == null && state.loaded) {
-        val keys = state.byCategory.map { it.key }
-        system.expanded = if (state.rules.size <= EXPAND_ALL_MAX_RULES) keys else emptyList()
+    // Default unfolding is a one-off effect of the first state, not a write made while composing.
+    LaunchedEffect(state.loaded) {
+        if (state.loaded && system.expanded == null) {
+            val keys = state.byCategory.map { it.key }
+            system.expanded = if (state.rules.size <= EXPAND_ALL_MAX_RULES) keys else emptyList()
+        }
     }
 
     val backState = rememberNavigationEventState(NavigationEventInfo.None)
@@ -159,7 +168,7 @@ private fun Page(route: Route, state: UiState, shell: Shell, modifier: Modifier)
     when (route) {
         Route.Settings -> SettingsPage(state, shell, modifier)
 
-        Route.Search -> SearchPage(state, toggleRule, openRule, nav, modifier)
+        Route.Search -> SearchPage(state, toggleRule, openRule, shell, modifier)
 
         Route.Health -> HealthScreen(state, openRule, rememberReportExport(model), nav::pop, modifier)
 
@@ -214,19 +223,19 @@ private fun SearchPage(
     state: UiState,
     onToggleRule: (String, Boolean) -> Unit,
     onOpenRule: (String) -> Unit,
-    nav: Navigator,
+    shell: Shell,
     modifier: Modifier,
 ) {
-    // Survives opening a result and coming back.
-    var query by rememberSaveable { mutableStateOf("") }
+    // The query lives in the System tab's memory: this page is disposed while a result is open.
+    val system = shell.system
     SearchScreen(
         state = state,
-        query = query,
-        onQueryChange = { query = it },
+        query = system.query,
+        onQueryChange = { system.query = it },
         onToggleRule = onToggleRule,
         onOpenRule = onOpenRule,
-        onOpenApp = { nav.push(Route.App(it)) },
-        onBack = nav::pop,
+        onOpenApp = { shell.nav.push(Route.App(it)) },
+        onBack = shell::back,
         modifier = modifier,
     )
 }

@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,18 +25,27 @@ import io.github.hyperprivacy.R
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 
-/** A light two-option toggle, 36dp high: a quiet track with a tonal pill under the selected label. */
+/**
+ * A light two-option toggle, 36dp high: a quiet track with a tonal pill under the selected label.
+ * Each option's touch target is 48dp high, taller than the drawn track, so it stays easy to hit.
+ */
 @Composable
 internal fun ViewSwitcher(view: SystemView, onViewChange: (SystemView) -> Unit, modifier: Modifier = Modifier) {
     val options = listOf(SystemView.CATEGORY to R.string.view_by_category, SystemView.APP to R.string.view_by_app)
-    Surface(
+    // The outer box is the touch height; the track is drawn centered inside it at the visual height.
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(Dimens.SwitcherHeight),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+            .height(Dimens.TouchTarget)
+            .selectableGroup(),
+        contentAlignment = Alignment.Center,
     ) {
-        Row(Modifier.selectableGroup().padding(Dimens.RowGap)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(Dimens.SwitcherHeight),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+        ) {}
+        Row(Modifier.fillMaxSize().padding(horizontal = Dimens.RowGap)) {
             options.forEach { (option, label) ->
                 SwitcherOption(
                     label = stringResource(label),
@@ -65,7 +75,12 @@ private fun SwitcherOption(label: String, selected: Boolean, onSelect: () -> Uni
             .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(shape = CircleShape, color = container, modifier = Modifier.matchParentSize()) {}
+        // The pill is inset to the track height (2dp each side), inside the taller touch area.
+        Surface(
+            shape = CircleShape,
+            color = container,
+            modifier = Modifier.fillMaxWidth().height(Dimens.SwitcherHeight - Dimens.RowGap * 2),
+        ) {}
         Text(text = label, style = MaterialTheme.typography.labelLarge, color = content)
     }
 }

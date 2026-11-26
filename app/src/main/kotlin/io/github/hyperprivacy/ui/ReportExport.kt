@@ -9,8 +9,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 internal fun rememberReportExport(model: UiModel): () -> Unit {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var asking by remember { mutableStateOf(false) }
+    var asking by rememberSaveable { mutableStateOf(false) }
     val run: (Boolean?) -> Unit = { includeUserApps ->
         scope.launch {
             when (val outcome = model.diagnosticReport(includeUserApps)) {

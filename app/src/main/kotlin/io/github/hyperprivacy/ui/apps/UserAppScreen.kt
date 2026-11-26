@@ -80,10 +80,11 @@ internal fun UserAppScreen(
             }
             return@Scaffold
         }
+        val sdkGroups = remember(app.sdks) { app.sdks.byCategory() }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             item(key = "header") { Header(app) }
             item(key = "protect") { ProtectionCard(app, canEdit, actions) }
-            sdkSection(app, canEdit, actions.onSdk)
+            sdkSection(app, sdkGroups, canEdit, actions.onSdk)
             suspectSection(app, canEdit, actions.onSuspect)
             appRuleSection(app, canEdit, actions.onAppRule)
             appListSection(app, canEdit, actions)
