@@ -1,55 +1,38 @@
 package io.github.hyperprivacy.core.tracker
 
+import io.github.hyperprivacy.core.config.ConfigCodec
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
-import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
-import io.github.hyperprivacy.core.rule.catalog.HttpDnsResolvers
 
 /**
  * The rules enforced inside an app with tracker protection on ([TrackerProtection]): each
  * detected blockable SDK becomes a synthetic [Rule] with id [TrackerProtection.ruleId] (one
- * DOMAIN and/or one URL rule sharing it), so the regular network sinks enforce it. Two app-level
- * protections ([appRules]) come with every protected app: a per-app `MediaDrm` device id and
- * blocking third-party HTTPDNS resolvers. They are defined here rather than taken from the catalog,
- * so the catalog can scope its own versions independently.
+ * DOMAIN and/or one URL rule sharing it), so the regular network sinks enforce it. The app-level
+ * protections of every protected app ([appRules]) are [Catalog.protectedAppRules], bound to the
+ * app: they are defined once there, with their copy, defaults and health.
  */
 public object TrackerRules {
-    /** Rule id of the per-app `MediaDrm` device id in a protected app. */
-    public const val DRM_ID_RULE: String = "tracker.app.drm-id"
+    /** Ids of [appRules]. */
+    public val appRuleIds: Set<String> get() = Catalog.protectedAppRuleIds
 
-    /** Rule id of the HTTPDNS resolver block in a protected app. */
-    public const val HTTPDNS_RULE: String = "tracker.app.httpdns"
+    /** [Catalog.protectedAppRules] bound to the protected [packageName]. */
+    public fun appRules(packageName: String): List<Rule> =
+        Catalog.protectedAppRules.map { it.copy(packages = setOf(packageName)) }
 
-    /** Ids of [appRules]; the switch of each is `TrackerProtection.blockKey(pkg, <id without prefix>)`. */
-    public val appRuleIds: Set<String> = setOf(DRM_ID_RULE, HTTPDNS_RULE)
+    /**
+     * The per-app switch key of app-level rule [ruleId] in [packageName]. Absent: the global
+     * catalog switch (`rule.<id>`), else the rule's default.
+     */
+    public fun appRuleKey(packageName: String, ruleId: String): String = TrackerProtection.blockKey(packageName, ruleId)
 
-    /** The app-level protections of a protected [packageName]; on with protection unless overridden. */
-    public fun appRules(packageName: String): List<Rule> = listOf(
-        Rule(
-            id = DRM_ID_RULE,
-            packages = setOf(packageName),
-            title = Text("隔离 DRM 设备号", "Isolate DRM device ID"),
-            summary = Text("每个应用拿到不同的设备号", "Each app sees a different DRM ID"),
-            payload = RulePayload.Identifiers(IdentifierSource.MEDIA_DRM_ID),
-            category = Category.DEVICE_ID,
-            evidence = "Widevine deviceUniqueId is one value for every app and survives reinstall; replaced per " +
-                "app with HMAC-SHA256(secret, real || package) at the Java API, the DRM HAL keeps the real id",
-            preventive = true,
-        ),
-        Rule(
-            id = HTTPDNS_RULE,
-            packages = setOf(packageName),
-            title = Text("强制系统 DNS", "Force system DNS"),
-            summary = Text("阻止应用绕过系统 DNS 解析", "Stop apps bypassing system DNS"),
-            payload = RulePayload.Domains(HttpDnsResolvers.hosts + HttpDnsResolvers.addresses),
-            category = Category.PERSONAL_DATA,
-            evidence = "HTTPDNS / DoH resolver endpoints (docs/collection-techniques.md 7.2); SDKs fall back to " +
-                "system DNS, where the DNS sink sees the real host names",
-            preventive = true,
-        ),
-    )
+    /** Whether app-level [rule] applies in [packageName] under [raw] (protection itself not considered). */
+    public fun isAppRuleOn(raw: Map<String, *>, packageName: String, rule: Rule): Boolean =
+        raw[appRuleKey(packageName, rule.id)] as? Boolean
+            ?: raw[ConfigCodec.key(rule.id)] as? Boolean
+            ?: rule.defaultOn
 
     /**
      * The in-process rules for a protected [packageName] whose scan found [detectedIds]: one or
@@ -65,7 +48,7 @@ public object TrackerRules {
     /**
      * Effective switch of each rule from [rulesFor] under [raw]: nothing is on unless protection
      * is on for [packageName]; SDK rules follow [TrackerProtection.isBlocked] and the stored scan
-     * result, [appRules] are on unless their block key is set to `false`.
+     * result, [appRules] follow [isAppRuleOn].
      */
     public fun resolve(raw: Map<String, *>, packageName: String, rules: List<Rule>): Map<String, Boolean> {
         val detected = TrackerProtection.detected(raw, packageName)?.toSet()
@@ -74,7 +57,8 @@ public object TrackerRules {
             val on = when {
                 detected == null -> false
                 sdk != null -> sdk.id in detected && TrackerProtection.isBlocked(raw, packageName, sdk)
-                else -> raw[TrackerProtection.blockKey(packageName, rule.id.removePrefix(PREFIX))] as? Boolean ?: true
+                rule.id in appRuleIds -> isAppRuleOn(raw, packageName, rule)
+                else -> false
             }
             rule.id to on
         }
@@ -98,8 +82,6 @@ public object TrackerRules {
             )
         }
     }
-
-    private const val PREFIX = TrackerProtection.RULE_PREFIX
 
     /** The catalog category a tracker category is reported under. */
     public fun categoryOf(category: TrackerCategory): Category = when (category) {

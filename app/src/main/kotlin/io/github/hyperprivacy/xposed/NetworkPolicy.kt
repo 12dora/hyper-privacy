@@ -18,7 +18,10 @@ internal class NetworkPolicy(
     private val switches: RuleSwitches,
     private val log: HookLog,
 ) {
-    /** Tracker-protected apps never block the hosts SDKs need for features (push, login, maps). */
+    /**
+     * Tracker-protected apps never block the hosts SDKs need for features (push, login, maps) by
+     * an SDK rule; app-level rules (HTTPDNS) are not overridden by them.
+     */
     private val keepHosts: Set<String> =
         if (rules.any { TrackerProtection.sdkIdOf(it.id) != null }) Trackers.keepHosts else emptySet()
 
@@ -45,6 +48,6 @@ internal class NetworkPolicy(
     val hasUrlRules: Boolean get() = !matchers.get().urls.isEmpty
 
     private fun build(): NetworkMatchers = log.guard("build network matchers") {
-        NetworkMatchers.of(rules, keepHosts, switches::isEnabled)
+        NetworkMatchers.of(rules, keepHosts, { TrackerProtection.sdkIdOf(it) != null }, switches::isEnabled)
     } ?: NetworkMatchers.EMPTY
 }

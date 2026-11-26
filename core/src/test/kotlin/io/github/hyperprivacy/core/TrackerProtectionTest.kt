@@ -2,6 +2,7 @@ package io.github.hyperprivacy.core
 
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.match.NetworkMatchers
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
@@ -45,11 +46,21 @@ class TrackerProtectionTest {
     }
 
     @Test
+    fun `app-level rules are the catalog's protected-app rules bound to the app`() {
+        val appRules = TrackerRules.appRules(pkg)
+        assertEquals(Catalog.protectedAppRules.map { it.id }, appRules.map { it.id })
+        assertEquals(Catalog.protectedAppRules.map { it.copy(packages = setOf(pkg)) }, appRules)
+        assertTrue("httpdns.protected-apps" in TrackerRules.appRuleIds)
+        assertTrue("mediadrm.device-id" in TrackerRules.appRuleIds)
+    }
+
+    @Test
     fun `switches follow protection, defaults and overrides`() {
         val rules = TrackerRules.rulesFor(pkg, listOf(blocking.id, optIn.id))
         val blockRule = TrackerProtection.ruleId(blocking.id)
         val optRule = TrackerProtection.ruleId(optIn.id)
-        val wide = TrackerRules.DRM_ID_RULE
+        val wide = "mediadrm.device-id"
+        val dns = "httpdns.protected-apps"
         val off = TrackerRules.resolve(emptyMap<String, Any>(), pkg, rules)
         assertTrue(off.values.none { it }, "nothing applies while protection is off")
 
@@ -60,16 +71,22 @@ class TrackerProtectionTest {
         assertEquals(true, defaults[blockRule])
         assertEquals(false, defaults[optRule], "opt-in SDKs stay allowed by default")
         assertEquals(true, defaults[wide])
+        assertEquals(true, defaults[dns])
+        // The global catalog switch applies unless the app has its own.
+        assertEquals(false, TrackerRules.resolve(on + (ConfigCodec.key(dns) to false), pkg, rules)[dns])
 
         val overridden = on + mapOf(
             TrackerProtection.blockKey(pkg, blocking.id) to false,
             TrackerProtection.blockKey(pkg, optIn.id) to true,
-            TrackerProtection.blockKey(pkg, "app.drm-id") to false,
+            TrackerRules.appRuleKey(pkg, wide) to false,
+            ConfigCodec.key(dns) to false,
+            TrackerRules.appRuleKey(pkg, dns) to true,
         )
         val switched = TrackerRules.resolve(overridden, pkg, rules)
         assertEquals(false, switched[blockRule])
         assertEquals(true, switched[optRule])
         assertEquals(false, switched[wide])
+        assertEquals(true, switched[dns], "the app's own switch wins over the global one")
         // An SDK no longer in the stored scan result is not enforced.
         val rescanned = overridden + (TrackerProtection.protectKey(pkg) to blocking.id)
         assertEquals(false, TrackerRules.resolve(rescanned, pkg, rules)[optRule])
@@ -92,11 +109,48 @@ class TrackerProtectionTest {
     }
 
     @Test
+    fun `keep hosts never weaken app-level rules`() {
+        val rules = listOf(
+            rule("tracker.${blocking.id}", RulePayload.Domains(listOf("amap.com"))),
+            rule("app", RulePayload.Domains(listOf("httpdns.apilocate.amap.com"))),
+        )
+        val keep = listOf("httpdns.apilocate.amap.com", "apilocate.amap.com")
+        val matchers = NetworkMatchers.of(rules, keep, { it.startsWith("tracker.") }) { true }
+        assertEquals("app", matchers.findHost("httpdns.apilocate.amap.com"))
+        assertEquals("app", matchers.findUrl("httpdns.apilocate.amap.com", "/d"))
+        assertNull(matchers.findHost("a.apilocate.amap.com"), "still kept from the SDK rule")
+        assertEquals("tracker.${blocking.id}", matchers.findHost("log.amap.com"))
+    }
+
+    @Test
+    fun `keep hosts alone build no host matcher`() {
+        val urlOnly = listOf(rule("u", RulePayload.Urls(listOf(UrlPrefix("feature.example.com", "/stat")))))
+        val matchers = NetworkMatchers.of(urlOnly, listOf("feature.example.com", "push.example.com")) { true }
+        assertTrue(matchers.hosts.isEmpty)
+        assertFalse(matchers.blocksConnects)
+        assertEquals("u", matchers.findUrl("feature.example.com", "/stat"))
+    }
+
+    @Test
     fun `affected keys`() {
         assertTrue(TrackerProtection.affects(TrackerProtection.protectKey(pkg)))
         assertTrue(TrackerProtection.affects(TrackerProtection.blockKey(pkg, blocking.id)))
         assertTrue(TrackerProtection.affects(null))
         assertFalse(TrackerProtection.affects(ConfigCodec.key("x")))
+    }
+
+    @Test
+    fun `a protected app only reacts to its own keys`() {
+        val other = "com.example.other"
+        assertTrue(TrackerProtection.affects(TrackerProtection.protectKey(pkg), pkg))
+        assertTrue(TrackerProtection.affects(TrackerProtection.blockKey(pkg, blocking.id), pkg))
+        assertTrue(TrackerProtection.affects(TrackerRules.appRuleKey(pkg, "mediadrm.device-id"), pkg))
+        assertTrue(TrackerProtection.affects(ConfigCodec.key("httpdns.protected-apps"), pkg))
+        assertTrue(TrackerProtection.affects(null, pkg))
+        assertFalse(TrackerProtection.affects(TrackerProtection.protectKey(other), pkg))
+        assertFalse(TrackerProtection.affects(TrackerProtection.blockKey(other, blocking.id), pkg))
+        assertFalse(TrackerProtection.affects(TrackerProtection.protectKey("$pkg.sub"), pkg))
+        assertFalse(TrackerProtection.affects(ConfigCodec.key("httpdns.resolvers"), pkg))
     }
 
     private fun rule(id: String, payload: RulePayload) = Rule(
