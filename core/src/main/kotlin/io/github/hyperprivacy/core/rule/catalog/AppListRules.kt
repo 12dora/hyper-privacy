@@ -93,14 +93,14 @@ internal val appListRules: List<Rule> = listOf(
     Rule(
         id = "guard.app-detect",
         packages = setOf("com.miui.guardprovider"),
-        title = Text("反诈应用检测", "Fraud app detection"),
+        title = Text("应用云检测", "Cloud app check"),
         summary = Text("阻止上传已装应用列表", "Blocks installed app list uploads"),
         payload = RulePayload.Urls(listOf(UrlPrefix("flash.sec.miui.com", "/detect/app"))),
         category = Category.APP_LIST,
         evidence = "dex: guardprovider POST https://flash.sec.miui.com/detect/app with uuid, OS and every " +
-            "non-system package with version, signature MD5 and app name (anti-fraud cloud app check after AV " +
-            "updates)",
-        impact = Text("无法识别涉诈应用", "Fraud apps won't be flagged"),
+            "non-system package with version, signature MD5 and app name (security cloud app " +
+            "check after AV updates)",
+        impact = Text("云端应用风险识别不可用", "Cloud app risk check unavailable"),
         highRisk = true,
     ),
 )
