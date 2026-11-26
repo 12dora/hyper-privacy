@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 class CatalogCopyTest {
     @Test
     fun `chinese copy fits one line`() {
-        val tooLong = Catalog.rules.flatMap { rule ->
+        val tooLong = (Catalog.rules + Catalog.protectedAppRules).flatMap { rule ->
             listOfNotNull(
                 "${rule.id} title: ${rule.title.zh}".takeIf { width(rule.title.zh) > ZH_TITLE_MAX },
                 "${rule.id} summary: ${rule.summary.zh}".takeIf { width(rule.summary.zh) > ZH_SUMMARY_MAX },
@@ -25,7 +25,7 @@ class CatalogCopyTest {
 
     @Test
     fun `english copy fits one line`() {
-        val tooLong = Catalog.rules.flatMap { rule ->
+        val tooLong = (Catalog.rules + Catalog.protectedAppRules).flatMap { rule ->
             listOfNotNull(
                 "${rule.id} title: ${rule.title.en}".takeIf { rule.title.en.length > EN_TITLE_MAX },
                 "${rule.id} summary: ${rule.summary.en}".takeIf { rule.summary.en.length > EN_SUMMARY_MAX },
