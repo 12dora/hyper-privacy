@@ -23,6 +23,9 @@ public object ModuleOverlap {
         "com.sevtinge.hyperceiler" to setOf(OverlapArea.ADS),
     )
 
+    /** Intent category of the settings screen an Xposed module declares. */
+    public const val SETTINGS_CATEGORY: String = "de.robv.android.xposed.category.MODULE_SETTINGS"
+
     private val APP_LIST_WORDS = Regex(
         "hide[ -]?(my )?(installed )?apps?|app ?list|applist|应用列表|隐藏应用|应用隐藏|隐藏已安装|隐藏.{0,4}应用",
         RegexOption.IGNORE_CASE,

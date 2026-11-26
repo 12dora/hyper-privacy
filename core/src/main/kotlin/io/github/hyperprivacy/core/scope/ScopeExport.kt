@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core.scope
 
+import io.github.hyperprivacy.core.conflict.ModuleOverlap
 import io.github.hyperprivacy.core.rule.Catalog
 import java.io.File
 
@@ -13,7 +14,10 @@ public object ScopeExport {
 
     /**
      * A manifest fragment declaring `<queries>` for every catalog package, so the app can show
-     * labels and map caller uids to packages without `QUERY_ALL_PACKAGES`.
+     * labels and map caller uids to packages without `QUERY_ALL_PACKAGES`. It also names the
+     * well-known modules that may overlap ([ModuleOverlap.KNOWN]) and the intent every Xposed
+     * module with a settings screen answers, so the overlap hint can see them even without a
+     * launcher icon.
      */
     public fun queriesManifest(): String = buildString {
         appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
@@ -21,7 +25,11 @@ public object ScopeExport {
         appendLine("    <queries>")
         // system_server is not a package; it needs no visibility.
         val packages = Catalog.allPackages - Catalog.SYSTEM_SCOPE
-        packages.forEach { appendLine("""        <package android:name="$it" />""") }
+        (packages + ModuleOverlap.KNOWN.keys).forEach { appendLine("""        <package android:name="$it" />""") }
+        appendLine("        <intent>")
+        appendLine("""            <action android:name="android.intent.action.MAIN" />""")
+        appendLine("""            <category android:name="${ModuleOverlap.SETTINGS_CATEGORY}" />""")
+        appendLine("        </intent>")
         appendLine("    </queries>")
         appendLine("</manifest>")
     }
