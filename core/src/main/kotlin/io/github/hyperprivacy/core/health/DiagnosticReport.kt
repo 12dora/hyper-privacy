@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core.health
 
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.status.SinkReport
 
@@ -33,6 +34,9 @@ public data class RuleHealthRow(
  * @property onSurveyedDevice whether the static baseline applies to this device (else versions are
  *   compared with device-local history).
  * @property missedSinks sinks that reported MISSED this boot.
+ * @property includeUserApps the user chose, at export time, to include rows about packages outside
+ *   the catalog (protected third-party apps, apps whose Settings reads were observed). Default:
+ *   such rows are left out and only counted ([DiagnosticReport.userAppRows]).
  */
 public data class DiagnosticInput(
     val moduleVersion: String,
@@ -44,6 +48,7 @@ public data class DiagnosticInput(
     val rules: List<RuleHealthRow>,
     val missedSinks: List<SinkReport>,
     val suspectedEndpoints: List<ObservedEndpoint>,
+    val includeUserApps: Boolean = false,
 )
 
 /**
@@ -53,7 +58,8 @@ public data class DiagnosticInput(
  * version codes, sink names), the device model and codename (never serials or ids), and endpoint
  * host + path prefix. Free-text fields are reduced to `[A-Za-z0-9._+-]`, invalid hosts are dropped, paths are cut to [ObservedEndpoint.pathPrefixOf]
  * (no query or fragment), and path segments that look like ids (long digit runs, long hex) are
- * masked. No timestamps, device ids, accounts or user-installed app names are included.
+ * masked. No timestamps, device ids or accounts are included, and no user-installed app names or
+ * their endpoints unless [DiagnosticInput.includeUserApps] is set.
  */
 public object DiagnosticReport {
     private const val MAX_FIELD_LENGTH = 64
@@ -67,7 +73,18 @@ public object DiagnosticReport {
     private val HEX_ID = Regex("[0-9a-fA-F-]{$MIN_HEX_ID_LENGTH,}")
     private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
 
+    /** Whether [packageName] is part of the catalog (a vendor target or system_server). */
+    public fun isCatalogPackage(packageName: String): Boolean =
+        packageName == Catalog.SYSTEM_SCOPE || packageName in Catalog.allPackages
+
+    /** Rows of [input] about packages outside the catalog: what [DiagnosticInput.includeUserApps] decides on. */
+    public fun userAppRows(input: DiagnosticInput): Int =
+        input.missedSinks.count { !isCatalogPackage(it.packageName) } +
+            input.suspectedEndpoints.count { !isCatalogPackage(it.packageName) }
+
     public fun render(input: DiagnosticInput): String = buildString {
+        val keep = { pkg: String -> input.includeUserApps || isCatalogPackage(pkg) }
+        val omitted = if (input.includeUserApps) 0 else userAppRows(input)
         appendLine("# HyperPrivacy diagnostic report")
         appendLine()
         appendLine("- module: ${field(input.moduleVersion)}")
@@ -78,8 +95,12 @@ public object DiagnosticReport {
         appendLine()
         appendRules(input.rules)
         appendNotApplicable(input.rules)
-        appendSinks(input.missedSinks)
-        appendEndpoints(input.suspectedEndpoints)
+        appendSinks(input.missedSinks.filter { keep(it.packageName) })
+        appendEndpoints(input.suspectedEndpoints.filter { keep(it.packageName) })
+        if (omitted > 0) {
+            appendLine()
+            appendLine("($omitted rows about user-installed apps left out)")
+        }
     }
 
     private fun StringBuilder.appendRules(rules: List<RuleHealthRow>) {

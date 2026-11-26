@@ -64,12 +64,13 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         onChange = { rebuildRequests.trySend(Unit) },
     )
 
-    /** User-installed apps and tracker protection; starts when the Apps page is first opened. */
+    /** User-installed apps and tracker protection; starts when an Apps page is first shown. */
     val trackers = TrackerController(
         context = application,
         scope = viewModelScope,
         worker = worker,
         prefs = { remotePrefs.get() },
+        status = { backend?.store },
         service = { boundService },
     )
 
@@ -96,15 +97,23 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
     /** Switches one or more rules in a single preferences commit (a row switch, or a category bulk switch). */
     fun setRulesEnabled(ruleIds: Collection<String>, enabled: Boolean) = write(ruleIds.map(ConfigCodec::key), enabled)
 
-    /** The Markdown diagnostic report; built on the worker, which reads preferences and the package manager. */
-    suspend fun diagnosticReport(): String? = withContext(worker) {
-        val loaded = backend ?: return@withContext null
+    /**
+     * The Markdown diagnostic report; built on the worker, which reads preferences and the package
+     * manager. Rows about user-installed apps are only included when the user chose so at export:
+     * with [includeUserApps] `null` and such rows present, the answer is [ReportOutcome.AskUserApps].
+     */
+    suspend fun diagnosticReport(includeUserApps: Boolean?): ReportOutcome = withContext(worker) {
+        val loaded = backend ?: return@withContext ReportOutcome.Failed
+        val health = loaded.health
+        if (includeUserApps == null && runCatching { health.reportMentionsUserApps() }.getOrDefault(false)) {
+            return@withContext ReportOutcome.AskUserApps
+        }
         val stored = remotePrefs.get()?.let { runCatching { it.all }.getOrNull() }.orEmpty()
         runCatching {
-            loaded.health.report(loaded.versionName) { rule ->
+            health.report(loaded.versionName, includeUserApps == true) { rule ->
                 pendingWrites.resolve(stored, ConfigCodec.key(rule.id), rule.defaultOn)
             }
-        }.getOrNull()
+        }.map(ReportOutcome::Ready).getOrDefault(ReportOutcome.Failed)
     }
 
     fun setSwitch(switch: ModuleSwitch, enabled: Boolean) = write(listOf(switch.key), enabled)
@@ -218,6 +227,16 @@ internal class MainViewModel(application: Application) : AndroidViewModel(applic
         const val THROTTLE_MS = 200L
         const val SETTLE_MS = 1_000L
     }
+}
+
+/** What [MainViewModel.diagnosticReport] produced. */
+internal sealed interface ReportOutcome {
+    data class Ready(val text: String) : ReportOutcome
+
+    /** The report would list user-installed apps: ask whether to include them, then build again. */
+    data object AskUserApps : ReportOutcome
+
+    data object Failed : ReportOutcome
 }
 
 /** Module-wide switches besides the rule switches; hooks and system_server apply them live. */

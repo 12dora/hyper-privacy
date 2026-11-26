@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,9 +63,12 @@ internal fun AppsScreen(
     onlyTrackers: Boolean,
     actions: AppsActions,
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
-    val shown = if (onlyTrackers) state.apps.filter { it.sdkCount > 0 } else state.apps
+    val shown = remember(state.apps, onlyTrackers) {
+        if (onlyTrackers) state.apps.filter { it.sdkCount > 0 } else state.apps
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -75,7 +80,7 @@ internal fun AppsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { inner ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(inner)) {
             item(key = "intro") { Intro() }
             item(key = "filter") { FilterRow(state, onlyTrackers, actions.onFilterChange) }
             when {
@@ -232,8 +237,12 @@ internal fun sampleApps(): AppsUi {
         blocked = true,
         hits = 12,
     )
+    val rule = AppRuleUi("mediadrm.device-id", Text("隔离 DRM 设备号", "Isolate DRM device ID"), Text("", ""), true, 0)
     fun app(pkg: String, label: String, scan: ScanState, sdks: List<SdkUi>, protected: Boolean, scoped: Boolean) =
-        UserAppUi(pkg, label, scan, sdks, protected, scoped, requesting = false, hideApps = false, strict = false)
+        UserAppUi(
+            pkg, label, scan, sdks, listOf(rule), protected, scoped,
+            requesting = false, hideApps = false, strict = false,
+        )
     return AppsUi(
         loaded = true,
         apps = listOf(
