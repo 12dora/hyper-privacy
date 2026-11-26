@@ -2,6 +2,7 @@ package io.github.hyperprivacy.status
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Binder
@@ -12,8 +13,10 @@ import io.github.hyperprivacy.core.firewall.UidPolicy
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.status.EndpointRecorder
+import io.github.hyperprivacy.core.status.HookState
 import io.github.hyperprivacy.core.status.MetaCodec
 import io.github.hyperprivacy.core.status.ObservedCodec
+import io.github.hyperprivacy.core.status.ProcessMeta
 import io.github.hyperprivacy.core.status.RuleReport
 import io.github.hyperprivacy.core.status.SinkCodec
 import io.github.hyperprivacy.core.status.StatusCodec
@@ -48,12 +51,30 @@ class StatusProvider : ContentProvider() {
             .take(MAX_OBSERVED_PER_CALL)
         val meta = MetaCodec.decode(extras?.getString(StatusContract.KEY_META))
             .filter { it.packageName in callerPackages }
-        store.merge(reports)
+        store.merge(reports, versionsOf(reports, meta)::get)
         store.meta.merge(meta, receivedAt = System.currentTimeMillis())
         store.mergeSinks(sinks)
         store.mergeObserved(observed)
         return Bundle.EMPTY
     }
+
+    /**
+     * The versionCode each package with an ACTIVE report runs as: the reporting process's own
+     * [ProcessMeta] when the batch carries it, else the installed version (system_server reports
+     * firewall rules on behalf of apps and sends no meta).
+     */
+    private fun versionsOf(reports: List<RuleReport>, meta: List<ProcessMeta>): Map<String, Long> {
+        val reported = meta.associate { it.packageName to it.versionCode }
+        return reports.filter { it.state == HookState.ACTIVE }
+            .map { it.packageName }
+            .distinct()
+            .mapNotNull { pkg -> (reported[pkg] ?: installedVersion(pkg))?.let { pkg to it } }
+            .toMap()
+    }
+
+    private fun installedVersion(pkg: String): Long? = runCatching {
+        context?.packageManager?.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0))?.longVersionCode
+    }.getOrNull()
 
     private fun callerScopePackages(uid: Int): Set<String> {
         val packages = context?.packageManager?.getPackagesForUid(uid).orEmpty()
