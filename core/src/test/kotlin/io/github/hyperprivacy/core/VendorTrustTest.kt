@@ -66,9 +66,45 @@ class VendorTrustTest {
         assertTrue(policy.shouldHide(appId("com.xiaomi.fake"), appId("com.google.android.gm")))
     }
 
+    @Test
+    fun `APK v3 rotation lineage counts on both sides`() {
+        val rotated = listOf(
+            InstalledApp(VendorTrust.PLATFORM_PACKAGE, 1_000, isSystem = true, signers = setOf(PLATFORM)),
+            // A vendor system app that rotated from its original key to a new one.
+            InstalledApp("com.xiaomi.account", 10_001, true, setOf(XIAOMI_NEW), pastSigners = setOf(XIAOMI_APPS)),
+            // A data app still signed with the original key, and one that rotated away from it.
+            InstalledApp("com.mi.health", 10_100, isSystem = false, signers = setOf(XIAOMI_APPS)),
+            InstalledApp("com.mi.shop", 10_101, false, signers = setOf(OTHER), pastSigners = setOf(XIAOMI_APPS)),
+            InstalledApp("com.mi.notes", 10_102, isSystem = false, signers = setOf(XIAOMI_NEW)),
+            InstalledApp("com.example.app", 10_200, false, signers = setOf(OTHER), pastSigners = setOf(GOOGLE)),
+        )
+        val trusted = VendorTrust.trustedSigners(rotated)
+        assertEquals(setOf(PLATFORM, XIAOMI_NEW, XIAOMI_APPS), trusted)
+        val rotatedIndex = AppIndex.build(rotated)
+        assertEquals(trusted, rotatedIndex.trustedSigners)
+        listOf("com.mi.health", "com.mi.shop", "com.mi.notes").forEach {
+            assertFalse(rotatedIndex.isThirdParty(requireNotNull(rotatedIndex.appIdOf(it))), it)
+        }
+        assertTrue(rotatedIndex.isThirdParty(requireNotNull(rotatedIndex.appIdOf("com.example.app"))))
+    }
+
+    @Test
+    fun `a partial view plus system_server's trusted signers classifies like system_server`() {
+        // The module app does not see com.miui.player (no launcher entry, not queried).
+        val visible = apps.filter { it.packageName != "com.miui.player" }
+        val local = VendorTrust.trustedSigners(visible)
+        assertFalse(XIAOMI_APPS in local, "the partial view alone misses a vendor certificate")
+        val combined = local + index.trustedSigners
+        apps.filter { index.appIdOf(it.packageName) != null }.forEach { app ->
+            val vendor = VendorTrust.isVendorTrusted(app, combined)
+            assertEquals(!index.isThirdParty(appId(app.packageName)), vendor, app.packageName)
+        }
+    }
+
     private companion object {
         const val PLATFORM = "platform"
         const val XIAOMI_APPS = "xiaomi"
+        const val XIAOMI_NEW = "xiaomi-rotated"
         const val GOOGLE = "google"
         const val OTHER = "other"
     }
