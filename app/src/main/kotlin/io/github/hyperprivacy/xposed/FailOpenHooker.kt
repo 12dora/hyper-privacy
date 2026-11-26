@@ -12,6 +12,9 @@ internal sealed interface Verdict {
 
     /** Deliberately surface [error] to the caller, e.g. a blocked DNS lookup. */
     data class Throw(val error: Throwable) : Verdict
+
+    /** Run the original with [args] substituted, e.g. a request URL rewritten to a black hole. */
+    class ProceedWith(val args: Array<Any?>) : Verdict
 }
 
 /**
@@ -38,6 +41,7 @@ internal class FailOpenHooker(
             Verdict.Proceed -> chain.proceed()
             is Verdict.Return -> verdict.value
             is Verdict.Throw -> throw verdict.error
+            is Verdict.ProceedWith -> chain.proceed(verdict.args)
         }
     }
 

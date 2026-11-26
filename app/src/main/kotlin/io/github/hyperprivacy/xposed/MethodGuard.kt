@@ -4,7 +4,6 @@ import io.github.hyperprivacy.core.method.DefaultReturn
 import io.github.hyperprivacy.core.method.Replacement
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
-import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
@@ -12,17 +11,14 @@ import java.lang.reflect.Modifier
  * No-ops public SDK entry points named by METHOD rules. Hooks are installed regardless of the
  * switch and consult it per call, so toggling takes effect live.
  */
-internal class MethodGuard(
-    private val xposed: XposedInterface,
-    private val log: HookLog,
-    private val packageName: String,
-    private val classLoader: ClassLoader,
-    private val switches: RuleSwitches,
-    private val reporter: StatusReporter,
-) {
+internal class MethodGuard(private val env: GuardEnv) {
+    private val xposed get() = env.xposed
+    private val log get() = env.log
+    private val packageName get() = env.packageName
+
     /** Returns the number of methods hooked for [rule]. */
     fun install(rule: Rule, payload: RulePayload.Method): Int {
-        val type = runCatching { Class.forName(payload.className, false, classLoader) }.getOrNull() ?: run {
+        val type = runCatching { Class.forName(payload.className, false, env.classLoader) }.getOrNull() ?: run {
             log.warn("${rule.id}: class ${payload.className} not found in $packageName")
             return 0
         }
@@ -43,8 +39,8 @@ internal class MethodGuard(
     private fun hook(ruleId: String, method: Method, value: Any?) {
         xposed.hook(method).intercept(
             FailOpenHooker(log, ruleId) {
-                if (!switches.isEnabled(ruleId)) return@FailOpenHooker Verdict.Proceed
-                reporter.hit(packageName, ruleId)
+                if (!env.switches.isEnabled(ruleId)) return@FailOpenHooker Verdict.Proceed
+                env.reporter.hit(packageName, ruleId, method.name)
                 Verdict.Return(value)
             },
         )
