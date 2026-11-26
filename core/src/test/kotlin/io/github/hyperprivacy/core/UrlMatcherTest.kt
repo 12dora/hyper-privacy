@@ -141,7 +141,7 @@ class UrlPartsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["", "mailto:a@b.com", "http://", "http:///path", "http://[::1/p", "ht tp://a.com/"])
+    @ValueSource(strings = ["", "mailto:a@example.org", "http://", "http:///path", "http://[::1/p", "ht tp://a.com/"])
     fun `rejects urls without a usable host`(url: String) {
         assertNull(UrlParts.parse(url))
     }

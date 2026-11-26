@@ -43,7 +43,9 @@ done
 
 # Email addresses, except GitHub noreply aliases.
 email='[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}'
-if hits="$(grep -InoE -- "$email" "${files[@]}" 2>/dev/null | grep -v '@users\.noreply\.github\.com$')"; then
+# GitHub noreply addresses and RFC 2606 reserved example domains are not personal data.
+reserved='@(users\.noreply\.github\.com|([A-Za-z0-9-]+\.)*example\.(com|org|net)|[A-Za-z0-9.-]+\.(test|invalid))$'
+if hits="$(grep -InoE -- "$email" "${files[@]}" 2>/dev/null | grep -vE "$reserved")"; then
   report "email address" "$hits"
 fi
 
