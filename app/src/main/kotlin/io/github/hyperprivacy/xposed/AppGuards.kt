@@ -27,6 +27,8 @@ internal class AppGuards(
         log.guard("network guards") { NetworkGuards(env, rules).install() }
         installMethodRules(env)
         installIdentifierRules(env)
+        // Diagnostics only; like the observe-only network sinks, it needs the switch at process start.
+        if (switches.observe) log.guard("code-load diagnostics") { CodeLoadGuard(env).install() }
     }
 
     private fun installMethodRules(env: GuardEnv) {
