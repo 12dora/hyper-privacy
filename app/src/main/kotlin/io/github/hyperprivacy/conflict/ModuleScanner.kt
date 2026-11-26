@@ -14,6 +14,7 @@ import io.github.hyperprivacy.core.conflict.OverlapHit
 import java.io.File
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.HexFormat
 import java.util.zip.ZipFile
 
 /**
@@ -50,8 +51,12 @@ internal class ModuleScanner(context: Context) {
         val salt = salt()
         val stored = cache.all
         val verdicts = HashMap<String, String>()
-        val hits = installed.mapNotNull { info -> hit(info, settings, salt, stored, verdicts) }
-        if (verdicts.size != stored.size - 1 || verdicts.any { (key, value) -> stored[key] != value }) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hits = installed.mapNotNull { info -> hit(info, settings, salt, digest, stored, verdicts) }
+        // Also rewrites a cache that has no salt of its own yet (an older plaintext one), so the salt is persisted.
+        val dirty = stored[SALT_KEY] != salt || stored.size != verdicts.size + 1 ||
+            verdicts.any { (key, value) -> stored[key] != value }
+        if (dirty) {
             cache.edit {
                 clear()
                 putString(SALT_KEY, salt)
@@ -65,6 +70,7 @@ internal class ModuleScanner(context: Context) {
         info: PackageInfo,
         settings: Set<String>,
         salt: String,
+        digest: MessageDigest,
         stored: Map<String, *>,
         verdicts: MutableMap<String, String>,
     ): OverlapHit? {
@@ -73,7 +79,7 @@ internal class ModuleScanner(context: Context) {
         if (pkg == BuildConfig.APPLICATION_ID || app.flags and ApplicationInfo.FLAG_SYSTEM != 0) return null
         val marked = pkg in ModuleOverlap.KNOWN || pkg in settings || app.metaData?.containsKey(LEGACY_FLAG) == true
         val isModule = marked || run {
-            val key = cacheKey(salt, pkg, info)
+            val key = cacheKey(digest, salt, pkg, info)
             val verdict = (stored[key] as? String) ?: if (isModuleApk(app)) YES else NO
             verdicts[key] = verdict
             verdict == YES
@@ -96,15 +102,13 @@ internal class ModuleScanner(context: Context) {
     /** This install's random salt, created on first use. */
     private fun salt(): String = cache.getString(SALT_KEY, null) ?: ByteArray(SALT_BYTES)
         .also(SecureRandom()::nextBytes)
-        .let(::hex)
+        .let(HEX::formatHex)
 
-    private fun cacheKey(salt: String, pkg: String, info: PackageInfo): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+    /** The first [KEY_CHARS] hex characters of the build's salted hash; [digest] is reused across one pass. */
+    private fun cacheKey(digest: MessageDigest, salt: String, pkg: String, info: PackageInfo): String {
         val text = "$salt\u0000$pkg\u0000${info.longVersionCode}\u0000${info.lastUpdateTime}"
-        return hex(digest.digest(text.toByteArray(Charsets.UTF_8))).take(KEY_CHARS)
+        return HEX.formatHex(digest.digest(text.toByteArray(Charsets.UTF_8)), 0, KEY_CHARS / 2)
     }
-
-    private fun hex(bytes: ByteArray): String = bytes.joinToString("") { "%02x".format(it) }
 
     private companion object {
         const val CACHE_FILE = "xposed_modules"
@@ -115,6 +119,7 @@ internal class ModuleScanner(context: Context) {
         const val LEGACY_DESCRIPTION = "xposeddescription"
         const val YES = "1"
         const val NO = "0"
+        val HEX: HexFormat = HexFormat.of()
         val MARKERS = listOf("META-INF/xposed/java_init.list", "META-INF/xposed/module.prop")
     }
 }

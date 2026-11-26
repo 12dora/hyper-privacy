@@ -64,7 +64,10 @@ internal object TrackerGuards {
         if (!AdOrigin.canEverMatch(raw, env.packageName)) return
         val origin = AdOrigin(env.log, env.packageName, env.reporter)
         origin.rebuild(raw)
-        switches.addListener { env.log.guard("read origin config") { read() }?.let(origin::rebuild) }
+        // Read and rebuild under the origin's own lock (rebuild takes it too), so the last change to run wins.
+        switches.addListener {
+            synchronized(origin) { env.log.guard("read origin config") { read() }?.let(origin::rebuild) }
+        }
         val hooks = OriginHooks(env, origin)
         val count = OriginNetGuard(hooks).install() + OriginWebGuard(hooks).install() +
             AdPageGuard(env, origin).install()

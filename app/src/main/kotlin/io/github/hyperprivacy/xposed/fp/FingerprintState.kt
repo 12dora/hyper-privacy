@@ -42,7 +42,11 @@ internal class FingerprintState(private val env: GuardEnv, private val ruleId: S
 
     private val warnedNoSecret = AtomicBoolean()
 
-    /** Re-reads the switch and drops traits derived from a secret that has since changed. */
+    /**
+     * Re-reads the switch and drops traits derived from a secret that has since changed. Serialized,
+     * so concurrent switch changes cannot leave [enabled] older than the last one; reads stay lock-free.
+     */
+    @Synchronized
     fun refresh() {
         enabled = env.switches.isEnabled(ruleId)
         val current = cached ?: return
