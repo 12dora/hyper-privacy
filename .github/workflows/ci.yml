@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Privacy scan
         run: scripts/privacy-scan.sh
@@ -37,18 +37,18 @@ jobs:
           python3 -I scripts/test_failopen_guard.py
           python3 -I scripts/failopen-guard.py
 
-      - uses: gradle/actions/wrapper-validation@v5
+      - uses: gradle/actions/wrapper-validation@v6
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: "platforms;android-37.2 build-tools;37.0.0 ndk;30.0.16248370 cmake;4.1.2"
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Native host tests (host table, ELF patcher; ASan + UBSan)
         run: scripts/native-test.sh
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reports
           path: "**/build/reports/"
