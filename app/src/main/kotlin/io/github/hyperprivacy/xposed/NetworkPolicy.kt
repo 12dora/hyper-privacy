@@ -3,7 +3,7 @@ package io.github.hyperprivacy.xposed
 import io.github.hyperprivacy.core.match.NetworkMatchers
 import io.github.hyperprivacy.core.net.AddressBook
 import io.github.hyperprivacy.core.rule.Rule
-import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.hyperprivacy.core.tracker.Trackers
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -20,10 +20,10 @@ internal class NetworkPolicy(
 ) {
     /**
      * Tracker-protected apps never block the hosts SDKs need for features (push, login, maps) by
-     * an SDK rule; app-level rules (HTTPDNS) are not overridden by them.
+     * an SDK rule or the known-trackers rule; other app-level rules (HTTPDNS) are not overridden.
      */
     private val keepHosts: Set<String> =
-        if (rules.any { TrackerProtection.sdkIdOf(it.id) != null }) Trackers.keepHosts else emptySet()
+        if (rules.any { TrackerRules.honorsKeepHosts(it.id) }) Trackers.keepHosts else emptySet()
 
     private val matchers = AtomicReference(build())
 
@@ -58,6 +58,6 @@ internal class NetworkPolicy(
     val hasUrlRules: Boolean get() = !matchers.get().urls.isEmpty
 
     private fun build(): NetworkMatchers = log.guard("build network matchers") {
-        NetworkMatchers.of(rules, keepHosts, { TrackerProtection.sdkIdOf(it) != null }, switches::isEnabled)
+        NetworkMatchers.of(rules, keepHosts, TrackerRules::honorsKeepHosts, switches::isEnabled)
     } ?: NetworkMatchers.EMPTY
 }

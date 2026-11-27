@@ -8,6 +8,7 @@ import io.github.hyperprivacy.core.rule.catalog.deviceIdRules
 import io.github.hyperprivacy.core.rule.catalog.diagnosticsRules
 import io.github.hyperprivacy.core.rule.catalog.hardwareFingerprintRule
 import io.github.hyperprivacy.core.rule.catalog.httpDnsRule
+import io.github.hyperprivacy.core.rule.catalog.knownTrackersRule
 import io.github.hyperprivacy.core.rule.catalog.mediaDrmRule
 import io.github.hyperprivacy.core.rule.catalog.personalDataRules
 import io.github.hyperprivacy.core.rule.catalog.protectedHttpDnsRule
@@ -56,7 +57,8 @@ public object Catalog {
      * ([io.github.hyperprivacy.core.tracker.TrackerRules.appRules]); the app's own switch for it
      * overrides the global `rule.<id>` value.
      */
-    public val protectedAppRules: List<Rule> = listOf(mediaDrmRule(), protectedHttpDnsRule(), hardwareFingerprintRule())
+    public val protectedAppRules: List<Rule> =
+        listOf(mediaDrmRule(), protectedHttpDnsRule(), hardwareFingerprintRule(), knownTrackersRule())
 
     /** Ids of [protectedAppRules]. */
     public val protectedAppRuleIds: Set<String> = protectedAppRules.mapTo(LinkedHashSet()) { it.id }
