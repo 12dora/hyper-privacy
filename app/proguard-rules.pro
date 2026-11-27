@@ -24,3 +24,9 @@
 # but let it be renamed (and so repackaged). The release build checks the mapping for this
 # (checkReleaseModulePackage in app/build.gradle.kts).
 -keep,allowobfuscation class io.github.hyperprivacy.xposed.ModuleFrames
+
+# JNI entry points of libhpnative.so are bound by name (Java_io_github_hyperprivacy_xposed_NativeResolver_*).
+# Kept under the module's source root, whose frames stack scrubbing hides like repackaged ones.
+-keep class io.github.hyperprivacy.xposed.NativeResolver {
+    native <methods>;
+}

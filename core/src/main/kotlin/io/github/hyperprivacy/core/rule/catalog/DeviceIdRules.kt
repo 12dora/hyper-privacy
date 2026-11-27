@@ -28,10 +28,9 @@ internal val deviceIdRules: List<Rule> = listOf(
         summary = Text("向第三方隐藏账号与设备标识", "Hides account and device IDs from apps"),
         payload = RulePayload.Identifiers(IdentifierSource.SETTINGS_KEYS),
         category = Category.DEVICE_ID,
-        evidence = "decompiled SettingsProvider: checkReadableAnnotation only gates AOSP-declared keys, and " +
-            "getAll{Global,Secure,System}Settings let any app enumerate vendor keys; on-device Settings hold " +
-            "ad_aaid, key_mqs_uuid, pref_mipub_random_device_id, last_synced_account, virtualsim_account_rule_<id>, " +
-            "miui_home_hide_app_list (docs/collection-techniques.md 2.3, 10.2)",
+        evidence = "decompiled SettingsProvider and on-device Settings: vendor entries holding account, " +
+            "device-identifier and app-list data are readable by any app; they are hidden from third-party " +
+            "apps (docs/collection-techniques.md, device identifiers)",
     ),
     Rule(
         id = "qimei.domains",
@@ -40,7 +39,7 @@ internal val deviceIdRules: List<Rule> = listOf(
         summary = Text("阻止第三方设备指纹采集", "Block third-party fingerprinting"),
         payload = RulePayload.Domains(listOf("snowflake.qq.com")),
         category = Category.DEVICE_ID,
-        evidence = "traffic cap3 typing: sogou -> snowflake.qq.com x3 (/ola/v2); dex com/tencent/qimei, libqimei.so " +
+        evidence = "observed traffic: sogou -> snowflake.qq.com x3 (/ola/v2); dex com/tencent/qimei, libqimei.so " +
             "in sogou, player",
     ),
     Rule(
@@ -50,7 +49,7 @@ internal val deviceIdRules: List<Rule> = listOf(
         summary = Text("阻止输入法安全指纹采集", "Block IME security fingerprinting"),
         payload = RulePayload.Domains(listOf("sofire.baidu.com")),
         category = Category.DEVICE_ID,
-        evidence = "traffic cap2: baidu.input_mi -> sofire.baidu.com; dex com.baidu.sofire.* (device risk " +
+        evidence = "observed traffic: baidu.input_mi -> sofire.baidu.com; dex com.baidu.sofire.* (device risk " +
             "fingerprint, sofire.ac.provider); Baidu Passport login uses Sofire risk tokens. Account security / " +
             "risk control channel: off by default like every such channel (tracker database baidu-sofire)",
         defaultOn = false,
@@ -80,7 +79,7 @@ internal val deviceIdRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DEVICE_ID,
-        evidence = "traffic cap4: smarthome -> ido.gepush.com x3, c-ido.gepush.com, c-gtc.getui.net, " +
+        evidence = "observed traffic: smarthome -> ido.gepush.com x3, c-ido.gepush.com, c-gtc.getui.net, " +
             "b-gtc.getui.net, cdn-sdk-opt.getui.com/tdata_*; dex com.getui.{gtc,oneid,gs}, b-qj.gepush.com/" +
             "doslogcenter/json/hwscene. One-tap login sdk-open-phone.getui.com untouched",
     ),
@@ -92,7 +91,7 @@ internal val deviceIdRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("zxid-m.mobileservice.cn", "/sdk/channel/report"))),
         category = Category.DEVICE_ID,
         evidence = "path scan (applist_urls) smarthome zxid-m.mobileservice.cn/sdk/channel/report; " +
-            "/sdk/uaid/reportAuthToken left allowed (one-tap login token); traffic cap2 (third-party app) " +
+            "/sdk/uaid/reportAuthToken left allowed (one-tap login token); observed traffic (third-party app) " +
             "zxid-m.mobileservice.cn",
     ),
     Rule(
@@ -107,8 +106,8 @@ internal val deviceIdRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DEVICE_ID,
-        evidence = "traffic cap4: mi.car.mobile -> auni.telecome.cn POST /a/daa/report, /a/dai/report (device/app " +
-            "info); the login check /a/audd/valid stays allowed",
+        evidence = "observed traffic: mi.car.mobile -> auni.telecome.cn POST /a/daa/report, /a/dai/report " +
+            "(device/app info); the login check /a/audd/valid stays allowed",
     ),
     Rule(
         id = "simactivate.firewall",
@@ -117,7 +116,7 @@ internal val deviceIdRules: List<Rule> = listOf(
         summary = Text("禁止上报 SIM 卡与号码信息", "Cut off SIM and number reporting"),
         payload = RulePayload.Firewall,
         category = Category.DEVICE_ID,
-        evidence = "uid 10205 (not shared). traffic cap4: -> cnac.account.xiaomi.com; dex %s/pass/activation/report",
+        evidence = "observed traffic: cnac.account.xiaomi.com; dex %s/pass/activation/report",
         defaultOn = false,
         impact = Text("SIM 快捷登录可能失效", "SIM quick sign-in may fail"),
     ),
@@ -133,7 +132,7 @@ internal val deviceIdRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DEVICE_ID,
-        evidence = "evidence.md L581 misightservice data.pt.xiaomi.com/dataplatform/api/v1/trial-records/oaid/check " +
+        evidence = "static analysis: misightservice data.pt.xiaomi.com/dataplatform/api/v1/trial-records/oaid/check " +
             "(sends OAID); jadx misightservice cloud.utils.HttpUtils.checkBetaUserBySN GET " +
             "https://nptapi.mioffice.cn/NptApi/apk/mqs/isTrialDevice?sn=<serial>",
     ),
@@ -148,7 +147,7 @@ internal val deviceIdRules: List<Rule> = listOf(
             "IMEI/IMSI/ICCID, cell TAC/CID, Wi-Fi BSSID, paired BT MACs, IPv6, app usage (RegType A) and lat/lon " +
             "signal logs (RegType R) over Wi-Fi or Unicom data; embeds Baidu LBS (loc/ofloc/daup/itsdata.map." +
             "baidu.com); traffic: loc.map.baidu.com x11 idle; appops: FINE_LOCATION, WIFI_SCAN, READ_CELL_INFO " +
-            "while idle; own uid (sharedUserId with one package)",
+            "while idle",
         impact = Text("运营商终端登记将失败", "Carrier device registration fails"),
         highRisk = true,
     ),
@@ -161,8 +160,7 @@ internal val deviceIdRules: List<Rule> = listOf(
         category = Category.DEVICE_ID,
         evidence = "dex: i1/j.java POST https://zzhc.vnet.cn (Base64 JSON: IMEI/MEID/IMSI/ICCID, Wi-Fi MAC, cell " +
             "id, TAC, RAM/ROM) on boot/SIM change/15-day period; GET http://typdm.tydevice.com?jsonstr= (CTEI, " +
-            "MAC, BSSID, IPv4) on Wi-Fi-only SKUs; China Telecom terminal auto-registration; shared uid " +
-            "android.uid.phone so no firewall",
+            "MAC, BSSID, IPv4) on Wi-Fi-only SKUs; carrier terminal auto-registration; in-process rule",
         defaultOn = false,
         impact = Text("运营商入网登记将失败", "Carrier registration will fail"),
     ),
@@ -190,8 +188,8 @@ internal val deviceIdRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("ac.account.xiaomi.com", "/pass/activation/report"))),
         category = Category.DEVICE_ID,
         evidence = "dex: POST https://ac.account.xiaomi.com/pass/activation/report after activation with hashed " +
-            "SIM/device ids, phone number, userId and encrypted SMS; server use unproven; other /pass/activation/* " +
-            "paths (activate, activationReport) are SIM binding and stay open",
+            "SIM/device ids, phone number, userId and encrypted SMS; default off because it may affect SIM " +
+            "activation; other /pass/activation/* paths (activate, activationReport) are SIM binding and stay open",
         defaultOn = false,
         impact = Text("可能影响 SIM 卡激活", "SIM activation may fail"),
     ),

@@ -109,7 +109,7 @@
         "apk: com.mi.globalbrowser dex contains Ladmost/sdk/base/ and class prefix admost.sdk.base.AdMost_",
         "doc: https://admost.github.io/amrandroid/release-notes.html (AdMost AMR Android SDK, Maven com.admost.sdk:amr)"
       ],
-      "notes": "Hosts not verified (believed *.admost.com) — detection only."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "adobe-experience-platform",
@@ -132,7 +132,7 @@
       "evidence": [
         "sdk: Maven Central com.adobe.marketing.mobile:core:3.11.0 / edge:3.2.0 / analytics:3.0.2 — package com.adobe.marketing.mobile; strings https://assets.adobedtm.com/%s.json (Launch config), edge.adobedc.net, edge-int.adobedc.net (EdgeConstants$NetworkKeys)"
       ],
-      "notes": "Detection only: edge.adobedc.net carries both interact (personalization) and collect calls, and Analytics/Audience hosts are customer-specific (<tracking server>.sc.omtrdc.net or first-party CNAME), so no pure-telemetry host is verifiable. assets.adobedtm.com serves the app's Launch configuration and is kept."
+      "notes": "Detection only: the edge host carries both personalization and collection, so no telemetry-only host is verified. The app configuration host is kept."
     },
     {
       "id": "adsuyi-tianmu",
@@ -182,7 +182,7 @@
       "evidence": [
         "sdk: https://sdk-download.airbridge.io/ (Airbridge Android 4.13.0 AAR: package co.ab180.airbridge; builds https://<function>…airbridge.io for event/config/tracking-link/log)"
       ],
-      "notes": "Exact host format is obfuscated (event/config/log + ap1/ap2 region on airbridge.io) — not blocked until verified. Tracking links abr.ge / deeplink.page are kept."
+      "notes": "Detection only: collection endpoints could not be statically verified. Tracking links abr.ge / deeplink.page are kept."
     },
     {
       "id": "airship",
@@ -207,7 +207,7 @@
       "evidence": [
         "src: https://github.com/urbanairship/android-library/blob/main/urbanairship-core/src/main/java/com/urbanairship/AirshipConfigOptions.kt (combine/device-api/remote-data/wallet-api .urbanairship.com; EU .asnapieu.com)"
       ],
-      "notes": "Push SDK — detection only per contract. Pure analytics hosts are combine.urbanairship.com / combine.asnapieu.com if a future engine allows partial blocking for PUSH SDKs."
+      "notes": "Detection only: push delivery is kept functional."
     },
     {
       "id": "alibaba-emas-ha",
@@ -256,7 +256,7 @@
         "sdk: Aliyun Maven com.aliyun.ams:alicloud-android-ha-adapter:1.2.5.0-open — adash-emas.cn-hangzhou.aliyuncs.com",
         "apk: com.xiaomi.market strings http://adash.m.taobao.com/rest/sur, http://c-adash.m.taobao.com/rest/gc, h-adashx.ut.taobao.com, adash-emas.cn-hangzhou.aliyuncs.com"
       ],
-      "notes": "Newer Taobao builds ship UT under com.alibaba.analytics (not verified here, so not listed)."
+      "notes": "Only verified packages are listed."
     },
     {
       "id": "alibaba-utdid",
@@ -322,7 +322,7 @@
         "apk: com.mi.health, com.miui.player, com.xiaomi.payment, com.xiaomi.shop classes contain Lcom/alipay/apmobilesecuritysdk/ (bundled with Alipay payment SDK)",
         "apk: com.xiaomi.smarthome classes contain Lcom/alipay/deviceid/"
       ],
-      "notes": "Detection only: device fingerprint is uploaded through the Alipay mobile gateway (mobilegw.alipay.com), which also carries payments — never block. Alipay SDK log hosts (loggw-exsdk.alipay.com /loggw/logUpload.do, mcgw.alipay.com /sdklog.do) seen in the same apps are telemetry candidates for a payment-SDK entry."
+      "notes": "Detection only: shares the gateway that carries payments, so nothing is blocked."
     },
     {
       "id": "aliyun-push",
@@ -361,7 +361,7 @@
         "sdk: Maven Central com.aliyun.openservices:aliyun-log-android-sdk:2.6.13 — com.aliyun.sls.android",
         "doc: https://help.aliyun.com/zh/sls/developer-reference/service-entrance (endpoints <region>.log.aliyuncs.com)"
       ],
-      "notes": "Detection only: <project>.<region>.log.aliyuncs.com is a shared PaaS log suffix (cloud consoles, IoT diagnostics, user-submitted bug logs), so it is not blocked. SDK package com.aliyun.sls.android. only."
+      "notes": "Detection only: uses shared cloud infrastructure that cannot be safely blocked by domain. SDK package com.aliyun.sls.android. only."
     },
     {
       "id": "amap-location",
@@ -408,7 +408,7 @@
         "apk: com.xiaomi.youpin string logs.amap.com",
         "traffic: com.mi.car.mobile → dualstack-logs.amap.com, abroad.apilocate.amap.com"
       ],
-      "notes": "Only crowd-sourced Wi-Fi/cell collection and SDK log upload are blocked; location lookup, geocoding and offline data are kept. adiu.amap.com (/ws/device/adius, device-ID registration) is left open because SDK authentication depends on it. Generic com.loc. prefix removed (matches non-location AMap SDKs and unrelated code); com.amap.api.location./com.autonavi.aps.amapapi./com.amap.location. suffice."
+      "notes": "Only crowd-sourced Wi-Fi/cell collection and SDK log upload are blocked; location lookup, geocoding, offline data and SDK authentication are kept. Generic com.loc. prefix removed (matches unrelated code); com.amap.api.location./com.autonavi.aps.amapapi./com.amap.location. suffice."
     },
     {
       "id": "amazon-aps",
@@ -502,7 +502,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/appic-ads/5.1.0.24/ (vendor SDK mirror; classes Lcom/ap/android/trunk/; payload in encrypted assets/ap/apd_*)",
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/tradplus-appic-cn/61.9.4.50.1/ (adapter imports com.ap.android.trunk)"
       ],
-      "notes": "Detection only: endpoints live in encrypted asset payloads."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "applovin",
@@ -544,7 +544,7 @@
         "sdk: https://repo1.maven.org/maven2/com/applovin/applovin-sdk/13.7.0/ (AAR strings {a,b,d,ms,md,rt,sts,prod-a}.applovin.com, CDN {assets,img,res,vid,pdn}.applovin.com, fallbacks {a,d,ms,md,rt}.applvn.com)",
         "sdk: applovin-sdk 13.7.0 classes.jar com/applovin/impl/privacy/cmp/* wrap com.google.android.ump (UserMessagingPlatform, ConsentForm); com/applovin/impl/privacy/consentFlow (terms and privacy flow) — no own consent host"
       ],
-      "notes": "applvn.com is AppLovin's ad-only fallback domain. www.applovin.com / dash.applovin.com are not blocked. Adjust is an AppLovin company but listed separately. The built-in consent flow (com.applovin.impl.privacy.*, Google UMP underneath) is in excludePrefixes: origin blocking never attributes the consent form or its requests to the ad SDK; the UMP host fundingchoicesmessages.google.com is a keep host of google-admob."
+      "notes": "applvn.com is an ad-only domain. Vendor web and dashboard hosts are not blocked. Privacy consent dialogs and their hosts are kept working."
     },
     {
       "id": "appsflyer",
@@ -585,7 +585,7 @@
         "sdk: https://repo1.maven.org/maven2/com/appsflyer/af-android-sdk/7.0.4/ (AAR: package com.appsflyer, host template https://%s<sub>.%s with base appsflyersdk.com; subdomains launches/inapps/conversions/attr/register/adrevenue/impression/monitorsdk/pia/cdn-settings/gcdsdk/dlsdk/onelink/validate-and-log/viap/ars)",
         "doc: https://github.com/AppsFlyerSDK/AppsFlyerFramework/blob/HEAD/Resources/PrivacyInfo.xcprivacy (tracking domains incl. *.whappsflyer.com, *.appsflyer-cn.com)"
       ],
-      "notes": "Only explicit telemetry subdomains of appsflyersdk.com are blocked. The whappsflyer.com / appsflyer-cn.com regional apexes are not blocked (they also carry dlsdk/onelink/validate-and-log); gcdsdk returns conversion data used for deferred deep links and is kept. Deep-link resolution (dlsdk, OneLink) and purchase validation are kept. Customers can prefix subdomains via setHost."
+      "notes": "Only verified default telemetry subdomains are blocked. Deep-link resolution, conversion data for deferred deep links and purchase validation are kept."
     },
     {
       "id": "baidu-cloud-push",
@@ -705,7 +705,7 @@
         "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard (-keep com.baidu.mobads.**)",
         "sdk: Maven Central com.tradplusad:baidu-ads:9.3223 AAR AndroidManifest.xml declares com.baidu.mobads.sdk.api.{AppActivity,MobRewardVideoActivity,MobCPUDramaActivity,BdShellActivity,BdFileProvider} (manifest anchors)"
       ],
-      "notes": "Prefixes are listed per sub-package so the separate OCPC SDK (com.baidu.mobads.action.) is not misattributed. The SDK also bundles com.baidu.mobstat.forbes (Baidu stats) and generic namespaces com.component.*/com.style.widget.* (not claimed). Not blocked: cpu.baidu.com / cpu-openapi.baidu.com (百青藤 content feed, user-visible content), union.baidu.com (portal), haokan.baidu.com, m.baidu.com. Uncertain ad hosts seen in SDK strings: cpro.baidu.com, als.baidu.com, ada.baidu.com, aden.baidu.com, bes-mtj.baidu.com, hmma.baidu.com, dxp.baidu.com, lupic.cdn.bcebos.com, render-server.cdn.bcebos.com."
+      "notes": "Prefixes are listed per sub-package so the separate OCPC SDK (com.baidu.mobads.action.) is not misattributed. Bundled stats and generic namespaces are not claimed. Content-feed, portal and search hosts (user-visible content) are not blocked; only verified ad hosts are."
     },
     {
       "id": "baidu-mobstat",
@@ -727,7 +727,7 @@
         "sdk: Maven Central com.baidu.mobstat:mtj-sdk:4.0.7.6 — Config/LogSender hmma.baidu.com /app.gif /auto.gif; datax.baidu.com /xs.gif; openrcv.baidu.com /1010/bplus.gif",
         "apk: com.baidu.input_mi classes contain Lcom/baidu/mobstat/; strings https://hmma.baidu.com/app.gif"
       ],
-      "notes": "dxp.baidu.com /upgrade (SDK self-upgrade) and bes-mtj.baidu.com are related but unverified as telemetry-only."
+      "notes": "SDK self-upgrade and related hosts are kept until verified as telemetry-only."
     },
     {
       "id": "baidu-ocpc-action",
@@ -747,7 +747,7 @@
         "sdk: Baidu_ocpc_action_2_6_4.aar in public demo repo github.com/gm88tp/Android-Domestic-SDK-Demo (classes Lcom/baidu/mobads/action/, Lcom/baidu/xenv/; host ocpc.baidu.com)",
         "doc: https://github.com/gm88tp/Android-Domestic-SDK-Demo (TApplication imports com.baidu.mobads.action.BaiduAction)"
       ],
-      "notes": "Bundles com.baidu.xenv (Baidu device environment / id module), not claimed here."
+      "notes": "Only verified attribution endpoints are blocked."
     },
     {
       "id": "baidu-sofire",
@@ -791,7 +791,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/beizi-ads-sdk/3.5.0.43/ and beizi-fusion-sdk/4.90.5.18 (vendor SDK mirror; classes Lcom/beizi/ad/internal/, Lcom/beizi/fusion/; host api.htp.ad-scope.com.cn)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.beizi.fusion.BeiZis, com.beizi.ad)"
       ],
-      "notes": "Most BeiZi endpoints are encrypted; other *.ad-scope.com.cn hosts not confirmed."
+      "notes": "Only verified hosts are blocked."
     },
     {
       "id": "bidmachine",
@@ -809,7 +809,7 @@
         "apk: com.mi.globalbrowser dex contains Lio/bidmachine/ (models, nativead, protobuf)",
         "sdk: https://artifactory.bidmachine.io/bidmachine/io/bidmachine/ads/4.0.0/ (package io.bidmachine)"
       ],
-      "notes": "Endpoints obfuscated/configurable; api-us.bidmachine.io / api-eu.bidmachine.io are documented for server-to-server only (unverified for SDK). com.explorestack.* (Appodeal/BidMachine shared protobuf) seen alongside."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "bigo-ads",
@@ -829,7 +829,7 @@
         "apk: com.mi.globalbrowser dex contains Lsg/bigo/ads/ and Lsg/bigo/ads/api/",
         "sdk: https://repo1.maven.org/maven2/com/bigossp/bigo-ads/6.2.0/ (AAR config host cfg.sonicsads.com)"
       ],
-      "notes": "Ad hosts are delivered at runtime; backup lists live on Alibaba Cloud OSS (ad-host-backup-*.aliyuncs.com) which must not be blocked by apex. Other sg.bigo.* packages (Likee/imo) are not matched."
+      "notes": "Only verified ad hosts are blocked; shared cloud storage is not blocked by apex. Other sg.bigo.* packages are not matched."
     },
     {
       "id": "branch",
@@ -980,7 +980,7 @@
         "apk: com.mi.health, com.xiaomi.gamecenter.sdk.service strings https://applog.zijieapi.com/service/2/app_log/, https://log.zijieapi.com/service/2/app_log/, https://rtlog.zijieapi.com/service/2/app_log/ (bundled with com.ss.android.dypay)",
         "sdk: Pangle global ads-sdk 6.5.1.2 (com/bytedance/sdk/openadsdk/utils/AY.class) strings log.byteoversea.com/service/2/app_log_test/, log.sgsnssdk.com/service/2/app_log/ — overseas app_log endpoint; the same host also serves /service/2/device_register/ which stays open"
       ],
-      "notes": "Device registration (log.snssdk.com /service/2/device_register/) is deliberately left open: ByteDance SDKs (pay, login, ads) key features on the registered device_id. klink.volceapplog.com device_register is DataRangers-SaaS only and is blocked. log-api.oceanengine.com (conversion upload) is an ads/attribution candidate. abtest/alink (feature flags, deferred deep links) and ichannel.snssdk.com (/service/2/app_alert_check update prompts) are kept; log.byteoversea.com is blocked only for /service/2/app_log/ and /app_log_test/ (moved here from the old pangle-global entry)."
+      "notes": "Only dedicated telemetry endpoints are blocked; device registration used by payment, login and ads features, feature flags, deferred deep links and update prompts are kept. The SaaS-only device registration host is blocked. Overseas log host is blocked only for app_log paths (moved here from the old pangle-global entry)."
     },
     {
       "id": "bytedance-csj-pangle",
@@ -1042,7 +1042,7 @@
         "sdk: com.pangle.global:ads-sdk 6.5.1.2 AAR AndroidManifest.xml declares com.bytedance.sdk.openadsdk.activity.TT*Activity (reward / full-screen / interstitial / app-open / landing-page) and multipro.aidl.BinderPoolService (manifest anchors)",
         "traffic cap4: com.mi.globalbrowser → api16-access-wf-sg.pangle.io (Pangle global ad API, regional)"
       ],
-      "notes": "Merged from the former pangle-global entry: CN (穿山甲) and global (Pangle PAG) builds share the com.bytedance.sdk.openadsdk namespace, so a global APK now matches exactly this one entry (the PAG* entry classes are subsumed by com.bytedance.sdk.openadsdk.; com.google.ads.mediation.pangle. is intentionally not claimed — it belongs to AdMob's adapter namespace). pangle.io apex is not blocked (www.pangle.io is the vendor site); only the ad subdomains api16-access-sg / api16-endcard-pack-sg are. Only the verified Pangle subdomains are blocked (api16-access-ttp / api16-access-ttp-b, lf-static, sf16-static, api16-access-sg, api16-endcard-pack-sg); the tiktokpangle*.us, tiktokpangle-cdn-us.com, i18n-pglstatp.com and pangle.io apexes are not. com.pgl.* moved to bytedance-pgl-secsdk; obfuscated com.byazt./com.byakv. dropped (unstable). Not listed (shared with ByteDance apps or DataRangers analytics): com.ss.android.downloadlib./socialbase. (download lib), applog.snssdk.com, toblog/tobapplog/success.ctobsnssdk.com, mon.zijieapi.com, tnc3-*.zijieapi.com. log.byteoversea.com app_log paths are handled by bytedance-applog. Uncertain: apps.bytesfield.com / apps.bytesfield-b.com, sf1-amtos-cdn.bytesmanager.com, playable.oceanengine.com."
+      "notes": "Merged from the former pangle-global entry: CN and global builds share the com.bytedance.sdk.openadsdk namespace, so a global APK matches exactly this one entry. com.google.ads.mediation.pangle. is not claimed (it belongs to a mediation adapter namespace). Only verified ad subdomains are blocked; the vendor site and apexes are not. com.pgl.* moved to bytedance-pgl-secsdk. Hosts shared with the vendor's own apps or analytics are handled by other entries."
     },
     {
       "id": "bytedance-gromore",
@@ -1083,7 +1083,7 @@
         "doc: public reverse-engineering notes https://github.com/hoanglongggggggggg/DOUYIN-40.2.0_metasec-ml-vmp_reverse-engineering (README: metasec SDK family 'ms.bd.c.* / com.bytedance.mobsec.metasec.ml')",
         "doc: public APK feature index https://github.com/LeonLin427/PRISM (apps whose dex packages include ms.bd.c, 112-126 classes, ship libmetasec_ml.so)"
       ],
-      "notes": "Unverified on this device survey and no vendor SDK binary could be downloaded (no public Maven coordinate), so prefixes rest on public analyses only. Risk-control SDK (signature headers a_bogus/X-Gorgon style); endpoints unknown, detection only. No block rules, so no defaultBlock flag (CONTRACT); if endpoints are verified and added later, set defaultBlock=false because blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
+      "notes": "Risk-control SDK; detection only: collection endpoints could not be statically verified. Blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
     },
     {
       "id": "bytedance-pgl-secsdk",
@@ -1168,7 +1168,7 @@
         "src: https://github.com/CleverTap/clevertap-android-sdk/blob/master/clevertap-core/src/main/java/com/clevertap/android/sdk/Constants.java (clevertap-prod.com, {region}.clevertap-prod.com, {region}-spiky.clevertap-prod.com; paths a1, hello, defineVars)",
         "doc: https://developer.clevertap.com/docs/idc (region codes)"
       ],
-      "notes": "The a1 endpoint returns in-app messages, App Inbox and product config together with event ingestion, so the host is not blocked. Candidate telemetry host pattern: <region>-spiky.clevertap-prod.com (viewed events)."
+      "notes": "Detection only: collection shares the host used for in-app messages and product config."
     },
     {
       "id": "cmcc-quicklogin",
@@ -1319,7 +1319,7 @@
         "sdk: Maven Central com.umeng.umsdk:uverify:4.0.2 / com.geetest.android:onelogin:2.9.8 — bundled com.unicom.online.account (UniAccountHelper): auth.wosms.cn, ali.wosms.cn, msv6.wosms.cn",
         "apk: com.sohu.inputmethod.sogou.xiaomi classes contain Lcom/unicom/xiaowo/account/shield/; com.baidu.input_mi contains Lcom/unicom/online/account/kernel/"
       ],
-      "notes": "Detection only. m.zzx.cnklog.com appears next to the auth hosts and looks like a log endpoint, but is unverified. Category rationale (same for the three carrier one-tap login entries): the carrier SDK is user authentication, not device fingerprinting, so it is not IDENTIFICATION; the only block rules in this family are SDK telemetry (cmcc log1/log2.cmpassport.com), hence ANALYTICS; auth/config hosts are kept."
+      "notes": "Detection only. Category rationale (same for the three carrier one-tap login entries): the carrier SDK is user authentication, not device fingerprinting, so it is not IDENTIFICATION; the only block rules in this family are SDK telemetry (cmcc log1/log2.cmpassport.com), hence ANALYTICS; auth/config hosts are kept."
     },
     {
       "id": "datadog-rum",
@@ -1350,7 +1350,7 @@
         "src: https://github.com/DataDog/dd-sdk-android/blob/develop/dd-sdk-android-core/src/main/kotlin/com/datadog/android/DatadogSite.kt (intake hosts per site; remote config sdk-configuration.<intake host>)",
         "doc: https://docs.datadoghq.com/getting_started/site/"
       ],
-      "notes": "Suffix match also covers sdk-configuration.<intake>. Customers may proxy intake through their own domain."
+      "notes": "Only verified default vendor collection endpoints are blocked."
     },
     {
       "id": "dingxiang-risk",
@@ -1369,7 +1369,7 @@
         "doc: public SDK source mirror (GitHub losenineai/Dev-Tools android-utils/risk/as_risk/dx-risk com/dx/mobile/risk/DXRisk.java, collect/app/App.java)",
         "doc: https://github.com/dingxiangtech/captcha-demo (official; constid.dingxiang-inc.com device-constant-ID service)"
       ],
-      "notes": "Detection only: Android endpoints are set in native code. constid.dingxiang-inc.com is the fingerprint service but is also required by DX captcha — not blocked."
+      "notes": "Detection only: collection endpoints could not be statically verified; the fingerprint service is also required by captcha."
     },
     {
       "id": "dt-exchange",
@@ -1403,7 +1403,7 @@
         "sdk: Maven Central com.fyber:marketplace-sdk:8.5.1 AAR re-scanned: wv.inner-active.mobi/simpleM2M/clientRequestEnhanced, sdk-events.inner-active.mobi/Event, cdn2.inner-active.mobi/ia-sdk-config|ia-js-tags",
         "sdk: com.fyber:marketplace-sdk 8.5.1 AAR AndroidManifest.xml declares com.fyber.inneractive.sdk.activities.Inneractive*Activity and FyberReportAdActivity (manifest anchors)"
       ],
-      "notes": "Only the verified inner-active.mobi subdomains (wv, sdk-events, cdn2) are blocked, not the apex. Digital Turbine Ignite (com.digitalturbine.ignite, OEM app-install service) is not covered here."
+      "notes": "Only the verified inner-active.mobi subdomains (wv, sdk-events, cdn2) are blocked, not the apex."
     },
     {
       "id": "dynatrace",
@@ -1423,7 +1423,7 @@
         "sdk: https://repo1.maven.org/maven2/com/dynatrace/agent/agent-android/8.351.1.1031/ (AAR package com.dynatrace.android; no hard-coded hosts)",
         "doc: https://docs.dynatrace.com/docs/shortlink/oneagent-sdk-android-communication (beacon URL is environment-specific)"
       ],
-      "notes": "Beacon endpoint is customer-specific (often *.bf.dynatrace.com for SaaS — unverified) — detection only."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "embrace",
@@ -1444,7 +1444,7 @@
       "evidence": [
         "src: https://github.com/embrace-io/embrace-android-sdk (DeliveryServiceFactories.kt a-<appId>.data.emb-api.com; ConfigEndpoint.kt a-<appId>.config.emb-api.com)"
       ],
-      "notes": "Hosts are per-app subdomains (a-<appId>.data.emb-api.com), covered by suffix match; base URLs can be overridden."
+      "notes": "Only verified default vendor collection endpoints are blocked."
     },
     {
       "id": "facebook-app-events",
@@ -1465,7 +1465,7 @@
         "apk: com.xiaomi.smarthome, com.miui.hybrid dex contain Lcom/facebook/appevents/ (incl. codeless, ml, aam, ondeviceprocessing) and strings \"%s/activities\", \"%s/app_indexing\"",
         "src: https://github.com/facebook/facebook-android-sdk (facebook-core AppEventQueue.kt POSTs {app-id}/activities to graph.<domain>; codeless app_indexing, suggested_events, mobile_sdk_gk)"
       ],
-      "notes": "Deferred app links (com.facebook.applinks) also POST to /activities, so path-level blocking would break them. App events are POSTed to graph.facebook.com/v<ver>/<app_id>/activities — the version segment precludes a pathPrefix rule and the host also serves Facebook Login/Share, so no host is blocked. com.facebook.appevents ships inside facebook-core, which every Facebook Login/Share integration includes; automatic event logging is on by default. Do NOT match bare com.facebook. (Fresco, React Native, Soloader live there)."
+      "notes": "Detection only: analytics share the host used by login, sharing and deferred app links. Do not match bare com.facebook. (shared with unrelated open-source libraries)."
     },
     {
       "id": "fingerprint-pro",
@@ -1487,7 +1487,7 @@
         "doc: https://docs.fingerprint.com/docs/android-sdk.md and https://docs.fingerprint.com/docs/regions (api.fpjs.io, eu.api.fpjs.io, ap.api.fpjs.io)",
         "src: https://github.com/fingerprintjs/fingerprint-device-intelligence-android-demo (imports com.fingerprint.android)"
       ],
-      "notes": "Used for device verification and bot detection at login and payment — blocking may trigger extra verification or failed sign-in. Customers can proxy via custom endpointUrl. The open-source com.fingerprintjs.android.fingerprint library is offline (no network) and not matched; com.fingerprintjs.android.fpjs_pro is the older Pro package (unverified). defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "Used for device verification and bot detection at login and payment. The open-source offline fingerprint library is not matched. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
       "id": "fivead",
@@ -1545,7 +1545,7 @@
       "evidence": [
         "doc: https://docs.foursquare.com/developer/docs/movement-sdk-android-get-started (Maven com.foursquare:movementsdk; packages com.foursquare.movement, legacy com.foursquare.pilgrim)"
       ],
-      "notes": "Background visit detection. Endpoints undocumented (believed sdk.foursquare.com — unverified), detection only."
+      "notes": "Background visit detection. Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "fullstory",
@@ -1563,7 +1563,7 @@
         "sdk: https://maven.fullstory.com/ com.fullstory:instrumentation-full:1.76.2 AAR/JAR — package com.fullstory (native libfs-native.so)",
         "doc: https://help.fullstory.com/hc/en-us/articles/360040596093 (Android data capture; plugin com.fullstory:gradle-plugin-local, Maven repo https://maven.fullstory.com)"
       ],
-      "notes": "Detection only: the capture endpoint is not present in plain strings (native code). mr.fullstory.com/rec/except appears only in the build-time DexMunger, so it is not treated as a runtime host."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "fyber-fairbid",
@@ -1591,7 +1591,7 @@
         "apk: com.mi.globalbrowser dex contains Lcom/fyber/fairbid/ads/ and string com.fyber.ads.ofw.OfferWallActivity",
         "sdk: https://repo1.maven.org/maven2/com/fyber/fairbid-sdk/3.68.3/ (AAR hosts mediation/init-mp/fev/service.fyber.com)"
       ],
-      "notes": "offer.fyber.com / api.fyber.com serve offerwall and virtual-currency balances (user-visible rewards) — not blocked. Origin blocking is off by default (user-visible offerwall rewards); the user can turn the SDK on per app."
+      "notes": "Offerwall and virtual-currency hosts (user-visible rewards) are not blocked. Opt-in: may affect offerwall rewards; the user can turn the SDK on per app."
     },
     {
       "id": "geetest-risk",
@@ -1681,7 +1681,7 @@
         "apk: com.xiaomi.smarthome strings https://c-gtc.getui.net,https://c-gtc.gepush.com ; https://ido.getui.net,https://ido.gepush.com ; https://c-ido.getui.net,https://c-ido.gepush.com",
         "traffic: com.xiaomi.smarthome → ido.gepush.com, c-ido.gepush.com, b-gtc.getui.net, c-gtc.getui.net"
       ],
-      "notes": "GTC downloads extension plugins and uploads device/scene data; IDO is Getui’s user-profiling (个像) module. Push delivery uses separate hosts (getui-push) and is unaffected. c-hzgt3.{getui.net,gepush.com} also appears in GTC but its role is unverified."
+      "notes": "GTC downloads extension plugins and uploads device/scene data; IDO is Getui’s user-profiling (个像) module. Push delivery uses separate hosts (getui-push) and is unaffected. Only verified hosts are blocked."
     },
     {
       "id": "getui-push",
@@ -1709,7 +1709,7 @@
         "apk: com.xiaomi.smarthome classes contain Lcom/igexin/sdk/",
         "traffic: com.xiaomi.smarthome → sdk-open-phone.getui.com, sdk.open.phone.igexin.com, c-hzgt2.getui.com"
       ],
-      "notes": "Detection only. Getui’s data-collection add-ons are tracked as getui-gtc and getui-gs. cdn-sdk-opt.getui.com was also seen in traffic (purpose unverified)."
+      "notes": "Detection only: push delivery is kept functional. Getui’s data-collection add-ons are tracked as getui-gtc and getui-gs."
     },
     {
       "id": "google-adid",
@@ -2032,7 +2032,7 @@
         "sdk: Maven Central com.growingio.android:vds-android-agent:2.9.16 — NetworkConfig: https://api%s.growingio.com/v3, https://crashapi%s.growingio.com/v2, https://tags%s.growingio.com, wss://gta%s.growingio.com, https://t.growingio.com; CrashManager sentry.growingio.com",
         "sdk: Maven Central com.growingio.android:tracker-core:4.7.0 — CoreConfiguration default https://napi.growingio.com"
       ],
-      "notes": "Private deployments override the data server URL. assets.giocdn.com serves the hybrid JS bridge (not blocked)."
+      "notes": "Only verified default vendor collection endpoints are blocked. The hybrid JS bridge host is kept."
     },
     {
       "id": "heap",
@@ -2125,7 +2125,7 @@
         "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README (华为联盟 -keep com.huawei.openalliance.ad.**)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.huawei.hms.ads.HwAds)"
       ],
-      "notes": "Deliberately does NOT use the bare com.huawei.hms.ads. prefix: com.huawei.hms.ads.identifier.* is the OAID library found in many apps without ads (apk: com.xiaomi.youpin, com.baidu.input_mi). Detection only: hosts are resolved via HMS GRS at runtime (regional *.op.hicloud.com / *.op.dbankcloud.cn, e.g. events-dra.op.hicloud.com per Netify) and could not be verified; do not block hicloud.com/dbankcloud apexes (HMS core services). com.huawei.hms.ads.consent.* (HUAWEI consent SDK, the GDPR consent dialog) is not claimed and is listed in excludePrefixes: a consent dialog the ad SDK opens is never blocked by origin; com.huawei.hms.ads.whythisad.* (ad feedback UI of the ads themselves) stays."
+      "notes": "Does not use the bare com.huawei.hms.ads. prefix: the OAID library under it ships in many apps without ads. Detection only: collection endpoints could not be statically verified; core platform service hosts are kept. Privacy consent dialogs are kept working."
     },
     {
       "id": "huawei-agc-crash-apms",
@@ -2147,7 +2147,7 @@
         "sdk: Huawei Maven com.huawei.agconnect:agconnect-crash:1.9.6.301 AAR — package com.huawei.agconnect.crash (CrashBackend/HARequest uploads to https://localhost/v1/crashlogs with the host substituted at runtime)",
         "sdk: Huawei Maven com.huawei.agconnect:agconnect-apms:1.6.3.300 AAR — package com.huawei.agconnect.apms (collect/HiAnalyticsManager reports through HiAnalytics)"
       ],
-      "notes": "Detection only: the real upload host is injected at runtime and reports travel via the HiAnalytics channel, so no host is independently verified. Blocking huawei-analytics hosts is expected to also cut these reports (unverified)."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "huawei-analytics",
@@ -2247,7 +2247,7 @@
         "sdk: HyprMX-SDK 6.4.7 AAR re-scanned: prd/stg -event-tracking-service.hyprmx.com, marketplace-android-b459.hyprmx.com (BuildConfig), jungroup-pbs(-nt).relevant-digital.com",
         "sdk: com.hyprmx.android:HyprMX-SDK 6.4.7 AAR AndroidManifest.xml declares com.hyprmx.android.sdk.activity.HyprMX*Activity and sdk.overlay.HyprMXBrowserActivity (manifest anchors)"
       ],
-      "notes": "hyprmx.com apex (vendor portal) is not blocked. The marketplace ad host embeds the SDK build number (marketplace-android-b<build>.hyprmx.com) and cannot be listed, so only event tracking and the prebid hosts are blocked."
+      "notes": "Blocks verified event-tracking and prebid hosts; the vendor portal is not blocked."
     },
     {
       "id": "iab-open-measurement",
@@ -2455,7 +2455,7 @@
         "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README (京媒 adapter, -keep com.jd.ad.sdk.**)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (YFAdsConst references com.jd.ad.sdk.bl.initsdk.JADYunSdk)"
       ],
-      "notes": "Detection only: endpoint strings are encrypted in the SDK and no vendor host list was found; do not block jd.com apex."
+      "notes": "Detection only: collection endpoints could not be statically verified; do not block jd.com apex."
     },
     {
       "id": "jiguang-janalytics",
@@ -2473,7 +2473,7 @@
         "sdk: Maven Central cn.jiguang.sdk:janalytics:2.1.8 — cn.jiguang.analytics.*",
         "apk: com.xiaomi.smarthome classes contain Lcn/jiguang/analytics/page/"
       ],
-      "notes": "Detection only: reports travel through the JCore channel (encrypted host list); stats.jpush.cn is commonly reported but not verified here."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "joomob-ads",
@@ -2511,7 +2511,7 @@
         "apk: com.xiaomi.smarthome classes contain Lcn/jpush/android/ and Lcn/jiguang/",
         "doc: https://docs.jiguang.cn/jpush/client/Android/android_api"
       ],
-      "notes": "Detection only. Delivery hosts are obfuscated inside JCore and not listed in keepHosts; JCore (cn.jiguang.*) also performs optional data collection described in JiGuang’s compliance guide."
+      "notes": "Detection only: push delivery is kept functional. JCore (cn.jiguang.*) also performs optional data collection described in JiGuang’s compliance guide."
     },
     {
       "id": "kochava",
@@ -2547,7 +2547,7 @@
         "doc: https://support.kochava.com/reference-information/sdk-data-privacy-and-safety/ (official backup init host list)",
         "sdk: Maven Central tracker 5.7.1 BuildConfig init URL list: https://int.akisinn.info|site, int.dewrain.life|site|world, int.kvaedit.site, int.vaicore.site|store|xyz /track/kvinit (plus kvinit-prod.api.kochava.com)"
       ],
-      "notes": "Backup init domains are Kochava-operated; only the int.<domain> hosts verified in the SDK are blocked (not the apexes). akisinn.me, vlancaa.fun and vlancaa.site are listed by the vendor doc but their int. hosts are not verified in the SDK, so they are not blocked. smart.link resolves deep links and is kept."
+      "notes": "Only the verified int. hosts are blocked (not the apexes). smart.link resolves deep links and is kept."
     },
     {
       "id": "kount",
@@ -2610,7 +2610,7 @@
         "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard (-keep com.kwad.sdk.**, -dontwarn com.ksad.**)",
         "sdk: Maven Central com.tradplusad:ksad-ads:3.3.75 AAR AndroidManifest.xml declares com.kwad.sdk.api.proxy.app.{AdWebViewActivity,KsFullScreenVideoActivity,KsFullScreenLandScapeVideoActivity,KsRewardVideoActivity,KSRewardLandScapeVideoActivity,FeedDownloadActivity,DownloadService} (manifest anchors)"
       ],
-      "notes": "Bundles com.kuaishou.weapon (Kuaishou device-risk SDK, IDENTIFICATION) and com.yxcorp.kuaishou.addfp; not claimed here. Not blocked: static.yximgs.com (shared Kuaishou CDN). Uncertain: api.kuaishouzt.com, api.kwaizt.com, w1/w2.kskwai.com, w1/w2.gskwai.com."
+      "notes": "Bundles com.kuaishou.weapon (device-risk SDK, IDENTIFICATION) and com.yxcorp.kuaishou.addfp; not claimed here. The shared CDN is not blocked; only verified ad hosts are."
     },
     {
       "id": "kuaishou-kwai-ads-global",
@@ -2669,7 +2669,7 @@
       "evidence": [
         "sdk: downloaded Kuaishou ad SDK binaries ksad-ads-3.3.75.aar and third-kuaishoubase-4.8.10.1.aar (175 classes under com/kuaishou/weapon/p0/, e.g. WeaponHI, IWeaponInitParams); the same package is bundled in oppo-sdk-7.4.0.aar (176 classes)"
       ],
-      "notes": "Risk-control/device security module bundled with Kuaishou ads and other Kuaishou SDKs; endpoints are encrypted/native and not verifiable, so detection only. No block rules, so no defaultBlock flag (CONTRACT); if endpoints are verified and added later, set defaultBlock=false because blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
+      "notes": "Risk-control/device security module bundled with Kuaishou ads and other Kuaishou SDKs; detection only: collection endpoints could not be statically verified. Blocking could cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败)."
     },
     {
       "id": "leanplum",
@@ -2845,7 +2845,7 @@
         "sdk: https://repo1.maven.org/maven2/com/facebook/android/audience-network-sdk/6.22.1/ (AAR strings www.facebook.com/adnw_logging/; package com.facebook.ads)",
         "sdk: https://developers.facebook.com/resources/FBAudienceNetwork-6.22.1-SPM.zip (Meta's iOS AN binary references an.facebook.com)"
       ],
-      "notes": "Most SDK logic is a dex loaded at runtime. Bidding traffic also uses graph.facebook.com (shared with Facebook Login/Graph API) so it is not blocked; s.facebook.com and ep1/ep6.facebook.com seen in Meta SDK binaries are mixed/unverified on Android. an.facebook.com is the Audience Network host found in Meta's own SDK binary."
+      "notes": "Bidding shares a host with login and the graph API, so it is not blocked. an.facebook.com is the ad host found in the vendor's own SDK binary."
     },
     {
       "id": "microsoft-clarity",
@@ -2866,7 +2866,7 @@
       "evidence": [
         "sdk: Maven Central com.microsoft.clarity:clarity:3.10.0 AAR — package com.microsoft.clarity(.models/.protomodels/.jobs); strings https://www.clarity.ms/ (IngestConfigs request, o/b.class) and https://www.clarity.ms/eus2/ (a/K.class); bundled assets/clarity.js"
       ],
-      "notes": "Only the verified www.clarity.ms ingest-config/upload host is blocked (not the clarity.ms apex); clarity.microsoft.com is the dashboard/player and is untouched. Further regional ingest hosts are returned by the config response and could not be verified statically."
+      "notes": "Only the verified www.clarity.ms ingestion host is blocked; the dashboard host is kept."
     },
     {
       "id": "mintegral",
@@ -2899,7 +2899,7 @@
         "apk: com.mi.globalbrowser classes contain Lcom/mbridge/msdk/foundation/, Lcom/mbridge/msdk/out/",
         "doc: https://gitee.com/TopOnTeam/TopOn-Android-SDK network_security_config.xml (hb.rayjump.com)"
       ],
-      "notes": "com.mintegral.msdk is the pre-2021 namespace, com.mbridge.msdk the current one. Current SDK strings are encrypted; newer hosts not confirmed (Netify lists mtgglobals.com as a Mintegral domain)."
+      "notes": "com.mintegral.msdk is the pre-2021 namespace, com.mbridge.msdk the current one. Only verified hosts are blocked."
     },
     {
       "id": "mixpanel",
@@ -3029,7 +3029,7 @@
         "sdk: MobCommons class roles: VplClt.java -> v.data.mob.com/cpl,/vpl (app-list collection); DyLogUploader.java -> dfe.mic.mob.com/drl (log upload); logcollector -> api.exc.mob.com (error log); utag.TagRequester -> api.utag.mob.com/utag,/bdata (user tags)",
         "sdk: ShareSDK strings api-share.mob.com, l.mob.com/url/shareSdkEncryptMapping.do, up.mob.com/upload/image"
       ],
-      "notes": "Only collection/profiling hosts are blocked. Share config/short-link hosts (api-share.mob.com, l.mob.com) are kept so sharing works. api.fc/api.fd/c.data/m.data/devs.data.mob.com (ServerConfig/authorize) were seen but their role is unverified, so they are not blocked. Only the verified sub-packages com.mob.commons. and com.mob.tools. are claimed (a bare com.mob. would also claim MobTech auth/SMS SDKs such as com.mob.secverify./com.mob.smssdk. and unrelated com.mob.* code); com.mob.pushsdk. and com.mob.moblink. have their own entries, and MobCommons is bundled in all of them. No device APK in the survey contains these packages — evidence is SDK-binary only."
+      "notes": "Only collection/profiling hosts are blocked. Share config/short-link hosts (api-share.mob.com, l.mob.com) are kept so sharing works. Only the verified sub-packages com.mob.commons. and com.mob.tools. are claimed (a bare com.mob. would also claim auth/SMS SDKs and unrelated code); com.mob.pushsdk. and com.mob.moblink. have their own entries, and MobCommons is bundled in all of them. Evidence is SDK-binary only."
     },
     {
       "id": "moengage",
@@ -3118,7 +3118,7 @@
       "evidence": [
         "sdk: Maven Central com.mparticle:android-core:6.1.12 AAR — package com.mparticle; networking/d.class strings config2.mparticle.com, 'nativesdks', 'identity' (hosts built as <prefix>.mparticle.com, networking/b.class '.mparticle.com')"
       ],
-      "notes": "nativesdks.mparticle.com is the event-ingestion endpoint; identity (login/user identity) and config2 (SDK config) are kept. Pod-specific hosts (nativesdks.<pod>.mparticle.com) and customer direct-URL routing are not verified and not blocked."
+      "notes": "nativesdks.mparticle.com is the event-ingestion endpoint; identity (login/user identity) and SDK config are kept. Only verified default vendor collection endpoints are blocked."
     },
     {
       "id": "ms-appcenter",
@@ -3208,7 +3208,7 @@
         "apk: com.mi.globalbrowser dex contains Lcom/my/tracker/",
         "doc: https://docs.tracker.my.com/quick-start/where-to-start (myTracker SDK; ProGuard keep rules for com.my.tracker)"
       ],
-      "notes": "Collection host is obfuscated in the SDK; tracker-api.my.com / tracker-api.vk-analytics.ru are believed endpoints (unverified) — not blocked."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "netease-yidun-mobsec",
@@ -3315,7 +3315,7 @@
         "apk: com.mi.globalbrowser dex types com.adsbynimbus.render.NimbusAdView, com.adsbynimbus.request.NimbusResponse",
         "doc: https://docs.adsbynimbus.com/docs/sdk/android/integration (Maven group com.adsbynimbus.android)"
       ],
-      "notes": "Requests go to <publisher>.adsbynimbus.com; adsbynimbus.com is ad-only but publisher subdomains vary — candidate blockHost adsbynimbus.com (unverified)."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "oceanengine-convert",
@@ -3357,7 +3357,7 @@
         "sdk: octopus_ad_sdk_1.5.9.1.aar in public repo github.com/juner122king/xianzhuan",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.octopus.ad.Octopus)"
       ],
-      "notes": "v.behe.com also appears in SDK strings, role unclear. Creative CDN is on shared aliyuncs.com, not blocked."
+      "notes": "Only verified ad hosts are blocked; shared creative CDNs are kept."
     },
     {
       "id": "ogury",
@@ -3391,7 +3391,7 @@
         "sdk: https://maven.ogury.co/co/ogury/module/ogury-ads/5.4.0/ and 4.7.0/ AARs — ad code only under com.ogury.ad (5.x), com.ogury.ed + io.presage (4.x); manifests declare com.ogury.ad.interstitial.ui.InterstitialActivity / io.presage.interstitial.ui.InterstitialActivity (anchors); ogury-core 2.4.0 (com.ogury.core, shared runtime)",
         "sdk: https://maven.ogury.co/co/ogury/module/ogury-choice-manager/3.3.3/ (consent manager: com.ogury.cm, com.ogury.fairchoice, com.ogury.consent_manager; hosts consent-form.ogury.co, consent-manager-events.ogury.io) and co/ogury/ogury-sdk 4.9.1 (bundles com.ogury.cm, com.ogury.consent)"
       ],
-      "notes": "presage.io is Ogury's ad-delivery domain (%s.presage.io templates in ogury-ads); the consent manager uses ogury.co / ogury.io hosts, which are not blocked. Only ad packages are claimed: com.ogury.core (shared with the consent manager) and com.ogury.sdk (init wrapper) are left out, and the consent packages are in excludePrefixes, so origin blocking never stops the consent dialog. Legacy io.presage SDK collected installed-app lists (profiling)."
+      "notes": "presage.io is the ad-delivery domain. Only ad packages are claimed; privacy consent dialogs and their hosts are kept working. The legacy io.presage SDK collected installed-app lists (profiling)."
     },
     {
       "id": "ok-tracer",
@@ -3409,7 +3409,7 @@
         "apk: com.mi.globalbrowser dex contains Lru/ok/tracer/",
         "doc: https://rustore.ru/help/en/developers/tools/app-tracer/android/start/quick-start (Tracer SDK, Maven group ru.ok.tracer, crash/ANR module tracer-crash-report)"
       ],
-      "notes": "Upload host believed to be sdk-api.apptracer.ru (unverified) — not blocked."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "oneapm",
@@ -3497,7 +3497,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/oppo-sdk/7.4.0/ (vendor SDK mirror; classes Lcom/heytap/msp/mobad/, Lcom/opos/mobad/, Lcom/opos/cmn/, Lcom/opos/acs/; hosts *.ads.heytapmobi.com, mdp-usertrace-cn.heytapmobi.com, adsfs.heytapimage.com)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.heytap.msp.mobad.api.MobAdManager)"
       ],
-      "notes": "Only com.heytap.msp.mobad. is claimed — com.heytap.msp.push is OPPO Push. The OPPO SDK 7.x AAR also bundles CSJ, GDT and Kuaishou SDKs (detected by their own entries) plus com.heytap.nearx/httpdns libraries (not claimed). Uncertain: api-audit.heytapmobi.com."
+      "notes": "Only com.heytap.msp.mobad. is claimed — com.heytap.msp.push is OPPO Push. The OPPO SDK 7.x AAR also bundles CSJ, GDT and Kuaishou SDKs (detected by their own entries) plus networking libraries (not claimed)."
     },
     {
       "id": "oppo-push",
@@ -3537,7 +3537,7 @@
         "sdk: https://software.mobile.pendo.io/artifactory/androidx-release/ sdk.pendo.io:pendoIO:3.15.1.11621 AAR — packages sdk.pendo.io(.analytics.repository, .sessionreplay.managers, .activities)",
         "doc: https://support.pendo.io/hc/en-us/articles/16101373319707 (Pendo host list incl. data.pendo.io, app.pendo.io, software.mobile.pendo.io)"
       ],
-      "notes": "Detection only: runtime endpoints are not present in plain strings (data.pendo.io is documented for the Web SDK; unverified for Android). The SDK embeds relocated libraries under external.sdk.pendo.io. which are intentionally not matched."
+      "notes": "Detection only: collection endpoints could not be statically verified. Relocated libraries under external.sdk.pendo.io. are intentionally not matched."
     },
     {
       "id": "posthog",
@@ -3570,7 +3570,7 @@
         "sdk: Maven Central com.posthog:posthog-android:4.1.0 and com.posthog:posthog:7.1.1 — packages com.posthog / com.posthog.android(.replay/.surveys); PostHogConfig strings https://us.i.posthog.com, https://eu.i.posthog.com, us-assets/eu-assets.i.posthog.com; PostHogApi paths /batch and /flags/?v=2",
         "doc: https://posthog.com/docs/api/capture (US https://us.i.posthog.com, EU https://eu.i.posthog.com; /batch and /i/v0/e are the capture endpoints)"
       ],
-      "notes": "Only the /batch event-capture path is blocked; /flags (feature flags, an app feature) and the assets hosts stay open. Self-hosted instances use app-specific hosts and are detected but not blocked."
+      "notes": "Only the event-capture path is blocked; feature flags (an app feature) and asset hosts are kept. Only verified default vendor collection endpoints are blocked."
     },
     {
       "id": "prebid-mobile",
@@ -3606,7 +3606,7 @@
         "apk: com.mi.globalbrowser dex contains Lcom/pubmatic/sdk/",
         "doc: https://developers.google.com/admob/android/mediation/pubmatic (AdMob mediation guide for PubMatic OpenWrap; adapter classes under com.pubmatic.sdk)"
       ],
-      "notes": "Endpoints not verified from vendor docs (believed ow.pubmatic.com) — detection only."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "qihoo360-torch-ads",
@@ -3623,7 +3623,7 @@
       "evidence": [
         "doc: decoded APK resources in github.com/WanyueKJ/Wanyue-knowledge-payment and github.com/soundXlab/v720-hack (layouts ad_360_large_pic.xml / ad_360_large_video.xml use com.ak.torch.* views)"
       ],
-      "notes": "Detection only; weakest evidence in this slice (no SDK binary or vendor doc)."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "radar",
@@ -3690,7 +3690,7 @@
       "evidence": [
         "sdk: https://salesforce-marketingcloud.github.io/MarketingCloudSDK-Android/repository/ com.salesforce.marketingcloud:marketingcloudsdk:12.0.0 AAR — packages com.salesforce.marketingcloud(.push/.analytics/.messages/.registration/.location); strings app.igodigital.com, collect.igodigital.com, stage.app.igodigital.com"
       ],
-      "notes": "Detection only (push/engagement suite). app.igodigital.com carries registration and in-app messages. collect.igodigital.com is a likely analytics/collect endpoint but its payloads were not verified."
+      "notes": "Detection only (push/engagement suite). app.igodigital.com carries registration and in-app messages."
     },
     {
       "id": "segment",
@@ -3735,7 +3735,7 @@
         "apk: com.android.contacts, com.miui.virtualsim, com.xiaomi.xmsf, com.xiaomi.gamecenter.sdk.service, com.unionpay.tsmservice.mi classes contain Lcom/sensorsdata/analytics/",
         "traffic: com.miui.virtualsim → sensorsdata.10046.xiaomimobile.com (string https://sensorsdata.10046.xiaomimobile.com/sa?project=)"
       ],
-      "notes": "Self-hosted deployments use arbitrary hosts (typically …/sa?project= on port 8106/4006); only the SaaS receiver suffix and one observed customer receiver are listed."
+      "notes": "Only the verified SaaS receiver and one observed receiver are blocked."
     },
     {
       "id": "sentry",
@@ -3758,7 +3758,7 @@
         "doc: https://docs.sentry.io/security-legal-pii/security/ip-ranges/ (event ingestion o<N>.ingest.sentry.io, o<N>.<region>.ingest.sentry.io; EU o<N>.ingest.de.sentry.io)",
         "src: https://github.com/getsentry/sentry-java (package io.sentry)"
       ],
-      "notes": "Hosts come from the customer DSN; ingest.us.sentry.io is from status-page usage (less certain). Legacy DSNs may point at sentry.io apex (dashboard) — not blocked. Self-hosted Sentry is not covered. io.sentry.android.replay is session replay."
+      "notes": "Only verified default vendor ingestion endpoints are blocked; the dashboard is not. io.sentry.android.replay is session replay."
     },
     {
       "id": "shareinstall",
@@ -3775,7 +3775,7 @@
       "evidence": [
         "doc: https://github.com/shoneworn/JNI_AES-ECB-PKCS5Padding (sources under com/sh/sdk/shareinstall/business/jni/)"
       ],
-      "notes": "Detection only; weak evidence (single public repo)."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "shumei",
@@ -3823,7 +3823,7 @@
         "sdk: Maven Central cn.shuzilm.core:dusdk:8.0.9 — cn.shuzilm.core.DUSDK",
         "doc: public decompiled sources (GitHub Gavinme/smid_project app/src/main/java/cn/shuzilm/core/Main.java)"
       ],
-      "notes": "Detection only: endpoints are resolved in native code and were not independently verified (ddi*.shuzilm.cn is commonly reported). Risk-control ID; blocking may affect sign-up device verification."
+      "notes": "Detection only: collection endpoints could not be statically verified. Risk-control ID; blocking may affect sign-up device verification."
     },
     {
       "id": "sift",
@@ -3883,7 +3883,7 @@
         "sdk: windAd-2.25.2.aar in vendor demo repo gitee.com/TopOnTeam/TopOn-Android-SDK (anythink_sdk/network_china_sdk/network/sigmob)",
         "sdk: Maven Central com.tradplusad:sigmob-ads:4.22.1 AAR AndroidManifest.xml declares com.sigmob.sdk.base.common.{AdActivity,TransparentAdActivity,PortraitAdActivity,LandscapeAdActivity,PortraitTransparentAdActivity,LandscapeTransparentAdActivity} (manifest anchors)"
       ],
-      "notes": "Uncertain: adxtool.sigmob.cn, c.etoolads.cn."
+      "notes": "Only verified hosts are blocked."
     },
     {
       "id": "sigmob-windmill",
@@ -3963,7 +3963,7 @@
         "sdk: https://s3.amazonaws.com/smaato-sdk-releases/com/smaato/android/sdk/ (23.x AAR hosts api/dsp.nextgen.verve.net, sdkc.vervegroupinc.net, got.track.smaato.net, cdn.pubnative.net)",
         "doc: https://developers-brand.verve.com/docs/android-nextgen-sdk-integration (keep rule com.smaato.sdk)"
       ],
-      "notes": "Smaato 23.x is built on the HyBid code base. Older 22.x *.smaato.net hosts not verified."
+      "notes": "Smaato 23.x is built on the HyBid code base. Only verified hosts are blocked."
     },
     {
       "id": "smartlook",
@@ -3982,7 +3982,7 @@
       "evidence": [
         "doc: https://mobile.developer.smartlook.com/reference/android-sdk-installation (Maven com.smartlook.android:smartlook-analytics; API package com.smartlook.android.core.api)"
       ],
-      "notes": "Ingestion hosts not verified (believed *.smartlook.cloud) — detection only. com.smartlook.sdk is the legacy package (unverified)."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "startio",
@@ -4005,7 +4005,7 @@
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/startapp/inapp-sdk/5.5.2/ (AAR packages com.startapp.sdk / com.startapp.simple / com.startapp.motiondetector, host sin-trp-rtb.startappnetwork.com)"
       ],
-      "notes": "Other hosts are obfuscated; *.startappservice.com is believed (unverified). Start.io's SDK historically collected location for data products. com.startapp.android.publish is the legacy package name (unverified)."
+      "notes": "Only verified hosts are blocked. Start.io's SDK historically collected location for data products."
     },
     {
       "id": "talkingdata",
@@ -4054,7 +4054,7 @@
         "sdk: https://sdk.tapjoy.com/com/tapjoy/tapjoy-android-sdk/14.9.0/ re-scanned: only gateway-b.offerwall.unity3d.com and dev.tapjoy.com are visible in plain strings (offerwall placements /placements/); no telemetry-only subdomain could be verified",
         "sdk: com.tapjoy:tapjoy-android-sdk 14.9.0 AAR AndroidManifest.xml declares com.tapjoy.TJAdUnitActivity and TJWebViewActivity (manifest anchors)"
       ],
-      "notes": "Detection only: tapjoy.com/tapjoy.net apexes (support/privacy pages) and the offerwall gateway (earned rewards) are not blocked, and no telemetry-only Tapjoy subdomain could be verified in the SDK, so nothing is blocked until one is. Origin blocking is off by default (user-visible offerwall rewards); the user can turn the SDK on per app."
+      "notes": "Detection only: vendor pages and the offerwall (earned rewards) are kept. Opt-in: may affect offerwall rewards; the user can turn the SDK on per app."
     },
     {
       "id": "taptap-ads",
@@ -4075,7 +4075,7 @@
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/tapad-sdk/3.16.3.45/ (vendor SDK mirror; classes Lcom/tapsdk/tapad/, Lcom/tapadn/; hosts adn.tapapis.cn, tapad-platform.tapimg.com)"
       ],
-      "notes": "Not blocked: tapapis.cn/taptap.cn apexes (TapTap login/community). Uncertain: commercial.iem.taptap.cn, pl.taptap.cn."
+      "notes": "Not blocked: tapapis.cn/taptap.cn apexes (TapTap login/community). Only verified ad hosts are blocked."
     },
     {
       "id": "taurusx-ads",
@@ -4120,7 +4120,7 @@
       "evidence": [
         "apk: com.miui.player (QQ Music based) classes contain Lcom/tencent/ams/adcore/, Lcom/tencent/ams/fusion/, Lcom/tencent/ams/tangram/, Lcom/tencent/ad/tangram/; const-strings in com.tencent.ams.* reference p.l.qq.com, livep.l.qq.com, xs.gdt.qq.com, sdkreport.e.qq.com"
       ],
-      "notes": "In-house Tencent ad SDK used by Tencent first-party apps (video/music); shares GDT delivery hosts. vv6.video.qq.com (video CDN) deliberately not blocked; us.l.qq.com is the GDT ad request host (blocked under tencent-gdt, referenced from com.qq.e code); c.l.qq.com also seen, unverified."
+      "notes": "In-house Tencent ad SDK used by Tencent first-party apps (video/music); shares GDT delivery hosts. The video CDN is not blocked; us.l.qq.com is the GDT ad request host (blocked under tencent-gdt, referenced from com.qq.e code)."
     },
     {
       "id": "tencent-beacon",
@@ -4179,7 +4179,7 @@
         "sdk: Maven Central com.tencent.bugly:crashreport:4.1.9 has only com.tencent.bugly.crashreport/proguard (no com.tencent.feedback); bugly-pro 4.4.8.3 / crashreport-pro 4.4.7.13 bundle com.tencent.feedback.eup (2 classes) and com.tencent.feedback.upload (1 class) — hence the narrowed prefixes",
         "apk: com.sohu.inputmethod.sogou.xiaomi classes contain Lcom/tencent/feedback/eup/ and Lcom/tencent/feedback/upload/"
       ],
-      "notes": "Bugly “Beta” upgrade/hotfix (crashreport_upgrade, tinker-support) checks for updates over the same /rqd/async endpoint, so in-app upgrade prompts and Bugly hot patches stop when blocked. Relocated copies (com.tencent.bugly.idasc / .webank inside Tencent Cloud KYC SDKs) are matched too. bugly.djigate.com / buglypro.iot-tencent.com are private deployments (not listed). defaultBlock=false: Bugly Beta upgrade prompts and Tinker hot patches (crashreport_upgrade, tinker-support) share the /rqd/async endpoint, so blocking it also stops in-app updates and hotfixes; blocking is opt-in per app. com.tencent.feedback. narrowed to .eup./.upload. (generic Tencent feedback packages otherwise match unrelated code). The vendor-app catalog rule bugly.domains blocks these hosts by default in preinstalled apps: those are updated through the app store, not Bugly Beta, so nothing user-visible depends on the endpoint there."
+      "notes": "Opt-in: blocking may affect in-app updates and hotfixes. The vendor-app rule bugly.domains blocks these hosts by default in preinstalled apps, which are updated through the app store."
     },
     {
       "id": "tencent-cls",
@@ -4197,7 +4197,7 @@
         "sdk: Maven Central com.tencentcloudapi.cls:tencentcloud-cls-sdk-android:3.0.5 — com.tencentcloudapi.cls.android.producer",
         "doc: https://www.tencentcloud.com/document/product/614/18940 (public upload domains <region>.cls.tencentcs.com, <prefix>-producer.cls.tencentcs.com)"
       ],
-      "notes": "Detection only: <region>.cls.tencentcs.com / <prefix>-producer.cls.tencentcs.com is a shared PaaS log-ingestion suffix (also used for user-submitted diagnostics), so it is not blocked."
+      "notes": "Detection only: uses shared cloud infrastructure that cannot be safely blocked by domain."
     },
     {
       "id": "tencent-gdt",
@@ -4261,7 +4261,7 @@
         "traffic cap2/cap4: com.miui.player → pgdt.gtimg.cn x13, adsmind.gdtimg.com (ad creative CDN, counterparts of pgdt/adsmind.ugdtimg.com)",
         "sdk: Maven Central com.qq.e.union:union:4.640.1510 AAR AndroidManifest.xml declares com.qq.e.ads.{ADActivity,PortraitADActivity,LandscapeADActivity,RewardvideoPortraitADActivity,RewardvideoLandscapeADActivity,DialogActivity}, com.qq.e.comm.DownloadService (manifest anchors)"
       ],
-      "notes": "com.android.gdt.* is GDT's bundled device-id/QIMEI module (shipped inside the union AAR). The union AAR also bundles com.tencent.turingfd.sdk (Turing device security, IDENTIFICATION; left to that slice). Not blocked (shared Tencent infra): l.qq.com apex (only us.l.qq.com, the GDT ad request host, is), gtimg.cn apex (only pgdt.gtimg.cn), e.qq.com (advertiser portal), qzs.qq.com, i.gtimg.cn, qzonestyle.gtimg.cn, snowflake.qq.com, tdid.m.qq.com. union.eff.qq.com seen in SDK strings, purpose unclear."
+      "notes": "com.android.gdt.* is GDT's bundled device-id module (shipped inside the union AAR); the bundled device security SDK is handled by its own IDENTIFICATION entry. Shared Tencent infrastructure and portal hosts are not blocked; only verified ad hosts such as us.l.qq.com and pgdt.gtimg.cn are."
     },
     {
       "id": "tencent-gdt-action",
@@ -4282,7 +4282,7 @@
         "sdk: gdt.jar in public demo repo github.com/gm88tp/Android-Domestic-SDK-Demo (docs/resource/libs) contains only Lcom/qq/gdt/action/ and host a.gdt.qq.com",
         "doc: https://github.com/weicai6298/sdkworkspace (channel SDK code imports com.qq.gdt.action.GDTAction)"
       ],
-      "notes": "Also references report.huatuo.qq.com (Tencent Huatuo perf reporting, shared with other Tencent SDKs; not blocked here)."
+      "notes": "Only verified attribution endpoints are blocked."
     },
     {
       "id": "tencent-klevin",
@@ -4303,7 +4303,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/klevin-ads/2.11.0.3/ (vendor SDK mirror; classes Lcom/tencent/klevin/ads/; hosts api.yky.qq.com, static.yky.qq.com)",
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/tradplus-klevin/44.12.6.10.1/ (adapter imports com.tencent.klevin.ads)"
       ],
-      "notes": "Bundles com.tencent.tgpa.lite / com.ihoc.mgpa.deviceid (device id helpers); cloud.tgpa.qq.com not blocked."
+      "notes": "Only verified ad hosts are blocked; bundled helper components are not claimed here."
     },
     {
       "id": "tencent-location",
@@ -4331,7 +4331,7 @@
         "apk: com.xiaomi.metoknlp strings https://rttgpsreport.map.qq.com/report?type=sdk, https://analytics.map.qq.com/tr?utr, https://lbs.map.qq.com/loc",
         "traffic: com.xiaomi.metoknlp → lbs.map.qq.com, rgeorest.map.qq.com"
       ],
-      "notes": "lbs.map.qq.com is the positioning endpoint (kept). Core classes also ship under the short package c.t.m.* which is not listed to avoid false positives."
+      "notes": "lbs.map.qq.com is the positioning endpoint (kept)."
     },
     {
       "id": "tencent-mta",
@@ -4422,7 +4422,7 @@
       "evidence": [
         "sdk: Maven Central com.tencent.tpns:tpns:1.4.4.13-release — com.tencent.android.tpush / com.tencent.tpns.*; api.tpns.tencent.com /guid/v4/register_device; region hosts tpns(.hk/.sgp).tencent.com"
       ],
-      "notes": "Detection only. The SDK also posts statistics to stat.api.tpns.tencent.com and log.tpns.tencent.com (/log/v4/statistics/push, /device/v4/sdk/list) and contains com.tencent.tpns.dataacquisition."
+      "notes": "Detection only: push delivery is kept functional."
     },
     {
       "id": "tencent-turing",
@@ -4505,7 +4505,7 @@
         "sdk: Maven Central cn.thinkingdata.android:ThinkingAnalyticsSDK:3.6.1 AAR — package cn.thinkingdata.analytics",
         "sdk: Maven Central cn.thinkingdata.android:ThinkingAnalyticsSDK:2.8.3 / 2.7.4 AAR — package cn.thinkingdata.android (proguard keep rules cn.thinkingdata.android.**)"
       ],
-      "notes": "Detection only: the SDK has no vendor-default host; the receiver URL is configured per app (SaaS or private deployment), so nothing can be blocked generically."
+      "notes": "Detection only: the SDK has no vendor-default host, so nothing can be blocked generically."
     },
     {
       "id": "threatmetrix",
@@ -4523,7 +4523,7 @@
         "doc: https://docs.cielo.com.br/risk-en/docs/fingerprint-android (imports com.threatmetrix.TrustDefender.TMXConfig / TMXProfiling)",
         "doc: https://docs.vesta.io/developer-resources/device-fingerprinting/android (TMXProfiling / TMXProfilingConnections AARs, TrustDefender.getInstance())"
       ],
-      "notes": "Profiling host typically h.online-metrix.net or a customer-specific CNAME (e.g. payment processors) — unverified, not blocked. Blocking usually breaks payment/login risk checks."
+      "notes": "Detection only: collection endpoints could not be statically verified. Blocking usually breaks payment/login risk checks."
     },
     {
       "id": "tiktok-business-sdk",
@@ -4553,7 +4553,7 @@
         "apk: com.mi.globalbrowser dex types Lcom/tiktok/TikTokBusinessSdk$LogLevel;, Lcom/tiktok/appevents/TTAppEventLogger$FlushReason; and string analytics.us.tiktok.com",
         "src: https://github.com/tiktok/tiktok-business-android-sdk/blob/master/business-core/src/main/java/com/tiktok/util/UrlConst.java (analytics.us.tiktok.com /api/v1/app_sdk/batch, monitor, config, ddl)"
       ],
-      "notes": "Same host also serves SDK config and deferred deep links (/ddl), so only event/monitor paths are blocked; track domain can be overridden at runtime. analytics.tiktok.com/i18n/pixel in the same APK is the web pixel. TikTok Login/Share kits use other hosts — not blocked."
+      "notes": "The same host also serves SDK config and deferred deep links, so only event/monitor paths are blocked. Login and share kits use other hosts and are kept."
     },
     {
       "id": "tingyun",
@@ -4575,7 +4575,7 @@
         "sdk: Maven Central com.networkbench:tingyun-ea-agent-android:2.7.4.2 — agent excludes its own *networkbench.com collector traffic; https://mobile-symbol-upload.tingyun.com/info/android.json",
         "doc: https://github.com/growingio/growingio-sdk-android-plugin FilterUtils.kt lists com.networkbench.agent as an APM agent package"
       ],
-      "notes": "networkbench.com apex removed: the agent only references it as an exclusion filter and no collector subdomain is verifiable (collector/redirect hosts are customer-specific). tingyun.com vendor site is not blocked."
+      "notes": "Detection only for the apex: no collector subdomain is verified. tingyun.com vendor site is not blocked."
     },
     {
       "id": "tongdun",
@@ -4625,7 +4625,7 @@
         "doc: https://gitee.com/TopOnTeam/TopOn-Android-SDK (vendor open-source SDK; anythink_sdk/core/src/main/java/com/anythink/core/common/base/Const.java defines api/da/tk/adx/adxtk/bidding/img.anythinktech.com)",
         "doc: https://gitee.com/TopOnTeam/TopOn-Android-SDK anythink_china_project/app/src/main/res/xml/network_security_config.xml (lists api/da/tk.anythinktech.com)"
       ],
-      "notes": "Newer releases reportedly route through rotating domains (Netify lists mosspf.net, mossturbo.com, mosspf.com, robin-flow.com, parrot-flow.com, mossfast.com) — unverified, not blocked. Opera Ads docs mention Maven group com.secmtp.sdk for TopOn >= 6.5.12; whether the code namespace also changed is unverified."
+      "notes": "Only verified hosts are blocked."
     },
     {
       "id": "tradplus",
@@ -4660,7 +4660,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/tradplus-sdk/14.0.0.1/ (official Maven artifact; classes Lcom/tradplus/ads/base/; hosts *.tradplusad.com)",
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/tp_exchange-cn/40.14.0.0.1/ (classes Lcom/tp/adx/sdk/, Lcom/tp/ads/adx/)"
       ],
-      "notes": "Uncertain: api.tpvisim.com. docs.tradplusad.com is documentation and not blocked."
+      "notes": "Only verified hosts are blocked. docs.tradplusad.com is documentation and not blocked."
     },
     {
       "id": "ubix-ads",
@@ -4775,7 +4775,7 @@
         "sdk: Maven Central com.umeng.umsdk:abtest:1.0.1 — pslog.umeng.com /ablog (A/B exposure log)",
         "sdk: Maven Central com.umeng.umsdk:analytics:8.1.6 — com.umeng.analytics package"
       ],
-      "notes": "ucc.umeng.com /v1/fetch serves UMRemoteConfig (app feature flags) and is NOT blocked; only the internal /v2/inn/ config path is. resolve.umeng.com is Umeng HTTPDNS (not blocked). com.umeng.cconfig. (UMRemoteConfig) removed from prefixes: it is a remote-config feature, not telemetry."
+      "notes": "Remote config (app feature flags) is kept; only the internal config reporting path is blocked. resolve.umeng.com is handled by the Force system DNS rule."
     },
     {
       "id": "umeng-apm",
@@ -4858,7 +4858,7 @@
         "sdk: Maven Central com.umeng.umsdk:push:7.0.4 — com.umeng.message + com.taobao.accs/agoo; ACCS channel umengacs.m.taobao.com, msg.umengcloud.com /v3/alias",
         "sdk: Maven Central com.umeng.umsdk:agoo-accs:3.4.3 — AccsClientConfig umengacs.m.taobao.com, umengjmacs.m.taobao.com"
       ],
-      "notes": "Detection only. U-Push also contains an in-app ad module (dsp.ads.umeng.com /api/v2/rq, /evt) and offline log upload (offmsg.umeng.com /log/upload); these belong to ADS/ANALYTICS lists, not to this PUSH entry. Only com.umeng.message. is matched; the shared Alibaba ACCS/Agoo transport (com.taobao.accs./agoo., org.android.agoo.) is also used by Aliyun/EMAS push and Alibaba apps and is not claimed."
+      "notes": "Detection only: push delivery is kept functional. Ad and log modules belong to the ADS/ANALYTICS entries. Only com.umeng.message. is matched; the shared push transport used by other vendors is not claimed."
     },
     {
       "id": "umeng-share",
@@ -4877,7 +4877,7 @@
         "sdk: Maven Central com.umeng.umsdk:share-core:7.3.7 — com.umeng.socialize; SocializeRequest base https://log.umsns.com/ (also OAuth dialog share/auth/); com.umeng.socialize.tracker → https://c.umsns.com/ulink/getRTC",
         "sdk: Maven Central com.umeng.umsdk:share-core:7.3.7 — SocialAnalytics reports to ai.login.umeng.com /api/umed/event; UMAppScanTask app-list upload (see umeng-yumao)"
       ],
-      "notes": "Detection only here: log.umsns.com mixes share statistics with OAuth/web-share pages and c.umsns.com /ulink/getRTC (tracker package) is unverified, so no host is blocked. The app-list collection embedded in U-Share is covered by umeng-yumao hosts."
+      "notes": "Detection only here: share statistics share hosts with OAuth/web-share pages, so no host is blocked. The app-list collection embedded in U-Share is covered by umeng-yumao hosts."
     },
     {
       "id": "umeng-umid",
@@ -4957,7 +4957,7 @@
         "sdk: https://repo1.maven.org/maven2/com/unity3d/ads/unity-ads/4.22.0/ (AAR hosts gateway/webview/configv2/scar.unityads.unity3d.com)",
         "sdk: com.unity3d.ads:unity-ads 4.22.0 AAR AndroidManifest.xml declares com.unity3d.ads.adplayer.FullScreenWebViewDisplay and AdTaskRemovalDetectionService (manifest anchors)"
       ],
-      "notes": "com.unity3d.player (the Unity engine) is intentionally not matched. gatewayprotocol.v1. (unbranded protobuf package) removed from prefixes."
+      "notes": "com.unity3d.player (the Unity engine) is intentionally not matched."
     },
     {
       "id": "uxcam",
@@ -4978,7 +4978,7 @@
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/uxcam/uxcam/3.13.0/ (AAR package com.uxcam; templates https://{sub}.{region}.verifysession.uxcam.com/v4/verify and https://{sub}.{region}.uxcamsession.com/v4/verify)"
       ],
-      "notes": "Other upload hosts are obfuscated; uxcamsession.com is a UXCam-only session domain."
+      "notes": "uxcamsession.com is a UXCam-only session domain."
     },
     {
       "id": "verve-hybid",
@@ -5032,7 +5032,7 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/vivo-sdk/6.1.7.2/ (vendor SDK mirror; classes Lcom/vivo/mobilead/, Lcom/vivo/ad/, Lcom/vivo/advv/; hosts adsdk.vivo.com.cn, moni-*-stsdk.vivo.com.cn)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.vivo.mobilead.manager.VivoAdManager, com.vivo.mobad)"
       ],
-      "notes": "Bundles Shumei fingerprint (fp-*.fengkongcloud.com, IDENTIFICATION slice) and vivo httpdns. Uncertain: ssp.vivo.com.cn, vhs.vivo.com.cn, vhs.wwstat.com, risk-fp-openapi.vivo.com.cn (risk control)."
+      "notes": "Bundles a device fingerprint SDK (IDENTIFICATION slice) and an HTTPDNS client. Only verified ad hosts are blocked."
     },
     {
       "id": "vivo-push",
@@ -5213,7 +5213,7 @@
         "apk: dex strings http://abtest.mistat.xiaomi.com/experiments and abtest-url config (CN/IN/INTL)",
         "apk: dex strings (com.miui.player, com.xiaomi.smarthome) show the reporting paths http://data.mistat.xiaomi.com/mistats/v2, /mistats/v3, https://data.mistat.xiaomi.com/mistats and https://data.mistat.xiaomi.com/micrash, versus the separate ID service https://data.mistat.xiaomi.com/idservice/deviceid_get (and test-idservice.data.mistat.xiaomi.com/deviceid_get)"
       ],
-      "notes": "Path-level only: /mistats (v2/v3 stats upload) and /micrash (crash upload) are blocked on the four verified region hosts (CN, INTL, IN, RU; the region list comes from the SDK's region-url config, the same paths are assumed on the regional hosts). /idservice/deviceid_get (device-ID registration) is not matched, so MiStat device IDs still resolve. abtest.mistat.* (experiment flags) is kept."
+      "notes": "Path-level only: verified stats and crash upload paths are blocked on regional hosts; experiment config and other paths are kept."
     },
     {
       "id": "xiaomi-onetrack",
@@ -5270,7 +5270,7 @@
         "apk: 42 HyperOS apps (e.g. com.android.browser, com.android.calendar, com.mi.health) classes contain Lcom/xiaomi/mipush/sdk/",
         "apk: com.xiaomi.healthkit, com.android.camera strings cn.register.xmpush.xiaomi.com"
       ],
-      "notes": "Detection only; on HyperOS delivery runs through the system com.xiaomi.xmsf service. The SDK also contains com.xiaomi.clientreport (push-quality reporting) which is not blocked here."
+      "notes": "Detection only: push delivery is kept functional; on HyperOS delivery runs through the system com.xiaomi.xmsf service."
     },
     {
       "id": "xinstall",
@@ -5289,7 +5289,7 @@
       "evidence": [
         "sdk: xinstall_flutter_plugin-1.7.6.aar in vendor repo github.com/xinstall/Xinstall-Flutter-SDK (embedded classes Lcom/xinstall/, Lcom/shubao/xinstall/)"
       ],
-      "notes": "Detection only. Strings show cdn.xinstall.com, argslink.com / sub.argslink.com (likely its link/API domains) — unverified, not blocked."
+      "notes": "Detection only: collection endpoints could not be statically verified."
     },
     {
       "id": "yandex-appmetrica",
@@ -5313,7 +5313,7 @@
         "src: https://github.com/appmetrica/appmetrica-sdk-android/blob/main/build-logic/src/main/kotlin/io/appmetrica/analytics/gradle/Constants.kt (default startup host https://startup.mobile.yandex.net/)",
         "doc: https://appmetrica.yandex.ru/docs/en/data-security/app-privacy-apple (tracking domains tracking.appmetrica.yandex.net, tracking.reserve.appmetrica.yandex.net)"
       ],
-      "notes": "Report hosts are handed out dynamically by startup.mobile.yandex.net, which is NOT blocked because other Yandex SDKs (Mobile Ads, MapKit, Passport) rely on AppMetrica startup/UUID. Blocking appmetrica.yandex.net covers documented tracking hosts only."
+      "notes": "Only dedicated telemetry endpoints are blocked; hosts required for core SDK initialization by other SDKs of the same vendor are kept."
     },
     {
       "id": "yandex-mobile-ads",
@@ -5335,7 +5335,7 @@
         "apk: com.mi.globalbrowser dex contains Lcom/yandex/mobile/ads/ and Lcom/monetization/ads/ (mediation, nativeads, instream)",
         "sdk: https://ads.maven.yandex.net/com/yandex/android/mobileads/8.7.0/ (AAR packages com.yandex.mobile.ads, com.monetization.ads, obfuscated yads.*; host adsdk.yandex.ru)"
       ],
-      "notes": "Ad URLs are largely delivered at runtime via AppMetrica startup; yandex.ru/yandex.com are portal domains and are not blocked. mobile.yandexadexchange.net is a likely ad host (unverified). Obfuscated root package 'yads.' is not listed because it is too short to be safe."
+      "notes": "Portal domains are not blocked; only verified ad hosts are."
     },
     {
       "id": "yfanads",
@@ -5374,7 +5374,7 @@
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/youdao-ads/4.2.16/ (vendor SDK mirror; classes Lcom/youdao/sdk/nativeads/, Lcom/youdao/sdk/video/; hosts gorgon.youdao.com, conv.youdao.com, log-collector.youdao.com)"
       ],
-      "notes": "Only ad sub-packages are claimed: com.youdao.sdk.app/ydtranslate etc. belong to Youdao's translation/OCR SDKs. log-collector.youdao.com may be shared with other Youdao products, not blocked."
+      "notes": "Only ad sub-packages and verified ad hosts are matched; translation/OCR and shared product hosts are kept."
     },
     {
       "id": "zhugeio",
@@ -5394,7 +5394,7 @@
       "evidence": [
         "doc: https://github.com/zhugesdk/zhugeio-sdk-android (official SDK source) zhugeioanalytics/src/main/java/com/zhuge/analysis/stat/Constants.java — upload https://u.zhugeapi.com/apipool, backup https://ubak.zhugeio.com/upload/"
       ],
-      "notes": "api.zhugeio.com (/v1/events/codeless/appkey/) serves codeless-tracking config and is also the dashboard API — not blocked."
+      "notes": "Only verified event-ingestion hosts are blocked; the dashboard API host is kept."
     }
   ]
 }

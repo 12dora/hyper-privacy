@@ -15,7 +15,7 @@ internal val adRules: List<Rule> = listOf(
         summary = Text("禁止联网，移除开屏与推荐广告", "Cut off splash and feed ads"),
         payload = RulePayload.Firewall,
         category = Category.ADS,
-        evidence = "uid 10180 (not shared). dex: only api.ad.xiaomi.com, preview/test.ad.xiaomi.com, " +
+        evidence = "dex: only api.ad.xiaomi.com, preview/test.ad.xiaomi.com, " +
             "monitor-check.ad.xiaomi.com plus push registration; exported services ISystemSplashAdService, " +
             "ILandingPageService, ISystemExtMessageService, IMsaDiskLruCacheService — ad delivery only",
     ),
@@ -60,7 +60,7 @@ internal val adRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ADS,
-        evidence = "traffic cap2/cap4: player -> xs.gdt.qq.com x27, pgdt.gtimg.cn x13, sdkreport.e.qq.com x9, " +
+        evidence = "observed traffic: player -> xs.gdt.qq.com x27, pgdt.gtimg.cn x13, sdkreport.e.qq.com x9, " +
             "tangram.e.qq.com, adsmind.gdtimg.com, us.l.qq.com; dex com/qq/e/comm in player, baidu.input_mi, sogou; " +
             "player com.qq.e.comm.plugin.base.ad -> us.l.qq.com/exapp; other hosts from tracker database " +
             "tencent-gdt. " +
@@ -74,7 +74,7 @@ internal val adRules: List<Rule> = listOf(
         summary = Text("阻止音乐广告投放", "Block music ad delivery"),
         payload = RulePayload.Domains(listOf("ad.tencentmusic.com", "tmead.y.qq.com", "tmeadcomm.y.qq.com")),
         category = Category.ADS,
-        evidence = "traffic cap2/cap4: player -> ad.tencentmusic.com x4, tmead.y.qq.com, tmeadcomm.y.qq.com; dex " +
+        evidence = "observed traffic: player -> ad.tencentmusic.com x4, tmead.y.qq.com, tmeadcomm.y.qq.com; dex " +
             "tmead.y.qq.com/mareportsimp/ReportSimpleBatch",
     ),
     Rule(
@@ -104,7 +104,7 @@ internal val adRules: List<Rule> = listOf(
         ),
         category = Category.ADS,
         evidence = "dex: com/bytedance/sdk/openadsdk in browser, globalbrowser, voiceassist; voiceassist " +
-            "api-access.pangolin-sdk-toutiao.com/api/ad/union/sdk/settings; traffic cap4: globalbrowser -> " +
+            "api-access.pangolin-sdk-toutiao.com/api/ad/union/sdk/settings; observed traffic: globalbrowser -> " +
             "api16-access-ttp.tiktokpangle.us x5, api16-access-wf-sg.pangle.io, sf16-static.i18n-pglstatp.com; " +
             "other ad subdomains from tracker database bytedance-csj-pangle / bytedance-gromore. Apexes are not " +
             "matched: www.pangle.io is the vendor site (opened in the browsers) and ssdk-*.pangle.io serves the " +
@@ -126,7 +126,7 @@ internal val adRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ADS,
-        evidence = "traffic cap4: globalbrowser -> googleads.g.doubleclick.net x2, pubads.g.doubleclick.net; dex " +
+        evidence = "observed traffic: globalbrowser -> googleads.g.doubleclick.net x2, pubads.g.doubleclick.net; dex " +
             "globalbrowser Lcom/google/android/gms/ads/MobileAds;, other SDK ad hosts from tracker database " +
             "google-admob. fundingchoicesmessages.google.com (consent), ad.doubleclick.net and " +
             "www.googleadservices.com (ad click-through redirects: a link the user taps in the browser) not matched",
@@ -145,7 +145,7 @@ internal val adRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ADS,
-        evidence = "evidence.md L708 securitycore adv.sec.miui.com/switch/clonedAd (ads in cloned apps); jadx " +
+        evidence = "static analysis: securitycore adv.sec.miui.com/switch/clonedAd (ads in cloned apps); jadx " +
             "securitycenter: AdvTailStatUtils -> data.sec.miui.com/adv/tail (biz tail4virusscan, did); gamebooster " +
             "active_track -> /adv/game_ad/report; ki.q -> adv.sec.miui.com/info/videoAdv; ki.p/ki.c -> " +
             "/game2/gameAdv (sends gaid). Game Turbo config (/gameTurbo/*, /info/gameConfig, /game/speedParams) left " +
@@ -160,7 +160,7 @@ internal val adRules: List<Rule> = listOf(
         category = Category.ADS,
         evidence = "jadx securitycenter: 9 callers of adv.sec.miui.com/info/layout (scan result, home, phone-manage, " +
             "notification, app manager cards; BatterySaveIdeaLoadTask posts installed pkgNames); traffic: " +
-            "adv.sec.miui.com from uid 1000 x5",
+            "adv.sec.miui.com x5",
         impact = Text("结果页不再显示推荐", "Hides result page suggestions"),
         highRisk = true,
     ),
@@ -177,7 +177,7 @@ internal val adRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ADS,
-        evidence = "traffic cap3 typing: sogou -> adv.sec.miui.com x2; dex: adv.sec.miui.com/info/icon, " +
+        evidence = "observed traffic: sogou -> adv.sec.miui.com x2; dex: adv.sec.miui.com/info/icon, " +
             "/info/icon_st in all three IMEs, /info/inputAdv/ in iflytek; baidu yn.i base + \"/info/icon\", " +
             "/v5/solid-window-ads/content",
     ),
@@ -188,8 +188,8 @@ internal val adRules: List<Rule> = listOf(
         summary = Text("阻止天气页广告", "Block ads in Weather"),
         payload = RulePayload.Domains(listOf("wtradv.market.xiaomi.com")),
         category = Category.ADS,
-        evidence = "traffic cap4: weather2 -> wtradv.market.xiaomi.com x3 (evidence.md L779); the host also serves " +
-            "/v1/index/indexDetail and /v1/page (L782), so ads cannot be separated from life-index content",
+        evidence = "observed traffic: weather2 -> wtradv.market.xiaomi.com x3; the host also serves " +
+            "/v1/index/indexDetail and /v1/page, so ads cannot be separated from life-index content",
         defaultOn = false,
         impact = Text("生活指数详情与资讯页无法加载", "Life-index details may not load"),
     ),
@@ -209,7 +209,7 @@ internal val adRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ADS,
-        evidence = "evidence.md L322 baidu.input_mi union.baidu.com, cpro.baidustatic.com, com.baidu.input.ad.info; " +
+        evidence = "static analysis: baidu.input_mi union.baidu.com, cpro.baidustatic.com, com.baidu.input.ad.info; " +
             "dex com.baidu.mobads.* in baidu.input_mi -> mobads.baidu.com, mobads-logs.baidu.com, " +
             "mobads-pre-config.bj.bcebos.com, wn.pos.baidu.com (tracker database baidu-mobads). union.baidu.com is " +
             "the ad network's portal (jadx XAdEntryResponse unionUrl), not an ad endpoint, so it is not matched",

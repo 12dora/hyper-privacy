@@ -25,6 +25,12 @@ internal class SuffixTable<T : Any>(entries: Map<String, T>) {
 
     val isEmpty: Boolean = entries.isEmpty()
 
+    /** Visits every stored key and value, in table order (cold path: building native tables). */
+    @Suppress("UNCHECKED_CAST") // Only values of type T are ever stored.
+    fun forEach(action: (String, T) -> Unit) {
+        for (slot in keys.indices) keys[slot]?.let { action(it, values[slot] as T) }
+    }
+
     /** The value stored under `text.substring(start)`, or `null`. */
     @Suppress("UNCHECKED_CAST") // Only values of type T are ever stored.
     fun get(text: String, start: Int): T? {

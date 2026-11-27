@@ -28,6 +28,9 @@ public class HostMatcher<T : Any> private constructor(private val patterns: Suff
 
     public fun matches(host: String?): Boolean = find(host) != null
 
+    /** Visits every canonical pattern and its value, once each (cold path). */
+    public fun forEachPattern(action: (pattern: String, value: T) -> Unit): Unit = patterns.forEach(action)
+
     public companion object {
         private val EMPTY = HostMatcher<Nothing>(SuffixTable(emptyMap()))
 

@@ -50,6 +50,13 @@ public class NetworkMatchers private constructor(
     public fun findUrl(host: String?, path: String?, query: String? = null): String? =
         urls.find(host, path, query)?.takeIf { it != KEEP }
 
+    /**
+     * Visits every host-level pattern [findHost] consults, with `blocked` false for a keep host, so
+     * another matcher (the native resolver table, [NativeHostTable]) can reproduce [findHost].
+     */
+    public fun forEachHostPattern(action: (pattern: String, blocked: Boolean) -> Unit): Unit =
+        hosts.forEachPattern { pattern, value -> action(pattern, value != KEEP) }
+
     /** Whether an enabled URL rule has a query condition, so sinks must pass the query to [findUrl]. */
     public val matchesQueries: Boolean get() = urls.matchesQueries
 

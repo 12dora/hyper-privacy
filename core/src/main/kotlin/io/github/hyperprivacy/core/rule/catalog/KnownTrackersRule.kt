@@ -9,9 +9,8 @@ import io.github.hyperprivacy.core.rule.Text
 /**
  * Blocks the endpoints of every known tracker SDK in a protected third-party app, whether or not
  * the offline scan found the SDK there ([RulePayload.KnownTrackers]); for apps whose code the scan
- * cannot read (packed apps), off until the user enables it for an app. Domain and URL blocking
- * only, never by origin; the same exclusions as generic protection apply (identification and push
- * SDKs, SDKs off by default, every SDK's keep hosts).
+ * cannot read (packed apps), off until the user enables it for an app. Uses the default-blocked
+ * SDKs' hosts and paths, and every SDK's keep hosts stay allowed.
  */
 internal fun knownTrackersRule(): Rule = Rule(
     id = KNOWN_TRACKERS_RULE_ID,
@@ -20,10 +19,9 @@ internal fun knownTrackersRule(): Rule = Rule(
     summary = Text("适合识别不到 SDK 的加固应用", "For packed apps whose SDKs go undetected"),
     payload = RulePayload.KnownTrackers,
     category = Category.ANALYTICS,
-    evidence = "data/trackers.json: blockHosts / blockUrls of the default-blocked SDKs. Packed apps (code " +
-        "encrypted in the APK, unpacked at runtime) show only the unpacker stub to the offline dex scan, so " +
-        "their bundled SDKs are not detected and get no rule; every listed endpoint is ad, analytics, crash " +
-        "or profiling reporting only, and feature hosts are kept",
+    evidence = "data/trackers.json: blockHosts / blockUrls of the default-blocked SDKs, for apps whose " +
+        "bundled SDKs cannot be inspected offline (such as packed apps); every listed endpoint is ad, " +
+        "analytics, crash or profiling reporting only, and feature hosts are kept",
     defaultOn = false,
     preventive = true,
 )

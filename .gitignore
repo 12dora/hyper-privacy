@@ -20,3 +20,6 @@ captures/
 
 # Local agent worktrees
 .claude/
+
+# NDK / CMake build output
+.cxx/

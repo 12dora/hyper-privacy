@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.xposed
 
+import io.github.hyperprivacy.core.match.NativeHostTable
 import io.github.hyperprivacy.core.match.NetworkMatchers
 import io.github.hyperprivacy.core.net.AddressBook
 import io.github.hyperprivacy.core.rule.Rule
@@ -46,6 +47,9 @@ internal class NetworkPolicy(
 
     /** Whether any enabled rule can block a connect by address; lets the connect sink return at once. */
     val blocksConnects: Boolean get() = matchers.get().blocksConnects
+
+    /** The current host-level block list encoded for the native resolver hooks ([NativeHostTable]); cold path. */
+    fun nativeTable(): ByteArray = NativeHostTable.encode(matchers.get())
 
     /** Whether any URL-layer rule is currently enabled; lets sinks skip URL parsing entirely. */
     val hasUrlRules: Boolean get() = !matchers.get().urls.isEmpty

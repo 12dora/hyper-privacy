@@ -74,8 +74,26 @@ android {
         applicationId = "io.github.hyprivacy"
         minSdk = 34
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.4.1"
+
+        // Native resolver hooks (rule native.dns): arm64-v8a only; other ABIs simply lack the
+        // library and the rule reports itself as not active there.
+        externalNativeBuild {
+            cmake {
+                abiFilters += "arm64-v8a"
+                arguments += listOf("-DANDROID_STL=c++_static", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+            }
+        }
+    }
+
+    ndkVersion = "30.0.16248370"
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
+        }
     }
 
     signingConfigs {

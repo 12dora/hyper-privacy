@@ -62,15 +62,28 @@ internal val diagnosticsRules: List<Rule> = listOf(
             nativeLibrary = "mievent",
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "dex: Lcom/miui/misight/mievent/MiSight; private static native int nativeSendEvent(byte[]) in " +
-            "aod, misightservice, securitycenter, thirdappassistant, joyose, gnss.polaris, misettings, " +
-            "trustservice (libmievent.so; securitycore ships the lib without the Java class, so is not targeted). " +
-            "jadx MiSight.sendEvent builds \"EventId <id> -t <ts> -paraList <params>\" and discards the return " +
-            "value; native side forwards to the root misight daemon (libmisight_jni: sendEventMisight), which " +
-            "uploads fault logs. Returning 0 is benign because no caller reads it. Native method (MiSight.<clinit> " +
-            "System.loadLibrary(\"mievent\")): hooked right after libmievent is loaded, only when the rule is on as " +
-            "the app starts, and the hook never calls through, so this rule follows neither pause nor switch " +
-            "changes until the app restarts",
+        evidence = "dex: the system apps listed here hand fault events to the system diagnostics daemon, " +
+            "which uploads fault logs; the event result is not used by the apps, so stopping the events does " +
+            "not affect them. Switch changes and global pause take effect after the app restarts",
+    ),
+    Rule(
+        id = "misight.framework-events",
+        packages = setOf("com.android.systemui", "com.miui.powerkeeper"),
+        title = Text("框架故障事件", "Framework fault events"),
+        summary = Text("阻止框架接口送出的故障事件", "Stop framework fault events to daemon"),
+        payload = RulePayload.Method(
+            className = "com.miui.misight.MiSight",
+            method = MethodPattern.parse("nativeSendEvent"),
+            params = listOf("int", "java.lang.String"),
+            returns = "boolean",
+            nativeLibrary = "misight_jni",
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "decompiled system framework: the battery and performance service submits app usage " +
+            "(foreground / background, audio, video and camera time) and exception events, and System UI submits " +
+            "control center, volume and island events, to the system diagnostics daemon through the framework " +
+            "event interface; the result is not used by callers. Switch changes and global pause take effect " +
+            "after the app restarts",
     ),
     Rule(
         id = "xmsf.remote-log",
@@ -89,7 +102,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止崩溃与异常上报", "Block crash and error reports"),
         payload = RulePayload.Domains(listOf("sentry.d.mi.com", "sentry.d.xiaomi.net", "car-app-sentry.d.xiaomi.net")),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap3/cap4: shop -> sentry.d.mi.com x6, youpin x9, smarthome x3, quicksearchbox -> " +
+        evidence = "observed traffic: shop -> sentry.d.mi.com x6, youpin x9, smarthome x3, quicksearchbox -> " +
             "sentry.d.xiaomi.net, mi.car.mobile -> car-app-sentry.d.xiaomi.net x4; jadx shop SentryUtil DSN " +
             "…@sentry.d.mi.com/30",
     ),
@@ -109,9 +122,9 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap4: shop -> android.bugly.qq.com POST /rqd/async, youpin -> android.bugly.qq.com; dex " +
-            "com/tencent/bugly in sogou, gamecenter.sdk.service, shop, smarthome, youpin; libbugly.so; evidence.md " +
-            "L814 sogou android.rqd.qq.com/analytics/async",
+        evidence = "observed traffic: shop -> android.bugly.qq.com POST /rqd/async, youpin -> " +
+            "android.bugly.qq.com; dex com/tencent/bugly in sogou, gamecenter.sdk.service, shop, smarthome, " +
+            "youpin; libbugly.so; static analysis: sogou android.rqd.qq.com/analytics/async",
     ),
     Rule(
         id = "rmonitor.domains",
@@ -120,8 +133,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止性能与卡顿数据上报", "Block performance and jank data"),
         payload = RulePayload.Domains(listOf("rmonitor.qq.com")),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap3 typing: sogou -> rmonitor.qq.com x2; dex com/tencent/rmonitor, " +
-            "{pre,t}.rmonitor.qq.com",
+        evidence = "observed traffic: sogou -> rmonitor.qq.com x2; dex com/tencent/rmonitor, {pre,t}.rmonitor.qq.com",
     ),
     Rule(
         id = "bytedance.apm",
@@ -138,7 +150,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap4: smarthome -> apmplus.volces.com x2; dex apmplus.volces.com/monitor/collect/c/" +
+        evidence = "observed traffic: smarthome -> apmplus.volces.com x2; dex apmplus.volces.com/monitor/collect/c/" +
             "{crash,exception,native_bin_crash,core_dump_collect,logcollect,session} in browser, smarthome; " +
             "libapminsight*.so",
     ),
@@ -168,7 +180,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止页面性能数据上报", "Block page performance data"),
         payload = RulePayload.Domains(listOf("apm-rum.inf.miui.com")),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap2: market -> apm-rum.inf.miui.com x2; dex in greenguard, virtualsim",
+        evidence = "observed traffic: market -> apm-rum.inf.miui.com x2; dex in greenguard, virtualsim",
     ),
     Rule(
         id = "kingsoft.stats",
@@ -206,7 +218,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         evidence = "jadx securitycenter com.xiaomi.gamecenter.sdk.onlinelog.f: sdk.s.migames.com/sdkservice/api/log/" +
             "reportsdk{,online}log; dex: hysdkservice.g.mi.com/sdkservice/api/log/reportmonitordata (hybrid, " +
             "minigame, xmsf), reportPaymentSwitchData; data.game.xiaomi.com/{log/,appmix.do,gamecenter.do}; " +
-            "evidence.md L921 gamecenter activity.s.migames.com/gamesdk/notice/crash. Login/payment paths untouched",
+            "static analysis: gamecenter activity.s.migames.com/gamesdk/notice/crash. Login/payment paths untouched",
     ),
     Rule(
         id = "thirdparty.sdk-logs",
@@ -223,8 +235,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         ),
         category = Category.DIAGNOSTICS,
         evidence = "dex: log.tbs.qq.com (X5 WebView) in hybrid, player, minigame; nls-log-gather.aliyuncs.com " +
-            "(mi.car.mobile, evidence.md L361); zhiyan collectruntime (securityadd); uploadlog.xlmc.sandai.net " +
-            "(downloads.ui, L221/L224)",
+            "(mi.car.mobile); zhiyan collectruntime (securityadd); uploadlog.xlmc.sandai.net (downloads.ui)",
     ),
     Rule(
         id = "payment-sdk.logs",
@@ -241,7 +252,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         category = Category.DIAGNOSTICS,
         evidence = "dex: loggw-exsdk.alipay.com/loggw/logUpload.do in 10 apps (health, hybrid, player, tsmclient, " +
             "gamecenter…); cn-hangzhou-mas-log.cloud.alipay.com/loggw/logUpload.do (smarthome); log.wechatpay.cn/" +
-            "mmpayendpointreport/opensdkreport (health, tsmclient). Not exercised in a live checkout",
+            "mmpayendpointreport/opensdkreport (health, tsmclient). Default off because blocking may affect payment",
         defaultOn = false,
         impact = Text("可能影响第三方支付流程", "May affect third-party payment flows"),
     ),
@@ -272,9 +283,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止运行时下发组件日志", "Block runtime-loaded SDK logs"),
         payload = RulePayload.Domains(listOf("log-sdk.clickwifi.net")),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap2: aicr -> log-sdk.clickwifi.net, api-sdk.clickwifi.net, cache-files.isjike.com; host " +
-            "absent from all dex, native libs and bundled configs (runtime-delivered code). Only the log host is " +
-            "blocked",
+        evidence = "observed traffic: com.xiaomi.aicr -> log-sdk.clickwifi.net (logging of a runtime-delivered " +
+            "SDK); only the log host is blocked",
     ),
     Rule(
         id = "powerinsight.log-upload",
@@ -292,7 +302,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止反馈与日志附件上传", "Block feedback and log attachments"),
         payload = RulePayload.Domains(listOf("feedback.miui.com", "feedback.intl.miui.com", "bugreport.xiaomi.net")),
         category = Category.DIAGNOSTICS,
-        evidence = "traffic cap2/cap4: uid 1000 group -> feedback.miui.com x2 without user action (MiSight); dex " +
+        evidence = "observed traffic: feedback.miui.com x2 without user action (MiSight); dex " +
             "bugreport feedback.miui.com, bugreport.xiaomi.net; misightservice feedback.miui.com",
         defaultOn = false,
         impact = Text("无法提交问题反馈", "Feedback cannot be submitted"),
@@ -304,8 +314,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止一键登录组件日志上报", "Block one-tap login SDK logs"),
         payload = RulePayload.Domains(listOf("collect.ux.21cn.com", "log1.cmpassport.com", "log2.cmpassport.com")),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L811/L814 sogou collect.ux.21cn.com/collect/custom/accountMsg, log1.cmpassport.com; " +
-            "L322 baidu log2.cmpassport.com; L819/L820 unionpay tsmservice. Login hosts (*.cmpassport.com auth, " +
+        evidence = "static analysis: sogou collect.ux.21cn.com/collect/custom/accountMsg, log1.cmpassport.com; " +
+            "baidu log2.cmpassport.com; unionpay tsmservice. Login hosts (*.cmpassport.com auth, " +
             "open.e.189.cn) untouched",
     ),
     Rule(
@@ -320,7 +330,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L371 globalbrowser ams-howl.api.intl.miui.com/howl-api/apm/v3/, clients2.google.com/" +
+        evidence = "static analysis: globalbrowser ams-howl.api.intl.miui.com/howl-api/apm/v3/, clients2.google.com/" +
             "domainreliability/upload (Chromium domain reliability)",
     ),
     Rule(
@@ -337,9 +347,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L1067 smarthome sg.stat.appmifile.com, log.miwifi.com, tw.log.miwifi.com, " +
-            "monitor.geetest.com; L1069 http://sg.stat.appmifile.com/micra/crash. Captcha (api/static.geetest.com) " +
-            "untouched",
+        evidence = "static analysis: smarthome sg.stat.appmifile.com, log.miwifi.com, tw.log.miwifi.com, " +
+            "monitor.geetest.com; http://sg.stat.appmifile.com/micra/crash. Captcha (api/static.geetest.com) untouched",
     ),
     Rule(
         id = "music.login-logs",
@@ -348,7 +357,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
         summary = Text("阻止社交登录组件日志", "Block social login SDK logs"),
         payload = RulePayload.Domains(listOf("log.wtlogin.qq.com", "log1.wtlogin.qq.com")),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L646/L648 player log.wtlogin.qq.com, log1.wtlogin.qq.com (wtlogin SDK log)",
+        evidence = "static analysis: player log.wtlogin.qq.com, log1.wtlogin.qq.com (wtlogin SDK log)",
     ),
     Rule(
         id = "bdsms.log-upload",
@@ -361,7 +370,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L883 bdsms sms.chinaspacetime.com.cn/scgateway/xwauth/bdmsg/sdk/v1/uploadBDLog; " +
+        evidence = "static analysis: bdsms sms.chinaspacetime.com.cn/scgateway/xwauth/bdmsg/sdk/v1/uploadBDLog; " +
             "account status path on the same host untouched",
     ),
     Rule(
@@ -376,7 +385,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L776 voicetrigger {preview-,}pusherapi-iotdcm.xiaomixiaoai.com/iotdcm/pusher/tv/" +
+        evidence = "static analysis: voicetrigger {preview-,}pusherapi-iotdcm.xiaomixiaoai.com/iotdcm/pusher/tv/" +
             "uploadlog",
     ),
     Rule(
@@ -391,7 +400,7 @@ internal val diagnosticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.DIAGNOSTICS,
-        evidence = "evidence.md L1111 youpin verify.baidubce.com/verify/1.0/sdk/report; L1102 xmsf sdk.faceid.qq.com/" +
+        evidence = "static analysis: youpin verify.baidubce.com/verify/1.0/sdk/report; xmsf sdk.faceid.qq.com/" +
             "api/common/error-report. Verification requests themselves untouched",
     ),
     Rule(
@@ -402,8 +411,9 @@ internal val diagnosticsRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("tz.sec.xiaomi.com", "/session"))),
         category = Category.DIAGNOSTICS,
         evidence = "dex: SIM activation service POST https://tz.sec.xiaomi.com/session with OAID, deviceId and " +
-            "cpuId when TEE checks fail (telemetry only); review: /session may back a Passport fallback when TEE " +
-            "is unavailable — unproven, so default off; jadx bugreport com.xiaomi.passport.SecurityDeviceReporter " +
+            "cpuId when TEE checks fail (telemetry only); default off because /session may also " +
+            "serve account sign-in when TEE is unavailable; jadx bugreport " +
+            "com.xiaomi.passport.SecurityDeviceReporter " +
             "(bundled Passport SDK) posts the same https://tz.sec.xiaomi.com/session with fidNonce/fidNonceSign",
         defaultOn = false,
         impact = Text("可能影响小米账号登录", "Xiaomi account sign-in may fail"),

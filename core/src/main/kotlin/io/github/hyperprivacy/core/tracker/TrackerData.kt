@@ -13,7 +13,7 @@ internal object TrackerData {
     const val VERSION: String = "2026.11.27h"
 
     /** SHA-256 of data/trackers.json as generated. */
-    const val SOURCE_SHA256: String = "1079cd6fd17deb0f7df859b509fff8d00a1e6ce6d6814a02192fdd0afe8333db"
+    const val SOURCE_SHA256: String = "bdf03a70ef2da7e1b455a16b3e86cd73a4e1637ff1f30d12a55d04d532c6f6b1"
 
     /** SHA-256 of [PARTS] joined, so a hand edit of the table is caught by tests. */
     const val TABLE_SHA256: String = "45a782caac8f033db2e419a61bb35aac270466cae1423927347014dc5118d4ad"

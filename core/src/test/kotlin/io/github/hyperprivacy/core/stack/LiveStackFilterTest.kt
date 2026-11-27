@@ -197,4 +197,171 @@ class LiveStackFilterTest {
         assertEquals(listOf("com.app.A"), names(map.getValue(b)))
         assertFalse(filter.filterAll(hashMapOf(a to clean)))
     }
+
+    // An LSPosed build that randomises its own class names per install: only the class loader tells them apart.
+    private val hookBridge = "PwtZ.MmA.U.KKXb.gSxtyVfyUf.AC.poMM.HookBridge"
+    private val frameworkNames = setOf("k2", "m", "k", "j2", hookBridge)
+    private val appNames = setOf("m", "a", "com.app.Drm", "com.app.Main") // The app's R8 also emitted an `m`.
+    private val asked = mutableListOf<String>()
+    private val origin = FrameOrigin { name ->
+        asked += name
+        when {
+            name in frameworkNames && name in appNames -> FrameOrigin.SHARED
+            name in frameworkNames -> FrameOrigin.FRAMEWORK
+            name in appNames || name.startsWith("android.media.") || name.startsWith("java.") -> FrameOrigin.OTHER
+            else -> FrameOrigin.FOREIGN
+        }
+    }
+    private val loaders = LiveStackFilter(arrayOf("u_qz.", "io.github.hyperprivacy."), origin)
+
+    /** A second thread sampling a thread inside a hooked `MediaDrm#getPropertyByteArray`, as seen on the device. */
+    private fun drmSample(
+        stub: String = "android.hardware.FruntshQuierniep",
+        stubMethod: String = "getPropertyByteArray",
+    ) = arrayOf(
+        f("android.media.MediaDrm", "getPropertyByteArray"),
+        f(hookBridge, "invokeOriginalMethod"),
+        f("j2", "proceed"),
+        f("u_qz.f", "intercept"),
+        f("k", "intercept"),
+        f("m", "a"), // Defined by the framework and, under the same name, by the app: inside the window.
+        f("k2", "callback"),
+        f(stub, stubMethod),
+        f("com.app.Drm", "read"),
+        f("com.app.Main", "run"),
+    )
+
+    @Test
+    fun `random-name framework frames, HookBridge and a stub in a platform package go`() {
+        assertEquals(
+            listOf("android.media.MediaDrm", "com.app.Drm", "com.app.Main"),
+            names(loaders.filter(drmSample())),
+        )
+        // Without the loader oracle only the module frame goes: what the device showed before.
+        assertEquals(
+            listOf(
+                "android.media.MediaDrm", hookBridge, "j2", "k", "m", "k2",
+                "android.hardware.FruntshQuierniep", "com.app.Drm", "com.app.Main",
+            ),
+            names(filter.filter(drmSample())),
+        )
+    }
+
+    @Test
+    fun `a foreign caller with another method name stays, as does a platform class with the hooked name`() {
+        assertEquals(
+            listOf("android.media.MediaDrm", "com.plugin.Loaded", "com.app.Drm", "com.app.Main"),
+            names(loaders.filter(drmSample(stub = "com.plugin.Loaded", stubMethod = "fetch"))),
+        )
+        assertEquals(
+            listOf("android.media.MediaDrm", "java.util.Drm", "com.app.Drm", "com.app.Main"),
+            names(loaders.filter(drmSample(stub = "java.util.Drm"))),
+        )
+    }
+
+    @Test
+    fun `app frames with short names touching the window stay`() {
+        val input = arrayOf(
+            f("a", "b"), // The app's hooked method, R8-renamed.
+            f(hookBridge, "invokeOriginalMethod"),
+            f("u_qz.f", "intercept"),
+            f("k2", "callback"),
+            f("m", "c"), // The app's caller: its name clashes with a framework class, but nothing of ours lies beyond.
+            f("com.app.Main", "run"),
+        )
+        assertEquals(listOf("a", "m", "com.app.Main"), names(loaders.filter(input)))
+        // Above the window too: a clashing name only joins when a bridge frame lies beyond it.
+        val above = arrayOf(f("com.app.Main", "x"), f("m", "c"), f("u_qz.f", "intercept"), f("com.app.Drm", "read"))
+        assertEquals(listOf("com.app.Main", "m", "com.app.Drm"), names(loaders.filter(above)))
+    }
+
+    @Test
+    fun `the loader oracle is asked only next to module frames`() {
+        val input = frames("k2", "m", hookBridge, "android.hardware.FruntshQuierniep", "com.app.Main")
+        assertSame(input, loaders.filter(input))
+        assertTrue(asked.isEmpty())
+    }
+
+    @Test
+    fun `the origin cache resolves each name once and fails open`() {
+        var calls = 0
+        val cache = FrameOrigin.Cache { name ->
+            calls++
+            when (name) {
+                "boom" -> error("lookup failed")
+                "odd" -> 42
+                else -> FrameOrigin.FRAMEWORK
+            }
+        }
+        assertEquals(FrameOrigin.FRAMEWORK, cache.of("k2"))
+        assertEquals(FrameOrigin.FRAMEWORK, cache.of(StringBuilder("k").append('2').toString()))
+        assertEquals(1, calls)
+        assertEquals(FrameOrigin.OTHER, cache.of("boom"))
+        assertEquals(FrameOrigin.OTHER, cache.of("boom"))
+        assertEquals(FrameOrigin.OTHER, cache.of("odd"))
+        assertEquals(3, calls)
+        // Many more names than slots: every answer stays correct, evicted ones are just resolved again.
+        repeat(1_000) { assertEquals(FrameOrigin.FRAMEWORK, cache.of("c$it")) }
+        assertEquals(FrameOrigin.OTHER, cache.of("boom"))
+    }
+
+    @Test
+    fun `a stub the framework loader defined goes with the window and the genuine caller stays`() {
+        // The stub class is framework-defined, so extend() absorbs it; the same-named caller below is genuine.
+        val stubOrigin = FrameOrigin { name ->
+            when (name) {
+                "k2", "Qz", "a.b.QzStub" -> FrameOrigin.FRAMEWORK
+                "com.android.webview.chromium.WebViewContentsClientAdapter", "com.plugin.Client" -> FrameOrigin.FOREIGN
+                else -> FrameOrigin.OTHER
+            }
+        }
+        val filter = LiveStackFilter(arrayOf("u_qz."), stubOrigin)
+        fun sample(stub: String, caller: String) = arrayOf(
+            f("com.app.web.Client", "shouldInterceptRequest"),
+            f("u_qz.e", "intercept"),
+            f("k2", "callback"),
+            f(stub, "shouldInterceptRequest"),
+            f(caller, "shouldInterceptRequest"),
+            f("com.app.Main", "run"),
+        )
+        for (caller in listOf(
+            "com.android.webview.chromium.WebViewContentsClientAdapter", // FOREIGN: another loader defines it.
+            "com.plugin.Client", // FOREIGN plugin class.
+            "com.app.web.Other", // Same package as the hooked method.
+            "Zq", // Default package (R8).
+        )) {
+            for (stub in listOf("Qz", "a.b.QzStub")) {
+                assertEquals(
+                    listOf("com.app.web.Client", caller, "com.app.Main"),
+                    names(filter.filter(sample(stub, caller))),
+                    "stub $stub, caller $caller",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `WebView and Play services frames are never taken as a foreign stub`() {
+        val everythingForeign = LiveStackFilter(arrayOf("u_qz."), FrameOrigin { FrameOrigin.FOREIGN })
+        for (caller in listOf(
+            "com.android.webview.chromium.WebViewContentsClientAdapter",
+            "org.chromium.android_webview.AwContentsBackgroundThreadClient",
+            "com.google.android.gms.dynamite.X",
+        )) {
+            val input = arrayOf(
+                f("com.app.web.Client", "shouldInterceptRequest"),
+                f("u_qz.e", "intercept"),
+                f(caller, "shouldInterceptRequest"),
+            )
+            assertEquals(listOf("com.app.web.Client", caller), names(everythingForeign.filter(input)))
+        }
+        // A random foreign class in a platform package still goes when it is the stub.
+        val stub = arrayOf(
+            f("android.media.MediaDrm", "getPropertyByteArray"),
+            f("u_qz.e", "intercept"),
+            f("android.hardware.FruntshQuierniep", "getPropertyByteArray"),
+            f("com.app.Drm", "read"),
+        )
+        assertEquals(listOf("android.media.MediaDrm", "com.app.Drm"), names(everythingForeign.filter(stub)))
+    }
 }

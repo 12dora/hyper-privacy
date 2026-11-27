@@ -81,7 +81,7 @@ class NavigationCopyTest {
 
     @Test
     fun `self-hide summary names the audience, not a procedure`() {
-        assertEquals("第三方应用无法检测本模块", zh["settings_self_hide_summary"])
+        assertEquals("对第三方应用隐藏本模块", zh["settings_self_hide_summary"])
         assertEquals("Hidden from third-party apps", en["settings_self_hide_summary"])
     }
 

@@ -35,10 +35,9 @@ internal fun mediaDrmRule(): Rule = Rule(
     summary = Text("每个应用拿到不同的设备号", "Each app sees a different DRM ID"),
     payload = RulePayload.Identifiers(IdentifierSource.MEDIA_DRM_ID),
     category = Category.DEVICE_ID,
-    evidence = "docs/collection-techniques.md 2.2 / 10.7: Widevine deviceUniqueId is one value for every app on " +
-        "the device and survives reinstall and ANDROID_ID resets, so SDKs (qimei, Bugly, risk SDKs) use it to join " +
-        "apps; replaced per app with HMAC-SHA256(secret, real || package) at the Java API; the DRM HAL " +
-        "keeps the real id, so licences and playback are unaffected",
+    evidence = "docs/collection-techniques.md (device identifiers): the DRM device id is one value for every " +
+        "app on the device and survives reinstall and ANDROID_ID resets, so SDKs use it to join apps; each " +
+        "protected app gets its own stable value, and media licences and playback are unaffected",
     preventive = true,
 )
 
@@ -54,10 +53,9 @@ internal fun hardwareFingerprintRule(): Rule = Rule(
     summary = Text("各应用读到的硬件特征互不相同", "Each app sees different hardware traits"),
     payload = RulePayload.Identifiers(IdentifierSource.HARDWARE_TRAITS),
     category = Category.DEVICE_ID,
-    evidence = "docs/collection-techniques.md section 1 (device identifiers): SDKs hash permission-free hardware " +
-        "readings (Sensor resolution/power/version list, statvfs f_fsid, battery EXTRA_CYCLE_COUNT) into a device " +
-        "id that survives resets and links apps; replaced per app with values derived by HMAC-SHA256(secret, " +
-        "label || package) at the Java API, sensor events, ranges, rates, names, model, SDK, ABI and paths untouched",
+    evidence = "docs/collection-techniques.md (device identifiers): SDKs hash permission-free hardware readings " +
+        "into a device id that survives resets and links apps; each protected app sees its own values for " +
+        "selected traits, while the device capabilities and model information apps rely on stay unchanged",
     defaultOn = false,
     preventive = true,
 )
@@ -78,10 +76,8 @@ internal fun sensorDataRule(): Rule = Rule(
     evidence = "Permission-free channels: motion and magnetic sensor calibration identifies a device (SensorID, " +
         "IEEE S&P 2019) and fast motion streams allow input and speech inference; fine pressure reveals the floor, " +
         "fine light changes reveal screen content, battery current/voltage/charge readings reveal activity and " +
-        "battery wear. Readings are given a per-app gain/offset (HMAC-SHA256(secret, label || package)) and " +
-        "dithered quantisation, motion streams are capped at 62.5 Hz, direct channels and additional info are " +
-        "withheld (Java sensor API only; the NDK sensor API is not covered), pressure, " +
-        "light and battery readings are rounded; battery level, status and plug state are untouched",
+        "battery wear. Selected sensor and battery readings in the protected app get lower precision and " +
+        "update rate; battery level and charging status stay normal",
     defaultOn = false,
     preventive = true,
 )
@@ -136,7 +132,7 @@ private fun httpDnsRule(
     summary = summary,
     payload = RulePayload.Domains(suffixes),
     category = Category.PERSONAL_DATA,
-    evidence = "docs/collection-techniques.md 7.2 (HTTPDNS endpoint list): dex aliyun httpdns SDK in the app store " +
+    evidence = "docs/collection-techniques.md (HTTPDNS): dex aliyun httpdns SDK in the app store " +
         "and Xiaomi shop (bootstrap IPs, resolvers-cn.httpdns.aliyuncs.com), iflytek IME HttpDnsConstants " +
         "203.107.1.2/108507/d, Xiaomi httpdns SDK dispatch.mgslb.com + DoH fallbacks dns.alidns.com/dns.google/" +
         "120.53.53.53, Xiaomi shop mishop.httpdns.Config (Wangsu, Kingsoft, dns-hl.mi.com), Baidu IME HttpDnsCache " +
@@ -148,9 +144,9 @@ private fun httpDnsRule(
 )
 
 /**
- * HTTPDNS and DoH resolver endpoints (docs/collection-techniques.md 7.2). Only hosts and IPs that
+ * HTTPDNS and DoH resolver endpoints (docs/collection-techniques.md, HTTPDNS). Only hosts and IPs that
  * do nothing but answer DNS queries: no CDN, no vendor apex, nothing that also serves content.
- * Speculative entries (Volcengine, Huawei) are left out until verified.
+ * Only verified resolver endpoints are listed.
  *
  * Two kinds: SDK HTTPDNS services ([sdkHosts], [sdkAddresses]), which only SDKs embedded in an
  * app use, and public DoH resolvers ([publicDohHosts], [publicDohAddresses]), which SDKs use as a
@@ -187,7 +183,7 @@ internal object HttpDnsResolvers {
         "doh.pub",
     )
 
-    /** Hard-coded SDK resolver IPs (IPv4 and IPv6), blocked at the connect sink on every port except 53. */
+    /** Hard-coded SDK resolver IPs (IPv4 and IPv6). */
     val sdkAddresses: List<String> = listOf(
         // Aliyun EMAS HTTPDNS bootstrap and account endpoints.
         "203.107.1.1",

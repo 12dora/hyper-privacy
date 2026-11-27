@@ -9,8 +9,9 @@ import java.lang.reflect.Method
 /**
  * Hides the module's frames from live stack sampling in a protected app: `Thread#getStackTrace()`
  * and `Thread.getAllStackTraces()`. A thread sampled while inside a hooked API would otherwise show
- * module classes and hook stubs; see [LiveStackFilter] for exactly what is dropped and
- * [ModuleFrames] for how a frame is known to be ours. Exceptions we throw are handled by
+ * module classes and hook stubs; see [LiveStackFilter] for exactly what is dropped,
+ * [ModuleFrames] for how a frame is known to be ours and [FrameLoaders] for how the framework's
+ * own frames are recognised when it randomises their names. Exceptions we throw are handled by
  * [StackScrub]. Installed only in tracker-protected app processes.
  *
  * Once these two methods are hooked, our own hooker and the framework frames around it are on the
@@ -19,13 +20,14 @@ import java.lang.reflect.Method
  * as they are).
  *
  * Cost, per call (logging libraries call `getStackTrace` often): one `startsWith` per module
- * prefix per frame, no reflection, class lookup, lock or cache. A thread sampling itself always
+ * prefix per frame, no lock; frames at a window's edges cost one cached class-origin lookup each,
+ * resolved by reflection only the first time a class name is seen. A thread sampling itself always
  * gets a trimmed copy (one `BooleanArray` plus the copy, on top of the VM's own array); sampling
  * another thread that is not inside a hook returns the original array without allocating.
  * Nested calls on the same thread (our own code sampling a stack) return the unfiltered result.
  */
 internal class LiveStackGuard(private val env: GuardEnv) {
-    private val filter = LiveStackFilter(ModuleFrames.prefixes)
+    private val filter = LiveStackFilter(ModuleFrames.prefixes, FrameLoaders.origin(env))
     private val busy = ThreadLocal<Boolean>()
 
     fun install(): Int {

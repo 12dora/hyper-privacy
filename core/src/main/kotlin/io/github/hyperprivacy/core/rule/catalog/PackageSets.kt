@@ -81,7 +81,7 @@ internal val LOCATION_UPLINK_APPS: Set<String> = setOf(
 
 /**
  * Target packages of `location.uplink`: the positioning and Find Device services, kept apart from
- * [LOCATION_UPLINK_APPS] because blocking there is not live-verified.
+ * [LOCATION_UPLINK_APPS] because blocking there may affect those services.
  */
 internal val LOCATION_SERVICE_APPS: Set<String> = setOf(
     "com.xiaomi.finddevice",
@@ -386,10 +386,8 @@ internal val ONETRACK_SDK_APPS: Set<String> = ONETRACK_APPS - ONETRACK_WITHOUT_S
 internal val AD_SDK_APPS: Set<String> = ONETRACK_APPS - AD_SDK_EXCLUDED_APPS
 
 /**
- * Packages the app-wide `httpdns.resolvers` rule never targets although other rules inject into
- * them: vendor services that bind the account, a payment card or the device to a backend, or that
- * keep the device reachable and secure. A refused resolver there risks a failed login, card or
- * key operation, a lost push channel or a broken connectivity check, for little privacy gain.
+ * Vendor system services excluded from `httpdns.resolvers` to keep account, payment, security and
+ * connectivity features reliable.
  */
 internal val HTTPDNS_EXCLUDED_APPS: Set<String> = setOf(
     "com.android.phone", // telephony
@@ -412,10 +410,10 @@ internal val HTTPDNS_EXCLUDED_APPS: Set<String> = setOf(
     "com.xiaomi.account", // Xiaomi account
     "com.xiaomi.digitalkey", // digital car key
     "com.xiaomi.finddevice", // Find Device
-    "com.xiaomi.gnss.polaris", // GNSS geofence service; only the MiSight event hook targets it
+    "com.xiaomi.gnss.polaris", // GNSS geofence service
     "com.xiaomi.payment", // Mi Pay / wallet
     "com.xiaomi.simactivate.service", // SIM activation
-    "com.xiaomi.trustservice", // TEE / Find Device key service; only the MiSight event hook targets it
+    "com.xiaomi.trustservice", // TEE / Find Device key service
     "com.xiaomi.xmsf", // MiPush
 )
 

@@ -1,0 +1,7 @@
+# Only the JNI entry points are exported; everything else stays local to the library.
+{
+  global:
+    Java_io_github_hyperprivacy_xposed_NativeResolver_*;
+  local:
+    *;
+};

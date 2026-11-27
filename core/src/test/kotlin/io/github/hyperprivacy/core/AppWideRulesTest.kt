@@ -141,6 +141,7 @@ class AppWideRulesTest {
                 HARDWARE to false,
                 SENSOR_DATA to false,
                 "known-trackers.all" to false,
+                "native.dns" to false,
             ),
             ConfigCodec.decode(emptyMap<String, Any>(), Catalog.protectedAppRules),
         )

@@ -190,7 +190,7 @@
     <string name="appearance_pure_black_summary">深色模式下使用纯黑，适合 OLED 屏幕</string>
     <string name="settings_privacy">隐私</string>
     <string name="settings_self_hide">对其他应用隐藏本模块</string>
-    <string name="settings_self_hide_summary">第三方应用无法检测本模块</string>
+    <string name="settings_self_hide_summary">对第三方应用隐藏本模块</string>
     <string name="settings_diagnostics">诊断</string>
     <string name="settings_health_summary">查看失效或待复核的规则</string>
     <string name="settings_diag_mode">诊断模式</string>

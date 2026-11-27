@@ -195,6 +195,16 @@ public sealed interface RulePayload {
         override val kind: RuleKind get() = RuleKind.DOMAIN
     }
 
+    /**
+     * Apply the host-level block list the process already enforces (its enabled DOMAIN rules, with
+     * keep hosts) to host name lookups from the app's native code too. Carries no hosts of its own,
+     * so it never adds to what the network sinks block; for protected third-party apps only
+     * ([Catalog.protectedAppRules]) and off unless the user enables it.
+     */
+    public data object NativeResolver : RulePayload {
+        override val kind: RuleKind get() = RuleKind.DOMAIN
+    }
+
     /** Hide identifiers served by [source] from callers that are not system apps (zeroed or absent). */
     public data class Identifiers(val source: IdentifierSource) : RulePayload {
         override val kind: RuleKind get() = RuleKind.IDENTIFIER

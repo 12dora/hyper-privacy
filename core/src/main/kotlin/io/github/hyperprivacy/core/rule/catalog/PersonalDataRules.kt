@@ -32,7 +32,7 @@ internal val personalDataRules: List<Rule> = listOf(
         ),
         category = Category.PERSONAL_DATA,
         evidence = "dex: cgicol.amap.com/collection/collectData (Wi-Fi/cell crowdsourcing) in 10+ apps; metoknlp " +
-            "rttgpsreport.map.qq.com/report, analytics.map.qq.com; traffic cap4: mi.car.mobile -> " +
+            "rttgpsreport.map.qq.com/report, analytics.map.qq.com; observed traffic: mi.car.mobile -> " +
             "dualstack-logs.amap.com x4. Location lookup (apilocate, lbs.map.qq.com, loc.map.baidu.com) untouched",
     ),
     Rule(
@@ -52,7 +52,7 @@ internal val personalDataRules: List<Rule> = listOf(
         category = Category.PERSONAL_DATA,
         evidence = "dex: metoknlp loc.map.baidu.com/statloc; hybrid/finddevice api.map.baidu.com/sdkproxy/" +
             "lbs_androidsdk/statistics; core restsdk.amap.com/rest/lbs/pos/log/upload; car m5.amap.com " +
-            "location/collection/autodata, rdr/log/upload; traffic cap2: systemhelper -> loc.map.baidu.com x11",
+            "location/collection/autodata, rdr/log/upload; observed traffic: systemhelper -> loc.map.baidu.com x11",
     ),
     Rule(
         id = "securitycenter.traffic-sms",
@@ -97,8 +97,8 @@ internal val personalDataRules: List<Rule> = listOf(
         summary = Text("阻止后台轨迹与热点网格上报", "Block background GPS trail reports"),
         payload = RulePayload.Urls(LOCATION_UPLINK_PATHS),
         category = Category.PERSONAL_DATA,
-        evidence = "evidence.md L803/L913 itsdata.map.baidu.com/long-conn-gps/sdk.php (systemhelper); " +
-            "L546/L913/L1053 api.map.baidu.com/lbs_sdkcc/report; dex daup/itsdata.map.baidu.com in shop, " +
+        evidence = "static analysis: itsdata.map.baidu.com/long-conn-gps/sdk.php (systemhelper); " +
+            "api.map.baidu.com/lbs_sdkcc/report; dex daup/itsdata.map.baidu.com in shop, " +
             "systemhelper, cgicol/apilocate.amap.com in smarthome (tracker database baidu-location, amap-location, " +
             "which block these paths by default). None of these apps provides positioning: their location " +
             "lookups (loc.map.baidu.com, apilocate.amap.com) stay allowed",
@@ -110,10 +110,10 @@ internal val personalDataRules: List<Rule> = listOf(
         summary = Text("阻止轨迹长连与热点网格上报", "Block GPS uplink and hot-grid reports"),
         payload = RulePayload.Urls(LOCATION_UPLINK_PATHS),
         category = Category.PERSONAL_DATA,
-        evidence = "evidence.md L913 itsdata.map.baidu.com/long-conn-gps/sdk.php (finddevice); L971 metoknlp " +
+        evidence = "static analysis: itsdata.map.baidu.com/long-conn-gps/sdk.php (finddevice); metoknlp " +
             "aloc-gnss-eph.{amap,aimap}.com/collect-hot-grid (A-GPS host). The same paths are blocked by default " +
             "in apps without positioning (location.uplink-apps); here they belong to Find Device and network " +
-            "location and are not live-verified",
+            "location, so the rule is default off to keep those features working",
         defaultOn = false,
         impact = Text("可能影响查找设备与网络定位", "May affect Find Device and location"),
     ),

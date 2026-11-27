@@ -45,8 +45,7 @@ internal val appListRules: List<Rule> = listOf(
         category = Category.APP_LIST,
         evidence = "jadx personalassistant: PickerRequestService @POST component/store/syncAppInfo, body = " +
             "compressed list of every installed package + versionCode + firstInstallTime (EVENT_FULL/INSTALL/" +
-            "UNINSTALL/UPGRADE); traffic cap2: store.assistant.miui.com x7 (evidence.md L633). Widget store browsing " +
-            "untouched",
+            "UNINSTALL/UPGRADE); observed traffic: store.assistant.miui.com x7. Widget store browsing untouched",
         impact = Text("新装应用的小部件推荐可能缺失", "New apps may lack widget suggestions"),
         highRisk = true,
     ),
@@ -57,7 +56,7 @@ internal val appListRules: List<Rule> = listOf(
         summary = Text("阻止上传应用特征", "Block app fingerprint uploads"),
         payload = RulePayload.Domains(listOf("virus-engine.sec.miui.com")),
         category = Category.APP_LIST,
-        evidence = "traffic cap2: guardprovider -> virus-engine.sec.miui.com x12, uid 1000 x3; jadx securitycenter " +
+        evidence = "observed traffic: guardprovider -> virus-engine.sec.miui.com x15; jadx securitycenter " +
             "virus-engine.sec.miui.com/risk/scan, /risk/issueGrade",
         defaultOn = false,
         impact = Text("云查杀不可用", "Cloud virus scan unavailable"),
@@ -70,7 +69,7 @@ internal val appListRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("api.vip.miui.com", "/user/batchuploadappdata"))),
         category = Category.APP_LIST,
         evidence = "jadx vipaccount: VipProtocolConfig USAGE_BATCH_UPLOAD POST /user/batchuploadappdata (eventid, " +
-            "statisticstask), RecorderController UsageRecord; traffic cap4: api.vip.miui.com x20",
+            "statisticstask), RecorderController UsageRecord; observed traffic: api.vip.miui.com x20",
         impact = Text("社区成长任务无法完成", "Community tasks cannot complete"),
         highRisk = true,
     ),
@@ -87,11 +86,9 @@ internal val appListRules: List<Rule> = listOf(
             returns = "q5",
         ),
         category = Category.APP_LIST,
-        evidence = "dex: push action collect_package → CollectPackagesAction.a(Context, Object) checks a " +
-            "server-supplied checkUrl then PackageUploadWorker uploads the full APK + certs to a server-supplied " +
-            "uploadUrl (hosts unknown, so method-level); returning null is safe: the only caller, ActionDispatcher " +
-            "(l4.a), calls it through the action interface j2 inside try/catch(Exception) and reports error -3. " +
-            "Pinned to q5 a(Context, Object), the interface method; a rebuilt app with other names leaves it off",
+        evidence = "dex: a server-triggered push action collects installed packages and uploads the full APK " +
+            "and certificates to a server-supplied address; the collection action is stopped in the app, " +
+            "without affecting the other security features",
     ),
     Rule(
         id = "guard.app-detect",
@@ -101,8 +98,7 @@ internal val appListRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("flash.sec.miui.com", "/detect/app"))),
         category = Category.APP_LIST,
         evidence = "dex: guardprovider POST https://flash.sec.miui.com/detect/app with uuid, OS and every " +
-            "non-system package with version, signature MD5 and app name (security cloud app " +
-            "check after AV updates)",
+            "non-system package with version, signature MD5 and app name (security cloud app check after AV updates)",
         impact = Text("云端应用风险识别不可用", "Cloud app risk check unavailable"),
         highRisk = true,
     ),

@@ -17,6 +17,9 @@ import io.github.hyperprivacy.xposed.url.UrlGuard
  * under its public names but the OkHttp sink could not be hooked: such rules (reporting paths on
  * shared hosts) have no host-level fallback.
  *
+ * The native resolver rule ([RulePayload.NativeResolver], protected third-party apps) shares the
+ * same policy: [NativeResolverGuard] hands its host-level patterns to native code.
+ *
  * If diagnostics mode is on when the process starts, every sink is installed even without rules
  * so endpoints can be observed. Toggling diagnostics later is live for installed sinks only.
  */
@@ -26,11 +29,14 @@ internal class NetworkGuards(private val env: GuardEnv, rules: List<Rule>) {
         rule.payload is RulePayload.Domains || rule.payload == RulePayload.KnownTrackers
     }
     private val urlRules = rules.filter { it.payload is RulePayload.Urls }
+    private val nativeRules = rules.filter { it.payload == RulePayload.NativeResolver }
 
     fun install() {
         val observe = env.switches.observe
-        if (domainRules.isEmpty() && urlRules.isEmpty() && !observe) return
-        val sinks = SinkContext(env, NetworkPolicy(domainRules + urlRules, env.switches, env.log))
+        val anyRules = domainRules.isNotEmpty() || urlRules.isNotEmpty() || nativeRules.isNotEmpty()
+        if (!anyRules && !observe) return
+        val policy = NetworkPolicy(domainRules + urlRules, env.switches, env.log)
+        val sinks = SinkContext(env, policy)
         val hostSinks = if (domainRules.isNotEmpty() || observe) installHostSinks(sinks) else false
         val url = env.log.guard("URL guard") { UrlGuard(sinks).install() }
         val urlSinks = url?.any == true
@@ -42,6 +48,11 @@ internal class NetworkGuards(private val env: GuardEnv, rules: List<Rule>) {
             // OkHttp and that sink missed, say so rather than report a rule that silently fails open.
             val trackerRule = TrackerProtection.sdkIdOf(rule.id) != null
             report(rule, urlSinks && !(trackerRule && incomplete))
+        }
+        nativeRules.forEach { rule ->
+            env.log.guard(
+                "native resolver",
+            ) { NativeResolverGuard(env, policy).install(rule) }
         }
     }
 

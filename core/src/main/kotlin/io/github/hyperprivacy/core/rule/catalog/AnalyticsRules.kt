@@ -16,7 +16,7 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("禁止联网上报使用数据", "Cut off usage-data uploads"),
         payload = RulePayload.Firewall,
         category = Category.ANALYTICS,
-        evidence = "uid 10155 (not shared). traffic cap2/cap3 idle: tracking.miui.com, sdkconfig.xiaomi.com, " +
+        evidence = "observed traffic: tracking.miui.com, sdkconfig.xiaomi.com, " +
             "open.e.kuaishou.com, unet.quark.cn; dex: tracking.miui.com/track/v1, pn-tracking-bak.onetrack.mi.com; " +
             "appops: FINE_LOCATION + WIFI_SCAN within the last hour; holds usage-stats, app-list and phone-state " +
             "permissions",
@@ -45,7 +45,7 @@ internal val analyticsRules: List<Rule> = listOf(
         category = Category.ANALYTICS,
         evidence = "dex: Lcom/xiaomi/onetrack in 98 apps; hidden byte-array hosts " +
             "tracking.{,intl,india,rus,eu}.miui.com in 102 apps, sdkconfig.*.xiaomi.com in 68; path /track/appUpload " +
-            "(installed-app list) in 20+ apps; traffic: tracking.miui.com (also unattributed in cap3); market dex " +
+            "(installed-app list) in 20+ apps; traffic: tracking.miui.com; market dex " +
             "MIUI_LOG_URL=https://tracking.miui.com/tracks",
     ),
     Rule(
@@ -110,7 +110,7 @@ internal val analyticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "traffic cap4: voiceassist -> tracker.xiaomixiaoai.com; dex: /track/v3, /track/perf/v2, " +
+        evidence = "observed traffic: voiceassist -> tracker.xiaomixiaoai.com; dex: /track/v3, /track/perf/v2, " +
             "/track/uploadLog in camera, health, shop, notes, soundrecorder, personalassistant, accessibility, " +
             "carlink, voicetrigger, aicr; voiceassist log.xiaomixiaoai.com, micollector gateway",
     ),
@@ -145,7 +145,7 @@ internal val analyticsRules: List<Rule> = listOf(
         ),
         category = Category.ANALYTICS,
         evidence = "dex: com/sensorsdata in contacts, virtualsim, tsmservice.mi, gamecenter.sdk.service, xmsf; " +
-            "sensorsdata.10046.xiaomimobile.com/sa?project=production; traffic cap4: virtualsim -> " +
+            "sensorsdata.10046.xiaomimobile.com/sa?project=production; observed traffic: virtualsim -> " +
             "sensorsdata.10046, unionpay tsmservice -> analytics.95516.com",
     ),
     Rule(
@@ -168,7 +168,7 @@ internal val analyticsRules: List<Rule> = listOf(
         category = Category.ANALYTICS,
         evidence = "dex: com/tencent/beacon (player, sogou); otheve/othstr.beacon.qq.com/analytics/v2_upload in " +
             "player, voiceassist, sogou, smarthome; h.trace.qq.com/kv (QQ open SDK) in 8 apps; pingma.qq.com (MTA) " +
-            "in thememanager, smarthome; traffic cap3: h.trace.qq.com unattributed; evidence.md L811 sogou " +
+            "in thememanager, smarthome; observed traffic: h.trace.qq.com; static analysis: sogou " +
             "htrace.wetvinfo.com, log.qchannel03.cn",
     ),
     Rule(
@@ -195,7 +195,7 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止配置下发回执上报", "Block config-delivery reports"),
         payload = RulePayload.Urls(listOf(UrlPrefix("rdelivery.qq.com", "/v1/sdk/report"))),
         category = Category.ANALYTICS,
-        evidence = "dex: {,p.,t.}rdelivery.qq.com/v1/sdk/report in sogou, player; traffic cap3: sogou -> " +
+        evidence = "dex: {,p.,t.}rdelivery.qq.com/v1/sdk/report in sogou, player; observed traffic: sogou -> " +
             "rdelivery.qq.com, content.rconfig.qq.com; config pull (/v1/config/pull, /v3/config/pull) stays allowed",
     ),
     Rule(
@@ -252,8 +252,8 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止应用统计数据上报", "Block app-stats SDK uploads"),
         payload = RulePayload.Domains(listOf("hmma.baidu.com", "sdkss.shitu.baidu.com")),
         category = Category.ANALYTICS,
-        evidence = "dex: baidu.input_mi com.baidu.mobstat -> https://hmma.baidu.com/app.gif (evidence.md L322 " +
-            "hmma.baidu.com); youpin sdkss.shitu.baidu.com/cgi-bin/sdkstat.py",
+        evidence = "dex: baidu.input_mi com.baidu.mobstat -> https://hmma.baidu.com/app.gif; " +
+            "youpin sdkss.shitu.baidu.com/cgi-bin/sdkstat.py",
     ),
     Rule(
         id = "baidu-ime.stats",
@@ -295,7 +295,7 @@ internal val analyticsRules: List<Rule> = listOf(
         category = Category.ANALYTICS,
         evidence = "dex: Retrofit service yy0.j @POST /v5/fb/{st,rt,strt,rtq,vt} (multipart cfile log, log_type=…), " +
             "/sapiv2/hf/pub/{pv,pd}report; lp.a /v5/performance/info; am0.e /v5/skinV2/statistics; speech " +
-            "AnalysisUpload upl.baidu.com/slp/upload_monitor; traffic cap3 typing: mime.baidu.com x6. Cloud input, " +
+            "AnalysisUpload upl.baidu.com/slp/upload_monitor; observed traffic: mime.baidu.com x6. Cloud input, " +
             "skins and voice endpoints on mime.baidu.com stay allowed",
     ),
     Rule(
@@ -360,7 +360,7 @@ internal val analyticsRules: List<Rule> = listOf(
         category = Category.ANALYTICS,
         evidence = "dex: com.iflytek.statssdk.c.b endpoint table: 1017 anonlogin -> inputd.xfinfr.com/do, 1018 " +
             "active / 1002 uplog -> inputl1.xfinfr.com/do, default -> inputl2.xfinfr.com/do, 9003 -> " +
-            "log.voicecloud.cn/do (evidence.md L349); traffic cap3 typing: inputd.xfinfr.com x5. Cloud input uses " +
+            "log.voicecloud.cn/do; observed traffic: inputd.xfinfr.com x5. Cloud input uses " +
             "authsh.xfinfr.com tokens and imeclient.openspeech.cn; the 1017 anonlogin lives inside " +
             "com.iflytek.statssdk only",
     ),
@@ -406,8 +406,8 @@ internal val analyticsRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("client.sms.miui.com", "/api/client/richMsg/aimMsgShowRpt"))),
         category = Category.ANALYTICS,
         evidence = "jadx mms: RichSmsRequestHelper TRACK_URL https://client.sms.miui.com/api/client/richMsg/" +
-            "aimMsgShowRpt; traffic cap4: mms -> client.sms.miui.com x7. Smart-SMS templates/config on the same host " +
-            "stay allowed",
+            "aimMsgShowRpt; observed traffic: mms -> client.sms.miui.com x7. Smart-SMS templates/config on " +
+            "the same host stay allowed",
     ),
     Rule(
         id = "mms.5g-stats",
@@ -417,7 +417,7 @@ internal val analyticsRules: List<Rule> = listOf(
         payload = RulePayload.Urls(listOf(UrlPrefix("logsdata.cxkfwn.com", "/statistics/uploadlogInfo"))),
         category = Category.ANALYTICS,
         evidence = "jadx mms f.a: \"bpoint\" tracking uploader -> https://logsdata.cxkfwn.com:11443/statistics/" +
-            "uploadlogInfo (evidence.md L154); /statistics/auth/getsynconfinfo on the same host stays allowed",
+            "uploadlogInfo; /statistics/auth/getsynconfinfo on the same host stays allowed",
     ),
     Rule(
         id = "music.stats",
@@ -437,7 +437,7 @@ internal val analyticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "traffic cap2/cap4: player -> report.tencentmusic.com x3, stats.music.xiaomi.com; dex: " +
+        evidence = "observed traffic: player -> report.tencentmusic.com x3, stats.music.xiaomi.com; dex: " +
             "report.tencentmusic.com/api/v1/perf, stat.3g.music.qq.com/fcgi-bin, wnslogupload.twns.qq.com/" +
             "wns_log_upload, logger.qingting.fm/logger.php, apd-*.teg.tencent-cloud.net data_report",
     ),
@@ -459,8 +459,8 @@ internal val analyticsRules: List<Rule> = listOf(
         ),
         category = Category.ANALYTICS,
         evidence = "dex: p.tencentmusic.com/report/api/v{1,2}/{flow,jobReport}; wnsop.twns.qq.com/api/v1/{upload," +
-            "uploadQualityData,logUploadResult}; PlayPerformanceReport.fcg; o2o.api.xiaomi.com/tracker/; traffic " +
-            "cap2/cap4: p.tencentmusic.com, wnsop.twns.qq.com; cap2/cap4 HTTP GET i.gtimg.cn/ams-web/" +
+            "uploadQualityData,logUploadResult}; PlayPerformanceReport.fcg; o2o.api.xiaomi.com/tracker/; observed " +
+            "traffic: p.tencentmusic.com, wnsop.twns.qq.com; HTTP GET i.gtimg.cn/ams-web/" +
             "page-performance/page-performance.min.js (perf beacon script). Streaming/API paths on these hosts " +
             "untouched",
     ),
@@ -481,7 +481,7 @@ internal val analyticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "traffic cap4: shop -> beats.be.mi.com x27, a.hl.mi.com x21 (POST /m), tk.d.mi.com x6, " +
+        evidence = "observed traffic: shop -> beats.be.mi.com x27, a.hl.mi.com x21 (POST /m), tk.d.mi.com x6, " +
             "t.hl.mifile.cn (POST /c); youpin -> stat.youpin.mi.com x19. jadx shop: SpmStatConfig SPM_URL " +
             "tk.d.mi.com/app/dcv2, setUrl beats.be.mi.com/mistore, mobilestats BPM_URL a-hl.mi.com/m, " +
             "ConnectivityStatManager /c; youpin hawkeye UPLOAD_URL stat.youpin.mi.com/0.gif",
@@ -503,8 +503,8 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止支付页面行为埋点", "Block checkout page tracking"),
         payload = RulePayload.Domains(listOf("track.ucashier.mipay.com")),
         category = Category.ANALYTICS,
-        evidence = "dex: https://track.ucashier.mipay.com in xmsf and payment (evidence.md L1031, L1102); not " +
-            "exercised in a live checkout",
+        evidence = "dex: https://track.ucashier.mipay.com in xmsf and payment; default off because blocking may " +
+            "affect the checkout",
         defaultOn = false,
         impact = Text("可能影响小米支付收银台", "May affect Mi Pay checkout"),
     ),
@@ -521,7 +521,7 @@ internal val analyticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "traffic cap4: email -> dw-online.ksosoft.com x2; dex: collect.wpsmail.net/reporter, " +
+        evidence = "observed traffic: email -> dw-online.ksosoft.com x2; dex: collect.wpsmail.net/reporter, " +
             "dw-collect-debug.ksord.com",
     ),
     Rule(
@@ -552,7 +552,7 @@ internal val analyticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "traffic cap2/cap4: downloads group and downloads.ui -> etl-xlmc-ssl.sandai.net; dex: " +
+        evidence = "observed traffic: downloads group and downloads.ui -> etl-xlmc-ssl.sandai.net; dex: " +
             "etl-xlmc-ssl.sandai.net/api/stat/rt, pre.api.tw06.xlmc.sandai.net/api/stat/rt, browser " +
             "api-shoulei-ssl.xunlei.com/xlppc.resourcepush.api/report/task, sj-m-ssl.xunlei.com/h5/report. Download " +
             "acceleration itself untouched",
@@ -608,8 +608,8 @@ internal val analyticsRules: List<Rule> = listOf(
         ),
         category = Category.ANALYTICS,
         evidence = "jadx baidu.input_mi com.baidu.ubc Constants UPLOAD_URL_PATH \"/ztbox?action=zubc\", UBCHelper -> " +
-            "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325; dex strings re-checked 2026-11-27); traffic " +
-            "cap3 typing: mbd.baidu.com x3 (L321). /ztbox multiplexes other action= services, so only requests " +
+            "{h2,}tcbox.baidu.com/ztbox?action=zubc (dex strings re-checked 2026-11-27); observed " +
+            "traffic: mbd.baidu.com x3. /ztbox multiplexes other action= services, so only requests " +
             "carrying action=zubc are blocked and the other services on the path stay allowed",
     ),
     Rule(
@@ -619,7 +619,7 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止投屏连接与镜像上报", "Block cast connection/mirror reports"),
         payload = RulePayload.Urls(listOf(UrlPrefix("upnp-api.vivo.com.cn", "/v1/report/"))),
         category = Category.ANALYTICS,
-        evidence = "evidence.md L388 milink.service upnp-api.vivo.com.cn/v1/report/{conn,initialization,mirror," +
+        evidence = "static analysis: milink.service upnp-api.vivo.com.cn/v1/report/{conn,initialization,mirror," +
             "relation}",
     ),
     Rule(
@@ -629,10 +629,10 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止经云消息通道上报", "Block events sent via cloud messaging"),
         payload = RulePayload.Domains(listOf("pubsub.googleapis.com")),
         category = Category.ANALYTICS,
-        evidence = "evidence.md L532 home: pubsub.googleapis.com/api/v1/token + hyper_one_track::pubsub::uploader " +
-            "upload_ps_data; L511 gallery: hyper_common/one_track/src/pubsub/secret_key.rs + embedded RSA key (Rust " +
+        evidence = "static analysis: home: pubsub.googleapis.com/api/v1/token + hyper_one_track::pubsub::uploader " +
+            "upload_ps_data; gallery: hyper_common/one_track/src/pubsub/secret_key.rs + embedded RSA key (Rust " +
             "OneTrack); hidden byte-array https://pubsub.googleapis.com next to tracking.*/sdkconfig.* in 17 Xiaomi " +
-            "apps (L39, L183, L274, …). Scoped to Xiaomi packages only; GMS, Play and Google apps are never targeted",
+            "apps. Scoped to Xiaomi packages only; GMS, Play and Google apps are never targeted",
     ),
     Rule(
         id = "globalbrowser.telemetry",
@@ -647,9 +647,9 @@ internal val analyticsRules: List<Rule> = listOf(
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "evidence.md L371 globalbrowser api.brs.intl.miui.com/browser/monitor/v1|v2, " +
-            "api-partners.kindred.co/partners/analytics/track/v2/couponevents, csi.gstatic.com/csi (L368); traffic " +
-            "cap4 api.brs.intl.miui.com x17 (other paths are browser services)",
+        evidence = "static analysis: globalbrowser api.brs.intl.miui.com/browser/monitor/v1|v2, " +
+            "api-partners.kindred.co/partners/analytics/track/v2/couponevents, csi.gstatic.com/csi; observed " +
+            "traffic: api.brs.intl.miui.com x17 (other paths are browser services)",
     ),
     Rule(
         id = "smarthome.ximalaya-stats",
@@ -658,7 +658,7 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止音频播放记录上报", "Block audio play-record reports"),
         payload = RulePayload.Urls(listOf(UrlPrefix("api.ximalaya.com", "/openapi-collector-app/"))),
         category = Category.ANALYTICS,
-        evidence = "evidence.md L1069 smarthome api.ximalaya.com/openapi-collector-app/{live,track}_single_record; " +
+        evidence = "static analysis: smarthome api.ximalaya.com/openapi-collector-app/{live,track}_single_record; " +
             "openapi-gateway-app (playback) untouched",
     ),
     Rule(
@@ -668,7 +668,7 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止通用统计组件上报", "Block generic analytics SDK uploads"),
         payload = RulePayload.Domains(listOf("mmstat.com", "cg.play-analytics.com")),
         category = Category.ANALYTICS,
-        evidence = "evidence.md L361 mi.car.mobile mmstat.com, L496 miui.core mmstat.com (Alibaba UT/AMap), L377 " +
+        evidence = "static analysis: mi.car.mobile mmstat.com, miui.core mmstat.com (Alibaba UT/AMap), " +
             "health cg.play-analytics.com",
     ),
 )
