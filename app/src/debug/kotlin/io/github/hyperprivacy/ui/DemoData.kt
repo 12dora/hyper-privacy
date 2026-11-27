@@ -9,6 +9,7 @@ import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.DisplayStatus
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.AppDefaults
 import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
@@ -29,6 +30,8 @@ internal class DemoSwitches(
     var diagnosticMode: Boolean = false,
     var conflictDismissed: Boolean = false,
     var observedCleared: Boolean = false,
+    /** The user's own allowlist; `null`: the built-in one. */
+    var allowlist: Set<String>? = null,
 ) {
     val rules = HashMap<String, Boolean>()
     val appSwitches = HashMap<String, Boolean>()
@@ -51,7 +54,7 @@ private class DemoUserApp(
  * The sample data of demo mode, built from the real rule catalog and tracker database so every
  * screen shows realistic content: about a hundred rules for a set of installed system apps, a few
  * hits, one rule to review, three protected user apps with detected SDKs and suspected ad
- * components, and one overlapping module.
+ * components, and three overlapping modules.
  */
 internal class DemoData(private val language: String) {
     private val labels: List<AppLabel> = SYSTEM_APPS.map { (pkg, label) -> AppLabel(pkg, label.resolve(language)) }
@@ -85,9 +88,7 @@ internal class DemoData(private val language: String) {
             otherProtectionOn = true,
             protectedApps = users.apps.count { it.protected },
             conflict = ConflictUi(
-                label = CONFLICT_LABEL.resolve(language),
-                others = 0,
-                area = OverlapArea.APP_LIST,
+                groups = CONFLICTS.map { (area, names) -> ConflictGroup(area, names.map { it.resolve(language) }) },
                 canDisableAppList = switches.selfHidden,
             ).takeUnless { switches.conflictDismissed },
         )
@@ -110,7 +111,25 @@ internal class DemoData(private val language: String) {
 
     fun apps(switches: DemoSwitches): AppsUi {
         val apps = USER_APPS.map { app -> userApp(app, switches) }
-        return AppsUi(loaded = true, apps = apps, scanned = apps.size, total = apps.size)
+        return AppsUi(
+            loaded = true,
+            apps = apps,
+            scanned = apps.size,
+            total = apps.size,
+            defaults = AppDefaults.read(switches.appSwitches),
+            allowlist = switches.allowlist ?: AppListConfig.DEFAULT_ALLOWLIST,
+            allowlistCustom = switches.allowlist != null,
+        )
+    }
+
+    /** Turns protection on or off like the real controller: on applies the default settings first. */
+    fun setProtected(switches: DemoSwitches, packageName: String, on: Boolean) {
+        val app = USER_APPS.firstOrNull { it.packageName == packageName } ?: return
+        if (on) {
+            val ids = app.sdks.flatMap { (category, count) -> sdksOf(category, count) }.map { it.id }
+            switches.appSwitches += AppDefaults.read(switches.appSwitches).applyTo(switches.appSwitches, packageName, ids)
+        }
+        switches.protected[packageName] = on
     }
 
     private fun userApp(app: DemoUserApp, switches: DemoSwitches): UserAppUi {
@@ -163,7 +182,12 @@ internal class DemoData(private val language: String) {
         const val SDK_HITS = 64L
         const val SUSPECT_HITS = 6L
 
-        val CONFLICT_LABEL = Text("示例模块", "Sample module")
+        /** Overlapping modules by area; one does two things and is named under both. */
+        val CONFLICTS: List<Pair<OverlapArea, List<Text>>> = listOf(
+            OverlapArea.APP_LIST to listOf(Text("示例模块", "Sample module")),
+            OverlapArea.ADS to listOf(Text("Example AdKit", "Example AdKit"), Text("净化助手", "Cleaner")),
+            OverlapArea.PRIVACY to listOf(Text("净化助手", "Cleaner")),
+        )
 
         /** Installed system apps of the demo device, with neutral display names. */
         val SYSTEM_APPS: List<Pair<String, Text>> = listOf(
@@ -292,6 +316,9 @@ internal class DemoData(private val language: String) {
                 sdks = listOf(TrackerCategory.LOCATION to 1, TrackerCategory.ADS to 1),
                 protected = false,
             ),
+            // Partner apps on the built-in allowlist, under neutral names.
+            DemoUserApp("com.tencent.mm", Text("聊天", "Chat"), sdks = emptyList(), protected = false),
+            DemoUserApp("com.eg.android.AlipayGphone", Text("支付", "Pay"), sdks = emptyList(), protected = false),
             DemoUserApp(
                 packageName = "com.example.notes",
                 label = Text("便签", "Notes"),

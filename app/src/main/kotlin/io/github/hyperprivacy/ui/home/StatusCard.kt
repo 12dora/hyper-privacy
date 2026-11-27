@@ -154,7 +154,7 @@ private fun StatusRow(state: UiState, onPause: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.TallRowMinHeight)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny),
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {

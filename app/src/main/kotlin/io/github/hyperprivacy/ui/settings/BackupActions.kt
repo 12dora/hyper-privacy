@@ -87,6 +87,7 @@ private fun ImportDialog(summary: BackupSummary, onConfirm: () -> Unit, onDismis
         pluralStringResource(R.plurals.backup_summary_apps, summary.apps, summary.apps).takeIf { summary.apps > 0 },
         stringResource(R.string.backup_summary_applist).takeIf { summary.hasAppList },
         stringResource(R.string.backup_summary_appearance).takeIf { summary.hasAppearance },
+        stringResource(R.string.backup_summary_defaults).takeIf { summary.hasDefaults },
     )
     val bullet = stringResource(R.string.list_bullet)
     val contents = lines.joinToString("\n") { bullet + it }.ifEmpty { stringResource(R.string.backup_summary_empty) }

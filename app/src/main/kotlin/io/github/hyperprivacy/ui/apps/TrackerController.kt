@@ -7,6 +7,8 @@ import androidx.core.content.edit
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.scope.Protection
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.AppDefaults
+import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
@@ -47,7 +49,8 @@ import kotlinx.coroutines.withContext
  *
  * Whether an app is protected lives only in the remote preferences ([TrackerProtection.protectKey]);
  * turning protection on writes the scan result there (detected SDKs, and the manifest findings
- * under [TrackerOrigin.originKey]) and asks LSPosed to add the app to the module scope
+ * under [TrackerOrigin.originKey]) together with the user's default settings ([AppDefaults]) for
+ * options not yet set for that app, and asks LSPosed to add the app to the module scope
  * ([ScopeRequests], only ever on that tap); turning it off removes all of it. The scope is
  * reconciled with the preferences on every refresh. State is confined to [worker].
  */
@@ -80,6 +83,9 @@ internal class TrackerController(
 
     override val state: StateFlow<AppsUi> = mutableState.asStateFlow()
 
+    /** Apps left visible to restricted apps; published with the rest of the Apps state. */
+    override val allowlist = AllowlistStore(scope, worker, prefs) { publish() }
+
     /** One-shot scope request outcomes, shown on the Apps pages. */
     override val messages: Flow<ScopeResult> get() = scopes.messages
 
@@ -92,6 +98,7 @@ internal class TrackerController(
     private val detected = HashMap<String, Scan>()
     private val failed = HashMap<String, ScanKey>()
     private val pendingProtect = HashMap<String, Boolean>()
+
     private var scanJob: Job? = null
     private var reloadJob: Job? = null
     private var reloadAgain = false
@@ -135,6 +142,7 @@ internal class TrackerController(
             if (overwritten) {
                 pending.clear()
                 pendingProtect.clear()
+                allowlist.clearPending()
             }
             if (started) publishRequests.trySend(Unit)
         }
@@ -151,8 +159,15 @@ internal class TrackerController(
             // KTX edit(commit = true) drops commit()'s result, which is what decides here.
             @SuppressLint("UseKtx")
             val written = runCatching {
-                target.edit().apply { if (on) putScanResult(packageName, result) else removeScanResult(packageName) }
-                    .commit()
+                val editor = target.edit()
+                if (on) {
+                    val raw = target.all
+                    editor.putScanResult(packageName, result)
+                    AppDefaults.read(raw).applyTo(raw, packageName, result.ids).forEach(editor::putBoolean)
+                } else {
+                    editor.removeScanResult(packageName)
+                }
+                editor.commit()
             }.getOrDefault(false)
             if (!written) {
                 pendingProtect.remove(packageName)
@@ -175,7 +190,7 @@ internal class TrackerController(
         return Protection.resolve(pendingProtect[packageName], read)
     }
 
-    /** Writes one per-app switch (SDK, app-level rule, app-list hiding). */
+    /** Writes one per-app switch (SDK, app-level rule, app-list hiding) or one default setting. */
     override fun set(switch: AppSwitch, on: Boolean) {
         scope.launch(worker) {
             val target = prefs() ?: return@launch
@@ -260,6 +275,7 @@ internal class TrackerController(
     private fun publish() {
         val raw = prefs()?.let { runCatching { it.all }.getOrNull() }.orEmpty()
         val builder = AppsUiBuilder(raw, pending, status(), scopes.granted, scopes.requesting)
+        val (allow, custom) = allowlist.current(raw)
         mutableState.value = AppsUi(
             loaded = true,
             apps = apps.map { app ->
@@ -276,6 +292,9 @@ internal class TrackerController(
             },
             scanned = apps.count { it.packageName in detected || it.packageName in failed },
             total = apps.size,
+            defaults = builder.defaults(),
+            allowlist = allow,
+            allowlistCustom = custom,
         )
     }
 
@@ -295,15 +314,35 @@ internal sealed class AppSwitch(val key: String) {
     class Strict(packageName: String) : AppSwitch(AppListConfig.strictKey(packageName))
 
     class Suspect(packageName: String, root: String) : AppSwitch(TrackerOrigin.suspectKey(packageName, root))
+
+    /** The default settings of newly protected apps ([AppDefaults]). */
+    class DefaultSdk(category: TrackerCategory) : AppSwitch(AppDefaults.sdkKey(category))
+
+    class DefaultRule(ruleId: String) : AppSwitch(AppDefaults.ruleKey(ruleId))
+
+    data object DefaultHide : AppSwitch(AppDefaults.HIDE_KEY)
+
+    data object DefaultStrict : AppSwitch(AppDefaults.STRICT_KEY)
 }
 
-/** A protected app was updated and rescanned: hooks pick up the new SDK set on its next start. */
+/**
+ * A protected app was updated and rescanned: hooks pick up the new SDK set on its next start. SDKs
+ * it did not have before start as the default settings say.
+ */
 private fun updateStoredResult(prefs: SharedPreferences, packageName: String, found: AppScan) {
     val key = TrackerProtection.protectKey(packageName)
     val stored = runCatching { prefs.getString(key, null) }.getOrNull() ?: return
     val origin = runCatching { prefs.getString(TrackerOrigin.originKey(packageName), null) }.getOrNull()
     if (stored == TrackerProtection.encodeDetected(found.ids) && origin.orEmpty() == found.hints.encode()) return
-    runCatching { prefs.edit { putScanResult(packageName, found) } }
+    runCatching {
+        val raw = prefs.all
+        val added = found.ids - TrackerProtection.detected(raw, packageName).orEmpty().toSet()
+        val defaults = AppDefaults.read(raw).sdkKeys(raw, packageName, added)
+        prefs.edit {
+            putScanResult(packageName, found)
+            defaults.forEach(::putBoolean)
+        }
+    }
 }
 
 /** The remote copy of one scan result, read by the hooks of a protected [packageName]. */
@@ -372,6 +411,15 @@ private class AppsUiBuilder(
             hideApps = pending.resolve(raw, AppListConfig.hideKey(pkg), false),
             strict = pending.resolve(raw, AppListConfig.strictKey(pkg), false),
         )
+    }
+
+    /** The default settings as stored, with switch writes not yet visible applied. */
+    fun defaults(): AppDefaults {
+        val stored = AppDefaults.read(raw)
+        val keys = AppDefaults.categories.map { AppDefaults.sdkKey(it) to stored.isCategoryBlocked(it) } +
+            Catalog.protectedAppRuleIds.map { AppDefaults.ruleKey(it) to stored.isRuleOn(it) } +
+            listOf(AppDefaults.HIDE_KEY to stored.hide, AppDefaults.STRICT_KEY to stored.strict)
+        return AppDefaults.read(keys.associate { (key, value) -> key to pending.resolve(raw, key, value) })
     }
 
     private fun hits(pkg: String, ruleId: String): Long =

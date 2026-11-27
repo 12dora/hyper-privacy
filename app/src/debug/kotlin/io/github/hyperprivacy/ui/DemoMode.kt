@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.hyperprivacy.core.config.ConfigBackup
 import io.github.hyperprivacy.core.config.ProtectionPause
+import io.github.hyperprivacy.core.system.AppListConfig
 import io.github.hyperprivacy.ui.apps.AppSwitch
 import io.github.hyperprivacy.ui.apps.AppsUi
 import kotlinx.coroutines.flow.Flow
@@ -83,11 +84,20 @@ internal class DemoModel(paused: Boolean) :
 
         override fun start() = Unit
 
-        override fun setProtected(packageName: String, on: Boolean) = update { protected[packageName] = on }
+        override fun setProtected(packageName: String, on: Boolean) = update { data.setProtected(this, packageName, on) }
 
         override fun retryScope(packageName: String) = Unit
 
         override fun set(switch: AppSwitch, on: Boolean) = update { appSwitches[switch.key] = on }
+
+        override val allowlist: AllowlistModel = object : AllowlistModel {
+            override fun setAllowed(packageName: String, on: Boolean) = update {
+                val current = allowlist ?: AppListConfig.DEFAULT_ALLOWLIST
+                allowlist = if (on) current + packageName else current - packageName
+            }
+
+            override fun reset() = update { allowlist = null }
+        }
     }
 
     override val config: BackupModel = object : BackupModel {
@@ -117,6 +127,7 @@ internal class DemoModel(paused: Boolean) :
     override fun resetDefaults() = update {
         rules.clear()
         appSwitches.clear()
+        allowlist = null
         pausedUntil = 0L
         diagnosticMode = false
         selfHidden = true

@@ -167,7 +167,7 @@ internal fun NavRow(
     }
 }
 
-/** A 40dp tonal circle holding a 22dp icon: the leading visual of status and category rows. */
+/** A 36dp tonal circle holding a 20dp icon: the leading visual of status and category rows. */
 @Composable
 internal fun IconBadge(icon: ImageVector, container: Color, content: Color, modifier: Modifier = Modifier) {
     Box(
