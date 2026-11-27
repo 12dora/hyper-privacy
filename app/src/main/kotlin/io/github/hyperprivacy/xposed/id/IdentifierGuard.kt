@@ -47,6 +47,9 @@ internal class IdentifierGuard(private val env: GuardEnv) {
 
             // Enforced per app by xposed.fp.HardwareFingerprintGuard; AppGuards never routes it here.
             IdentifierSource.HARDWARE_TRAITS -> return 0
+
+            // Enforced per app by xposed.fp.SensorDataGuard; AppGuards never routes it here.
+            IdentifierSource.SENSOR_DATA -> return 0
         }
         env.reporter.sink(
             env.packageName,
