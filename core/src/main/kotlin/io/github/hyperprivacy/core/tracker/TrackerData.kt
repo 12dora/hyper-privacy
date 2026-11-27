@@ -10,13 +10,13 @@ package io.github.hyperprivacy.core.tracker
  * hosts. Unknown tags are ignored by the parser.
  */
 internal object TrackerData {
-    const val VERSION: String = "2026.11.27f"
+    const val VERSION: String = "2026.11.27g"
 
     /** SHA-256 of data/trackers.json as generated. */
-    const val SOURCE_SHA256: String = "a6ab57b0ca1ccee4010203f25bd4ca6a6d948f99b14a5af32909aab4fbba464f"
+    const val SOURCE_SHA256: String = "a54f0f0b9c84cb4a8d99880efad2fc80a63e96dc4983caeb7adeb89367a12a98"
 
     /** SHA-256 of [PARTS] joined, so a hand edit of the table is caught by tests. */
-    const val TABLE_SHA256: String = "a351ad1417c2e887281bec23d9e2fc7a9c37d1d501bc89a379028da07b3dca9c"
+    const val TABLE_SHA256: String = "c81db0438a46600642938d29720905d2ef4b69a909599a249abc3958da368eb3"
 
     val PARTS: List<String> = listOf(PART_0, PART_1)
 }
@@ -430,6 +430,13 @@ e Fingerprint Pro (FingerprintJS) Android
 v Fingerprint
 p com.fingerprint.android. com.fingerprintjs.android.fpjs_pro.
 b api.fpjs.io
+sdk fivead 1 ADS
+n Five 广告 (LINE 广告网络)
+e Five Ad SDK (LINE Ads Network)
+v LINE
+dn Five 广告
+de Five Ads
+p com.five_corp.ad.
 sdk flurry 1 ANALYTICS
 n Flurry 统计
 e Flurry Analytics (Yahoo)
@@ -496,13 +503,16 @@ n 谷歌移动广告 (AdMob)
 e Google Mobile Ads SDK (AdMob / Ad Manager)
 v Google
 p com.google.android.gms.ads.MobileAds com.google.android.gms.ads.AdView
-p com.google.android.gms.ads.AdRequest com.google.android.gms.ads.admanager.
-p com.google.android.gms.ads.appopen. com.google.android.gms.ads.interstitial.
-p com.google.android.gms.ads.rewarded. com.google.android.gms.ads.rewardedinterstitial.
-p com.google.android.gms.ads.nativead. com.google.android.gms.ads.formats.
-p com.google.android.gms.ads.mediation. com.google.android.gms.ads.internal.
-p com.google.android.gms.internal.ads. com.google.ads.mediation.
-p com.google.android.libraries.ads.mobile.sdk.
+p com.google.android.gms.ads.AdActivity com.google.android.gms.ads.AdService
+p com.google.android.gms.ads.MobileAdsInitProvider
+p com.google.android.gms.ads.NotificationHandlerActivity
+p com.google.android.gms.ads.OutOfContextTestingActivity com.google.android.gms.ads.AdRequest
+p com.google.android.gms.ads.admanager. com.google.android.gms.ads.appopen.
+p com.google.android.gms.ads.interstitial. com.google.android.gms.ads.rewarded.
+p com.google.android.gms.ads.rewardedinterstitial. com.google.android.gms.ads.nativead.
+p com.google.android.gms.ads.formats. com.google.android.gms.ads.mediation.
+p com.google.android.gms.ads.internal. com.google.android.gms.internal.ads.
+p com.google.ads.mediation. com.google.android.libraries.ads.mobile.sdk.
 b googleads.g.doubleclick.net pubads.g.doubleclick.net securepubads.g.doubleclick.net
 b ad.doubleclick.net pagead2.googlesyndication.com tpc.googlesyndication.com
 b googleads4.g.doubleclick.net admob-gmats.uc.r.appspot.com www.googleadservices.com mediation.goog
@@ -810,6 +820,9 @@ v Meta Platforms
 p com.facebook.ads.
 b an.facebook.com
 u www.facebook.com/adnw_logging/
+"""
+
+private const val PART_1: String = """
 sdk microsoft-clarity 1 PROFILING,ANALYTICS
 n Microsoft Clarity 会话回放
 e Microsoft Clarity (mobile session replay)
@@ -817,9 +830,6 @@ v Microsoft
 dn 微软 Clarity 会话回放
 p com.microsoft.clarity.
 b www.clarity.ms
-"""
-
-private const val PART_1: String = """
 sdk mintegral 1 ADS
 n Mintegral 汇量
 e Mintegral (Mobvista)
@@ -871,6 +881,13 @@ a com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.mraid.MraidActivit
 a com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.staticrenderer.StaticAdActivity
 a com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal.vast.VastActivity
 b dsp-api.moloco.com cdn-f.adsmoloco.com
+sdk mopub 1 ADS
+n MoPub 广告 (已停止服务)
+e MoPub SDK (retired)
+v AppLovin (formerly Twitter)
+dn MoPub 广告
+de MoPub Ads
+p com.mopub.
 sdk mparticle 1 ANALYTICS
 n mParticle 数据平台
 e mParticle

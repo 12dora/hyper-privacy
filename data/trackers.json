@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026.11.27f",
+  "version": "2026.11.27g",
   "trackers": [
     {
       "id": "aatkit",
@@ -1475,6 +1475,26 @@
       "notes": "Used for device verification and bot detection at login and payment — blocking may trigger extra verification or failed sign-in. Customers can proxy via custom endpointUrl. The open-source com.fingerprintjs.android.fingerprint library is offline (no network) and not matched; com.fingerprintjs.android.fpjs_pro is the older Pro package (unverified). defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
     },
     {
+      "id": "fivead",
+      "name": "Five 广告 (LINE 广告网络)",
+      "nameEn": "Five Ad SDK (LINE Ads Network)",
+      "displayName": "Five 广告",
+      "displayNameEn": "Five Ads",
+      "vendor": "LINE",
+      "categories": [
+        "ADS"
+      ],
+      "codePrefixes": [
+        "com.five_corp.ad."
+      ],
+      "blockHosts": [],
+      "evidence": [
+        "sdk: https://repo1.maven.org/maven2/com/linecorp/adsnetwork/fivead/3.1.1/ (AAR classes under com/five_corp/ad/, manifest declares com.five_corp.ad.AdActivity and com.five_corp.ad.AdReportDialogActivity)",
+        "doc: https://adsnetwork-docs.linebiz.com/fivesdk-android/quick-start/initialize-sdk.html (FiveAd SDK integration)"
+      ],
+      "notes": "Detection only: ad delivery hosts are not verified, so none is listed. Origin-based blocking still applies in protected apps."
+    },
+    {
       "id": "flurry",
       "name": "Flurry 统计",
       "nameEn": "Flurry Analytics (Yahoo)",
@@ -1708,6 +1728,11 @@
       "codePrefixes": [
         "com.google.android.gms.ads.MobileAds",
         "com.google.android.gms.ads.AdView",
+        "com.google.android.gms.ads.AdActivity",
+        "com.google.android.gms.ads.AdService",
+        "com.google.android.gms.ads.MobileAdsInitProvider",
+        "com.google.android.gms.ads.NotificationHandlerActivity",
+        "com.google.android.gms.ads.OutOfContextTestingActivity",
         "com.google.android.gms.ads.AdRequest",
         "com.google.android.gms.ads.admanager.",
         "com.google.android.gms.ads.appopen.",
@@ -1742,7 +1767,8 @@
         "apk: com.mi.globalbrowser dex types Lcom/google/android/gms/ads/MobileAds; and com/google/android/libraries/ads/mobile/sdk/ (next-gen GMA SDK); strings https://googleads.g.doubleclick.net/mads/gma, https://pagead2.googlesyndication.com/pagead/gen_204, https://pubads.g.doubleclick.net, https://admob-gmats.uc.r.appspot.com/",
         "doc: https://developers.google.com/admob/android/quick-start (artifact com.google.android.gms:play-services-ads, package com.google.android.gms.ads)",
         "doc: https://developers.google.com/admob/android/next-gen/quick-start (next-gen SDK package com.google.android.libraries.ads.mobile.sdk)",
-        "sdk: https://dl.google.com/android/maven2/com/google/android/gms/ (play-services-ads 25.5.0 AAR strings: googleads.g.doubleclick.net, pagead2.googlesyndication.com, mediation.goog, mobileads.google.com)"
+        "sdk: https://dl.google.com/android/maven2/com/google/android/gms/ (play-services-ads 25.5.0 AAR strings: googleads.g.doubleclick.net, pagead2.googlesyndication.com, mediation.goog, mobileads.google.com)",
+        "sdk: https://dl.google.com/android/maven2/com/google/android/gms/play-services-ads-api/25.5.0/ (AAR manifest declares com.google.android.gms.ads.AdActivity, AdService, MobileAdsInitProvider, NotificationHandlerActivity, OutOfContextTestingActivity)"
       ],
       "notes": "com.google.android.gms.ads.identifier (AdvertisingIdClient) intentionally excluded — see google-adid. User Messaging Platform (com.google.android.ump) consent host fundingchoicesmessages.google.com is kept — blocking it breaks consent collection. csi.gstatic.com (latency pings) is mixed and not blocked."
     },
@@ -3024,6 +3050,26 @@
         "sdk: com.moloco.sdk:moloco-sdk 4.15.0 AAR AndroidManifest.xml declares the ad renderer activities under com.moloco.sdk.xenoss.sdkdevkit.android.adrenderer.internal. (manifest anchors)"
       ],
       "notes": "adsmoloco.com apex replaced by cdn-f.adsmoloco.com."
+    },
+    {
+      "id": "mopub",
+      "name": "MoPub 广告 (已停止服务)",
+      "nameEn": "MoPub SDK (retired)",
+      "displayName": "MoPub 广告",
+      "displayNameEn": "MoPub Ads",
+      "vendor": "AppLovin (formerly Twitter)",
+      "categories": [
+        "ADS"
+      ],
+      "codePrefixes": [
+        "com.mopub."
+      ],
+      "blockHosts": [],
+      "evidence": [
+        "sdk: https://repo1.maven.org/maven2/com/mopub/mopub-sdk-base/5.18.0/ (AAR classes under com/mopub/, manifest declares com.mopub.common.MoPubBrowser and com.mopub.common.privacy.ConsentDialogActivity)",
+        "apk: real-app manifests declare com.mopub.common.AdLoadingDialogActivity and com.mopub.mobileads.S2SInterstitialActivity (device survey)"
+      ],
+      "notes": "Detection only: the SDK is retired and its ad servers are not verified, so no host is listed. Origin-based blocking still applies in protected apps."
     },
     {
       "id": "mparticle",

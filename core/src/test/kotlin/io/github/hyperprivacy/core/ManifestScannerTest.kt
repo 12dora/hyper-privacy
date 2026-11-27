@@ -1,12 +1,16 @@
 package io.github.hyperprivacy.core
 
+import io.github.hyperprivacy.core.rule.Text
+import io.github.hyperprivacy.core.tracker.CodePrefixMatcher
 import io.github.hyperprivacy.core.tracker.ManifestAnalyzer
 import io.github.hyperprivacy.core.tracker.ManifestInfo
 import io.github.hyperprivacy.core.tracker.ManifestInfo.Kind
 import io.github.hyperprivacy.core.tracker.ManifestScanner
 import io.github.hyperprivacy.core.tracker.OriginHints
+import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.core.tracker.TrackerSdk
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -116,6 +120,55 @@ class ManifestScannerTest {
         assertTrue("com.lib.pages." in hints.own && "com.squareup.picasso." !in hints.own)
         assertTrue(OriginHints.isInsideApp("$PKG.ads.", PKG, hints.appRoots))
         assertFalse(OriginHints.isInsideApp("z.w.ads.", PKG, hints.appRoots))
+    }
+
+    @Test
+    fun `components claimed by a database sdk are never suspects`() {
+        val info = ManifestInfo(
+            packageName = PKG,
+            applicationClass = "$PKG.App",
+            components = listOf(
+                ManifestInfo.Component(Kind.ACTIVITY, "$PKG.Main", launcher = true),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.google.android.gms.ads.AdActivity"),
+                ManifestInfo.Component(Kind.SERVICE, "com.google.android.gms.ads.AdService"),
+                // Inside the AdMob class-prefix namespace but matching no prefix: still claimed.
+                ManifestInfo.Component(Kind.ACTIVITY, "com.google.android.gms.ads.NewAdActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.mopub.mobileads.S2SInterstitialActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.five_corp.ad.AdActivity"),
+                // A genuinely unknown ad package stays a suspect.
+                ManifestInfo.Component(Kind.ACTIVITY, "com.unknown.vendor.ads.AdLoadingActivity"),
+            ),
+        )
+        val hints = ManifestAnalyzer.analyze(info)
+        assertTrue(hints.detected.containsAll(setOf("google-admob", "mopub", "fivead")), "${hints.detected}")
+        val suspect = OriginHints.Suspect("com.unknown.vendor.ads.", listOf("AdLoadingActivity"))
+        assertEquals(listOf(suspect), hints.suspects)
+    }
+
+    @Test
+    fun `a class prefix claims its package only when the package is specific`() {
+        val sdk = TrackerSdk(
+            "x",
+            Text("x", "x"),
+            "v",
+            listOf(TrackerCategory.ADS),
+            listOf("com.google.Shared", "org.deep.sdk.core.Entry"),
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val matcher = CodePrefixMatcher(sdk.codePrefixes.map { it to sdk.id })
+        val info = ManifestInfo(
+            packageName = PKG,
+            applicationClass = "$PKG.App",
+            components = listOf(
+                ManifestInfo.Component(Kind.ACTIVITY, "com.google.other.AdActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "org.deep.sdk.core.AdActivity"),
+            ),
+        )
+        val hints = ManifestAnalyzer.analyze(info, matcher, listOf(sdk))
+        assertEquals(setOf("x"), hints.detected)
+        assertEquals(listOf("com.google.other."), hints.suspects.map { it.prefix })
     }
 
     @Test
