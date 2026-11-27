@@ -49,7 +49,7 @@ internal class HostHeaderSink(private val sinks: SinkContext) {
         if (!IpLiterals.isIpLiteral(url.host) || connected?.getBoolean(connection) != false) return Verdict.Proceed
         val host = UrlParts.hostOfHeader(connection.getRequestProperty(HOST)) ?: return Verdict.Proceed
         if (IpLiterals.isIpLiteral(host)) return Verdict.Proceed
-        sinks.checkUrl(host, url.path) ?: return Verdict.Proceed
+        sinks.checkUrl(host, url.path, url.query) ?: return Verdict.Proceed
         return Verdict.Throw(sinks.urlFailure(url.host, url.protocol, url.port))
     }
 

@@ -208,20 +208,42 @@ internal val analyticsRules: List<Rule> = listOf(
                 "applog.snssdk.com",
                 "rtapplog.snssdk.com",
                 "rtlog.snssdk.com",
-                "log.snssdk.com",
-                "toblog-alink.ctobsnssdk.com",
                 "applog.zijieapi.com",
-                "log.zijieapi.com",
-                "log.byteoversea.com",
+                "rtlog.zijieapi.com",
                 "analytics.tiktok.com",
-                "analytics.us.tiktok.com",
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "dex: com/bytedance/applog (browser, smarthome); applog/rtapplog/rtlog/log.snssdk.com/monitor/" +
-            "collect/c/session, log_settings in browser; applog/log.zijieapi.com in health, gamecenter.sdk.service; " +
-            "globalbrowser log.byteoversea.com, analytics.tiktok.com. ichannel.snssdk.com (device registration, " +
-            "Douyin Pay) left allowed",
+        evidence = "dex: com/bytedance/applog (browser, smarthome); applog/rtapplog/rtlog.snssdk.com in browser; " +
+            "applog/rtlog.zijieapi.com/service/2/app_log/ in health, gamecenter.sdk.service; globalbrowser " +
+            "analytics.tiktok.com. Mixed hosts (log.snssdk.com, log.zijieapi.com, log.byteoversea.com, " +
+            "analytics.us.tiktok.com) are path-scoped in bytedance.applog-paths; toblog-alink.ctobsnssdk.com " +
+            "(deferred deep links) and ichannel.snssdk.com (device registration, Douyin Pay) left allowed",
+    ),
+    Rule(
+        id = "bytedance.applog-paths",
+        packages = BYTEDANCE_APPLOG_APPS,
+        title = Text("内容平台日志接口", "Content platform log paths"),
+        summary = Text("阻止统计与监控接口上报", "Block analytics and monitor paths"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("log.snssdk.com", "/service/2/app_log/"),
+                UrlPrefix("log.snssdk.com", "/service/2/log_settings/"),
+                UrlPrefix("log.snssdk.com", "/monitor/collect/"),
+                UrlPrefix("log.zijieapi.com", "/service/2/app_log/"),
+                UrlPrefix("log.zijieapi.com", "/service/2/log_settings/"),
+                UrlPrefix("log.byteoversea.com", "/service/2/app_log/"),
+                UrlPrefix("log.byteoversea.com", "/service/2/app_log_test/"),
+                UrlPrefix("analytics.us.tiktok.com", "/api/v1/app_sdk/batch"),
+                UrlPrefix("analytics.us.tiktok.com", "/api/v1/app_sdk/monitor"),
+            ),
+        ),
+        category = Category.ANALYTICS,
+        evidence = "dex: log.snssdk.com/monitor/collect/c/session, /service/2/app_log/, log_settings in browser; " +
+            "log.zijieapi.com/service/2/app_log/ in health, gamecenter.sdk.service; globalbrowser " +
+            "log.byteoversea.com/service/2/app_log_test/, analytics.us.tiktok.com (tracker database " +
+            "bytedance-applog, tiktok-business-sdk). The same hosts serve /service/2/device_register/ (ByteDance " +
+            "login and pay key on the device id) and /ddl (deferred deep links), which stay allowed",
     ),
     Rule(
         id = "baidu.mobstat",
@@ -579,17 +601,16 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止行为日志上报", "Block behavior-log uploads"),
         payload = RulePayload.Urls(
             listOf(
-                UrlPrefix("tcbox.baidu.com", "/ztbox"),
-                UrlPrefix("h2tcbox.baidu.com", "/ztbox"),
-                UrlPrefix("mbd.baidu.com", "/ztbox"),
+                UrlPrefix("tcbox.baidu.com", "/ztbox", UBC_ACTION),
+                UrlPrefix("h2tcbox.baidu.com", "/ztbox", UBC_ACTION),
+                UrlPrefix("mbd.baidu.com", "/ztbox", UBC_ACTION),
             ),
         ),
         category = Category.ANALYTICS,
         evidence = "jadx baidu.input_mi com.baidu.ubc Constants UPLOAD_URL_PATH \"/ztbox?action=zubc\", UBCHelper -> " +
-            "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325); traffic cap3 typing: mbd.baidu.com x3 " +
-            "(L321). /ztbox multiplexes other action= services and the matcher ignores query strings",
-        impact = Text("可能影响输入法部分云端功能", "May affect other IME cloud services"),
-        highRisk = true,
+            "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325; dex strings re-checked 2026-11-27); traffic " +
+            "cap3 typing: mbd.baidu.com x3 (L321). /ztbox multiplexes other action= services, so only requests " +
+            "carrying action=zubc are blocked and the other services on the path stay allowed",
     ),
     Rule(
         id = "milink.cast-report",
@@ -651,3 +672,6 @@ internal val analyticsRules: List<Rule> = listOf(
             "health cg.play-analytics.com",
     ),
 )
+
+/** Query parameter of the behavior-log upload on the multiplexed `/ztbox` endpoint. */
+private const val UBC_ACTION = "action=zubc"

@@ -3,7 +3,7 @@
 - 对象：小米 HyperOS 4（Android 17）真机，318 个系统 / 厂商预装包
 - 目标：拦截全部隐私上报通道，且不影响任何厂商服务
 - 范围：第 1–9 节是内置规则对系统 / 厂商应用的覆盖；0.4 起另有针对用户所装应用的防护，见第 10–14 节
-- 结论：规则表共 102 条，覆盖 6 类数据通道。其中 90 条默认开启，含 10 条「高风险」规则（拦截会有副作用，但泄露的数据过于敏感，所以默认阻止并写明影响）；12 条会影响安全、支付、账号、定位等功能、未经实测或属于用户主动参与的项目，标注影响并默认关闭。已知未覆盖的通道见「残余风险」。规则表经过一轮独立对抗评审，采纳与驳回的结果见第 8 节
+- 结论：规则表共 104 条，覆盖 6 类数据通道。其中 91 条默认开启，含 8 条「高风险」规则（拦截会有副作用，但泄露的数据过于敏感，所以默认阻止并写明影响）；13 条会影响安全、支付、账号、定位等功能、未经实测或属于用户主动参与的项目，标注影响并默认关闭。已知未覆盖的通道见「残余风险」。规则表经过一轮独立对抗评审，采纳与驳回的结果见第 8 节
 
 ## 1. 方法
 
@@ -27,18 +27,18 @@
 
 | 类别 | 条数 | 机制分布 |
 |---|---:|---|
-| 统计分析 ANALYTICS | 37 | 域名 18 · URL 16 · 方法 2 · 断网 1 |
+| 统计分析 ANALYTICS | 38 | 域名 18 · URL 17 · 方法 2 · 断网 1 |
 | 广告 ADS | 11 | 域名 7 · URL 3 · 断网 1 |
 | 诊断 DIAGNOSTICS | 26 | 域名 16 · URL 10 |
 | 设备标识 DEVICE_ID | 13 | 域名 4 · URL 4 · 断网 2 · 标识 2 · 方法 1 |
 | 应用列表 APP_LIST | 7 | URL 5 · 域名 1 · 方法 1 |
-| 个人数据 PERSONAL_DATA | 8 | URL 5 · 域名 3 |
+| 个人数据 PERSONAL_DATA | 9 | URL 6 · 域名 3 |
 
-上表只统计内置的系统应用规则（102 条，覆盖 120 个系统应用）。0.4 新增的第三方应用防护使用 SDK 特征库与 3 条应用级规则，另见第 10–12 节。
+上表只统计内置的系统应用规则（104 条，覆盖 120 个系统应用）。0.4 新增的第三方应用防护使用 SDK 特征库与应用级规则，另见第 10–12 节。
 
 只对自有 uid（≥ 10000 且不共享）的纯上报应用整体断网：系统分析服务（`com.miui.analytics`）、系统广告服务（`com.miui.systemAdSolution`），默认关闭的 SIM 激活服务（`com.xiaomi.simactivate.service`），以及运营商终端管理（`com.mobiletools.systemhelper`，独占 uid）。其余规则都注入目标进程，在 DNS、TLS SNI 与 HTTP 客户端层生效。
 
-默认关闭、标注影响的 12 条。拦掉它们会影响安全、支付、账号、定位等功能，或属于用户主动参与的项目（地震志愿者、问题反馈）。其中 `payment.checkout-track`、`payment-sdk.logs`、`location.uplink` 未在真机上验证，`simactivate.tee-report` 的 Passport 回退尚未证实：
+默认关闭、标注影响的 13 条。拦掉它们会影响安全、支付、账号、定位等功能，或属于用户主动参与的项目（地震志愿者、问题反馈）。其中 `payment.checkout-track`、`payment-sdk.logs`、`location.uplink` 未在真机上验证，`simactivate.tee-report` 的 Passport 回退尚未证实。账号安全与风控类通道（`sofire.domains`）与第三方应用防护的同类 SDK 一样默认关闭：
 
 | 规则 | 拦截内容 | 影响 |
 |---|---|---|
@@ -50,14 +50,15 @@
 | `weather.ads` | `wtradv.market.xiaomi.com` 整域 | 该主机同时提供生活指数详情 `/v1/index/indexDetail` 与资讯页 `/v1/page`，这些内容可能无法加载 |
 | `payment.checkout-track` | `track.ucashier.mipay.com` 收银台埋点 | 未在真实支付中验证，可能影响小米支付收银台 |
 | `payment-sdk.logs` | 第三方支付 SDK 的日志上传 `/loggw/logUpload.do` 与终端上报 `/mmpayendpointreport/` | 未在真实支付中验证，可能影响第三方支付 |
-| `location.uplink` | `itsdata.map.baidu.com/long-conn-gps/`、`aloc-gnss-eph` 热点网格、`/lbs_sdkcc/report` | 未在真机上验证，可能影响查找设备与网络定位 |
+| `location.uplink` | 查找设备与网络定位服务（`finddevice`、`metoknlp`）中的 `itsdata.map.baidu.com/long-conn-gps/`、`aloc-gnss-eph` 热点网格、`/lbs_sdkcc/report` | 未在真机上验证，可能影响查找设备与网络定位；不提供定位的应用中同样的路径由默认开启的 `location.uplink-apps` 拦截 |
+| `sofire.domains` | `sofire.baidu.com` 设备指纹（账号安全 / 风控） | 输入法内第三方账号登录的设备校验可能失败 |
 | `ct-autoreg.http` | `zzhc.vnet.cn`、`typdm.tydevice.com` 运营商自注册 | 运营商入网登记失败 |
 | `ct-autoreg.sms` | 短信发送（仅 `com.xiaomi.registration` 进程内） | 运营商入网登记失败 |
 | `simactivate.activation-receipt` | `ac.account.xiaomi.com/pass/activation/report` | 可能影响 SIM 卡激活 |
 
 ### 高风险默认阻止
 
-通讯录、短信原文、应用列表、设备指纹、短信链接这类数据一旦泄露，后果比丢失一个辅助功能严重得多。因此下面 10 条规则（规则模型中的 `highRisk`）虽然会带来副作用，仍然默认开启，副作用照常写在规则的「影响」里，不喜欢的可以逐条关闭。分类菜单的「全部开启」会一并开启它们，仍跳过上表中默认关闭的规则。
+通讯录、短信原文、应用列表、设备指纹、短信链接这类数据一旦泄露，后果比丢失一个辅助功能严重得多。因此下面 8 条规则（规则模型中的 `highRisk`）虽然会带来副作用，仍然默认开启，副作用照常写在规则的「影响」里，不喜欢的可以逐条关闭。分类菜单的「全部开启」会一并开启它们，仍跳过上表中默认关闭的规则。
 
 | 规则 | 拦截内容 | 影响 |
 |---|---|---|
@@ -68,8 +69,6 @@
 | `securitycenter.url-detect` | `url-detect.engine.mi.com/url/detect` 链接云检测上传的短信与网页链接（可能带个人令牌） | 云端链接检测不可用 |
 | `securitycenter.promo-cards` | 安全中心 `/info/layout` 运营卡片（省电建议请求会附带已安装包名） | 扫描结果页推荐卡片与省电建议不再显示 |
 | `vipaccount.usage-upload` | 社区 `/user/batchuploadappdata` 使用记录 | 依赖使用记录的成长任务无法完成 |
-| `sofire.domains` | `sofire.baidu.com` 设备指纹 | 输入法内第三方账号登录的设备校验可能失败 |
-| `baidu-ime.ubc` | `tcbox` / `h2tcbox` / `mbd.baidu.com` 的 `/ztbox` | `/ztbox` 用 `action=` 参数复用多种服务，而匹配器忽略查询串，无法只拦 `action=zubc`，同一服务的其他云端功能可能受影响 |
 | `systemhelper.firewall` | 运营商终端管理整体断网（`dm.wo.com.cn` 登记，上报 IMEI / IMSI / 基站 / Wi-Fi / 位置） | 运营商终端登记将失败 |
 | `joyose.game-list` | 游戏加速向 `adv.sec.miui.com/game/pkg`、`/game/popGames` 与国际版 `gtglobal.intl.miui.com/game/pkg` 查询新装应用包名 | 游戏加速可能识别不到新装游戏（预置与云配置中的游戏仍可识别） |
 
@@ -77,10 +76,10 @@
 
 | 数据类型 | 主要采集方（证据） | 上报通道 | 覆盖规则 | 未覆盖部分 |
 |---|---|---|---|---|
-| 设备标识（OAID / VAID / UDID、指纹） | 系统 ID 服务（安全中心）；输入法与应用内置的第三方设备指纹 SDK、推送 SDK 内置的设备识别模块、行业统一设备标识 SDK | ID 服务提供方；`snowflake.qq.com`、`sofire.baidu.com`、`ido.gepush.com`、`zxid-m.mobileservice.cn`；也随埋点附带 | `idprovider.identifiers`、`settings.identifiers`、`qimei.domains`、`sofire.domains`、`getui.collect`、`uaid.report`、`telecom-auth.report`、`misight.trial-check`、`simactivate.firewall`*、`simactivate.activation-receipt`*、`systemhelper.firewall`、`ct-autoreg.http`*、`ct-autoreg.sms`*，以及全部埋点规则 | Android ID、IMEI 哈希仍可直接读取并夹带在服务请求中（如红包助手、流量纠错） |
+| 设备标识（OAID / VAID / UDID、指纹） | 系统 ID 服务（安全中心）；输入法与应用内置的第三方设备指纹 SDK、推送 SDK 内置的设备识别模块、行业统一设备标识 SDK | ID 服务提供方；`snowflake.qq.com`、`sofire.baidu.com`、`ido.gepush.com`、`zxid-m.mobileservice.cn`；也随埋点附带 | `idprovider.identifiers`、`settings.identifiers`、`qimei.domains`、`sofire.domains`、`getui.collect`、`uaid.report`、`telecom-auth.report`、`misight.trial-check`、`simactivate.firewall`*、`simactivate.activation-receipt`*、`systemhelper.firewall`、`ct-autoreg.http`*、`ct-autoreg.sms`*，以及全部埋点规则（`sofire.domains` 默认关闭） | Android ID、IMEI 哈希仍可直接读取并夹带在服务请求中（如红包助手、流量纠错） |
 | 应用列表 / 应用活动 | OneTrack `/track/appUpload`（20+ 应用）、应用商店激活统计、服务框架激活统计、负一屏 `syncAppInfo`、MQS `appLifeUpload` / `killProcessUpload`、第三方输入法 `appinfo.gif` / `mpkg.gif` | 见左 | `onetrack.domains`、`onetrack.pubsub`、`market.app-active`、`xmsf.app-active`、`assistant.app-sync`、`mqs.domains`、`sogou-ime.pingback`、`vipaccount.usage-upload`、`securitycenter.promo-cards`、`securitycenter.cloud-scan`*、`guard.apk-collect`、`guard.app-detect`，以及按应用隐藏已安装应用（第 13 节） | 服务请求中夹带的包名，例如应用商店更新检查需要上传已安装应用版本，属于服务 |
 | 使用行为事件 | OneTrack（98 个应用）、小米分析、MiStat、小爱埋点、多家第三方统计 SDK、各应用自有埋点 | 见各规则 | 37 条 ANALYTICS 规则，外加 `onetrack.method` 在进程内拦截 `track*` 调用 | 推送长连接内的通知点击 / 到达统计与推送数据走同一条连接，无法单独拦截；桌面、相册中原生代码实现的 OneTrack 上传器可能绕过进程内钩子（见残余风险） |
-| 位置 / Wi-Fi / 基站 | 系统分析服务（AppOps 显示近一小时内读取精确位置与 Wi-Fi 扫描）、metoknlp、预装第三方定位助手、多家第三方定位 SDK | `cgicol.amap.com` 众包采集、`rttgpsreport.map.qq.com`、`itsdata.map.baidu.com` 轨迹长连接、`/statloc` 等统计 | `analytics.firewall`、`location.collection`、`location.sdk-stats`，以及默认关闭的 `location.uplink`（`itsdata.map.baidu.com/long-conn-gps/`、热点网格） | 定位查询请求本身会携带 Wi-Fi / 基站信息（网络定位的原理所在），属于服务，未拦截 |
+| 位置 / Wi-Fi / 基站 | 系统分析服务（AppOps 显示近一小时内读取精确位置与 Wi-Fi 扫描）、metoknlp、预装第三方定位助手、多家第三方定位 SDK | `cgicol.amap.com` 众包采集、`rttgpsreport.map.qq.com`、`itsdata.map.baidu.com` 轨迹长连接、`/statloc` 等统计 | `analytics.firewall`、`location.collection`、`location.sdk-stats`、`location.uplink-apps`（不提供定位的应用中的 `itsdata.map.baidu.com/long-conn-gps/`、热点网格），以及查找设备与网络定位服务中默认关闭的 `location.uplink` | 定位查询请求本身会携带 Wi-Fi / 基站信息（网络定位的原理所在），属于服务，未拦截 |
 | 通讯录 / 短信 / 通话记录 | 输入法云端通讯录词库；流量纠错短信；安全中心链接云检测上传的短信链接；短信 `mixin.xiaomi.net/report/v2/postsms` | 见左 | `sogou-ime.contacts`、`securitycenter.traffic-sms`、`securitycenter.url-detect` | `mixin` 上传短信的触发条件未能确认（待确认 3） |
 | 剪贴板 | 小爱、负一屏扩展、服务框架、AI 识屏等 9 个应用持有后台读剪贴板权限 | 未发现专门上报端点 | 无专门规则；内容若经埋点上报，由埋点规则覆盖 | 无法静态证明剪贴板内容不会夹带在服务请求中 |
 | 输入内容（输入法） | 3 款预装第三方输入法 | 输入行为统计、pingback、统计 SDK；云输入 / 语音属于服务 | `baidu-ime.stats`、`baidu.mobstat`、`baidu-ime.ubc`、`baidu.ads`、`sogou-ime.pingback`、`sogou-ime.alive`、`iflytek-ime.stats`、`ime.promo`、`carrier-auth.sdk-logs`、`gdt.domains`、`qimei.domains`、`rmonitor.domains`、`bugly.domains`、`tencent.rdelivery-report` | 云输入请求本身包含正在输入的文字，属于服务；关闭云输入只能在输入法设置中操作 |
@@ -146,7 +145,7 @@
 
 ## 7. 待确认事项
 
-1. 4 条仍默认关闭的「有风险」规则（`weather.ads`、`payment.checkout-track`、`payment-sdk.logs`、`location.uplink`）需要在真机上逐一验证：天气生活指数、小米支付与第三方支付下单、查找设备与网络定位。验证通过的可改为默认开启。另有 `sofire.domains`、`baidu-ime.ubc`、`assistant.app-sync` 按高风险策略默认开启，仍需在真机上确认实际影响范围：第三方账号登录、输入法云功能、小部件推荐。`simactivate.tee-report` 同样待验证：`tz.sec.xiaomi.com/session` 是否在 TEE 不可用时充当 Passport 回退（即拦截后小米账号登录是否受影响），验证前保持默认关闭。
+1. 4 条仍默认关闭的「有风险」规则（`weather.ads`、`payment.checkout-track`、`payment-sdk.logs`、`location.uplink`）需要在真机上逐一验证：天气生活指数、小米支付与第三方支付下单、查找设备与网络定位。验证通过的可改为默认开启。另有 `assistant.app-sync` 按高风险策略默认开启，仍需在真机上确认小部件推荐是否受影响。`sofire.domains` 已改为默认关闭（账号安全 / 风控通道）；`baidu-ime.ubc` 改为只拦带 `action=zubc` 参数的请求，`/ztbox` 上的其他服务不再受影响，按普通规则默认开启。`simactivate.tee-report` 同样待验证：`tz.sec.xiaomi.com/session` 是否在 TEE 不可用时充当 Passport 回退（即拦截后小米账号登录是否受影响），验证前保持默认关闭。
 2. 第三方定位 SDK 的 `adiu.amap.com`（设备 ID）与 `apiinit.amap.com/v3/log/init`（含鉴权初始化）未拦截。拦截后网络定位是否仍正常，需要在真机上验证。
 3. 短信 `mixin.xiaomi.net/report/v2/postsms`（携带 SIM 服务令牌上传短信）的触发条件与用途未能确认。
 4. `com.xiaomi.aireco`、`com.miui.miservice` 的 dex 中没有任何上报证据（可能是拆分包或加固），需要补充反编译。
@@ -160,7 +159,7 @@
 
 - **采纳**：1–6、8、10–12、14、15、17–21、23–26 及 16 的一部分（`miui.systemui.plugin` 加入 `onetrack.domains`、`onetrack.method`、`xiaomi-ads.domains`）。
 - **部分采纳 / 修正**：
-  - 7：删除 `tcbox` / `h2tcbox` 整域拦截与 `baidu-ime.stats` 中的 `mbd.baidu.com/ztbox`，三者的 `/ztbox` 改为单独的默认关闭规则 `baidu-ime.ubc`，因为匹配器不看查询串，无法限定 `action=zubc`。
+  - 7：删除 `tcbox` / `h2tcbox` 整域拦截与 `baidu-ime.stats` 中的 `mbd.baidu.com/ztbox`，三者的 `/ztbox` 改为单独的默认关闭规则 `baidu-ime.ubc`，因为匹配器当时不看查询串，无法限定 `action=zubc`。URL 规则此后支持按单个查询参数匹配，该规则已限定为 `action=zubc` 并默认开启。
   - 9：删除 `/game/xunYouReport`。新增 `game.toolbox.miui.com/toolbox/network/report` 的建议被驳回：反编译显示它是「专用网络加速」的 `updateActiveTime` 接口，响应被功能直接使用。
   - 14、15：评审称原规则因主机不符而漏拦，这一判断不成立。`assistant.miui.com` 与 `vip.miui.com` 按点后缀匹配，本来就覆盖 `store.assistant.miui.com` 与 `api.vip.miui.com`（流量中均已确认）。仍按建议收窄到精确主机，`assistant.app-sync` 改为默认关闭。
   - 22：采纳 `ams-howl` APM 路径，并入 `globalbrowser.diagnostics`。删除 `dispatch-api-online.vemarsdev.com` 的建议被驳回：该端点在路径扫描中有证据（浏览器 `/monitor/collect/c/performance/`），只是未出现在 evidence.md。
@@ -189,12 +188,12 @@
 
 ## 10. 第三方应用防护（0.4）
 
-前 9 节讲的是系统与厂商应用，规则是固定的。0.4 起，同一套方法延伸到用户自己安装的应用，但对象由用户逐个选择，规则由「SDK 特征库」按应用动态生成，不计入上文的 102 条。
+前 9 节讲的是系统与厂商应用，规则是固定的。0.4 起，同一套方法延伸到用户自己安装的应用，但对象由用户逐个选择，规则由「SDK 特征库」按应用动态生成，不计入上文的 104 条。
 
 | 环节 | 做法 | 说明 |
 |---|---|---|
 | 对象 | 用户在「应用」页逐个开启防护 | 厂商签名的应用（包括以数据应用形式安装的厂商应用）一律排除；无法确认身份的应用按第三方处理 |
-| 识别 | 在模块自身进程内离线读取安装包，按包名前缀识别 SDK，并结合安装包清单里声明的组件辅助判断 | 不加载、不执行目标应用的代码，不联网；按应用版本缓存，应用更新后重新识别；加固或加密的安装包可能识别不全 |
+| 识别 | 在模块自身进程内离线读取安装包，按包名前缀识别 SDK，并结合安装包清单里声明的组件辅助判断 | 不加载、不执行目标应用的代码，不联网；按应用版本缓存，应用更新后重新识别；加固或加密的安装包可能识别不全，可按应用开启「拦截全部已知追踪」（第 12 节） |
 | 特征库 | `data/trackers.json`，共 208 个 SDK | 来源为各 SDK 厂商的公开文档、公开发布的 SDK 制品与真机安装包分析，每条附来源说明；分类可重叠：广告 69、统计分析 73、广告归因 24、设备识别 23、推送 21、崩溃与性能 21、用户画像 13、位置 9 |
 | 拦截 | 对已识别的 SDK，在目标应用进程内拦截其上报主机与接口路径 | 208 个 SDK 中 153 个可拦截：132 个有已知的上报主机或路径，另有 21 个广告 SDK 没有已知主机，只能按来源拦截（第 11 节）；其余 55 个仅识别，例如推送 SDK 与上报主机尚未核实的 SDK |
 | 保留 | 推送送达、登录、地图等 SDK 正常功能所需的主机始终放行 | 每个 SDK 的保留主机在特征库中单独列出 |
@@ -209,13 +208,14 @@
 - **归因到发起方。** 应用内的网络请求和广告页面，按发起它们的代码属于哪个 SDK 来判断是否拦截，不依赖目标域名。SDK 换了域名、改了包名、以插件形式加载，只要发起方仍是它，就同样有效。
 - **不影响应用自身。** 归因只指向已识别的 SDK 代码，应用自有代码的请求不受影响；归因失败时放行，遵循「失败即放行」。
 - **疑似广告组件。** 特征库里没有、但命名与结构像广告组件的代码，会在应用详情中单独列出，默认不拦截，由用户逐个开启。
+- **同意弹窗不受影响。** 广告 SDK 自带的隐私同意（GDPR / CMP）组件在特征库中单独列为例外包，按来源拦截把它们视同应用自身的代码，同意弹窗及其请求一律放行。
 - **默认关闭的例外。** 积分墙类广告 SDK 同时承载用户可见的奖励页面，按来源拦截会让奖励无法领取，共 2 个，默认关闭。
 - **不用于设备识别类 SDK。** 设备识别类 SDK 拦截后可能需要额外验证，只能按各自的开关手动处理，不适用按来源拦截。
 - **安全关闭。** 被拦截的广告页面会被安全地关闭，避免应用因此崩溃。
 
 ## 12. 按应用的隐私增强（0.4）
 
-下列 4 条应用级规则只作用于用户开启防护的第三方应用，不作用于任何厂商应用，也不计入 102 条。每条规则都可以按应用单独开关。
+下列应用级规则只作用于用户开启防护的第三方应用，不作用于任何厂商应用，也不计入内置规则总数。每条规则都可以按应用单独开关。
 
 | 规则 | 做法 | 默认 | 说明 |
 |---|---|---|---|
@@ -223,6 +223,7 @@
 | `httpdns.protected-apps` 强制系统 DNS | 阻止应用绕过系统 DNS 去查询已知的第三方 HTTPDNS / DoH 解析服务（10 个解析域名、23 个写死地址），所有 SDK 都会回退到系统 DNS，域名规则从而看得到真实目的地 | 开启 | 系统应用中的同类规则 `httpdns.resolvers` 使用同一份名单，并排除账号、支付、安全等服务；小米推送自己的解析端点永远放行 |
 | `fingerprint.hardware` 随机化硬件指纹 | 让各应用读到的、无需权限即可读取的硬件特征互不相同：传感器的分辨率与功耗（相对变化不超过 1 %，且分辨率只会变小）、传感器版本号、存储分区标识、电池循环次数 | 关闭 | 刻意保守：传感器数据、量程、采样率、名称与类型、机型、系统版本等一律不动，不影响任何功能；需要时可按应用开启 |
 | `sensor.data` 保护传感器数据 | 降低该应用读到的传感器与电池读数精度：运动与磁场传感器加上每个应用各不相同的微小校准偏差并按固定步长取整，事件频率最高 50 Hz，直连通道不可用；气压取整到 1 hPa，环境光按 0、10、20、50…勒克斯分档；电流、电量计数、电压、温度取整。电量百分比与充电状态不变 | 关闭 | 只影响该应用自身进程，系统的自动亮度、旋转与电量显示照常；对需要高精度传感器的应用（测量、专业相机、高刷新体感游戏）可能有影响 |
+| `known-trackers.all` 拦截全部已知追踪 | 不论扫描是否识别到，对该应用套用特征库中所有默认拦截的 SDK 的上报主机与路径；只按域名与路径拦截，不按来源 | 关闭 | 适用于加固后识别不到 SDK 的应用。与常规防护的排除项相同：设备识别、推送与默认不拦截的 SDK 不在其中，各 SDK 的保留主机照常放行；已识别的 SDK 仍以各自的开关为准 |
 
 前三条规则的取证依据见 [collection-techniques.md](collection-techniques.md) 的设备标识一节；传感器数据规则所依据的公开研究写在规则说明中。
 
@@ -233,7 +234,7 @@
 | 功能 | 做法 | 例外与默认 |
 |---|---|---|
 | 隐藏标识类设置项（规则 `settings.identifiers`，设备标识类，默认开启） | 厂商把一批账号、设备标识和「待更新应用列表」类条目写进了任何应用都能读取的系统设置里（约 15 个键名或前缀）。第三方应用读取时得到「不存在」 | 系统与厂商应用照常读取；不触碰 Android 标准设置项与 Android ID，避免影响正常功能 |
-| 隐藏已安装应用（按应用，默认不隐藏任何应用） | 被选中的应用看不到其他第三方应用：无论是枚举、逐个探测还是意图查询、命令行列出 | 系统应用与厂商应用始终可见；常用的社交、分享、登录与支付类应用（一份可调整的白名单）默认仍可见，开启「严格模式」后一并隐藏；桌面、安装器等系统组件不受限 |
+| 隐藏已安装应用（按应用，默认不隐藏任何应用） | 被选中的应用看不到其他第三方应用：无论是枚举、逐个探测还是意图查询、命令行列出 | 系统应用与厂商应用始终可见；常用的社交、分享、登录、支付与地图类应用（一份可调整的白名单）默认仍可见，开启「严格模式」后一并隐藏；桌面、安装器等系统组件不受限 |
 | 模块自隐藏（默认开启） | 第三方应用无法通过包名检测到 HyperPrivacy | 默认桌面、LSPosed 管理器与被拦截的系统应用仍能看到；受保护的第三方应用同样看不到。开启时第三方安装器与更新工具也看不到本模块，需要用它们更新时可先关闭开关；切换即时生效，无需重启 |
 
 ## 14. 第三方应用防护的残余风险

@@ -3,7 +3,7 @@ package io.github.hyperprivacy.xposed
 import io.github.hyperprivacy.core.match.NetworkMatchers
 import io.github.hyperprivacy.core.net.AddressBook
 import io.github.hyperprivacy.core.rule.Rule
-import io.github.hyperprivacy.core.tracker.TrackerProtection
+import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.hyperprivacy.core.tracker.Trackers
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -20,10 +20,10 @@ internal class NetworkPolicy(
 ) {
     /**
      * Tracker-protected apps never block the hosts SDKs need for features (push, login, maps) by
-     * an SDK rule; app-level rules (HTTPDNS) are not overridden by them.
+     * an SDK rule or the known-trackers rule; other app-level rules (HTTPDNS) are not overridden.
      */
     private val keepHosts: Set<String> =
-        if (rules.any { TrackerProtection.sdkIdOf(it.id) != null }) Trackers.keepHosts else emptySet()
+        if (rules.any { TrackerRules.honorsKeepHosts(it.id) }) Trackers.keepHosts else emptySet()
 
     private val matchers = AtomicReference(build())
 
@@ -40,8 +40,12 @@ internal class NetworkPolicy(
     /** Id of the enabled DOMAIN rule blocking [host], or `null` if allowed. */
     fun blockingHost(host: String?): String? = matchers.get().findHost(host)
 
-    /** Id of the enabled DOMAIN or URL rule blocking [host] + decoded [path], or `null`. */
-    fun blockingUrl(host: String?, path: String?): String? = matchers.get().findUrl(host, path)
+    /** Id of the enabled DOMAIN or URL rule blocking [host] + decoded [path] (+ raw [query]), or `null`. */
+    fun blockingUrl(host: String?, path: String?, query: String? = null): String? =
+        matchers.get().findUrl(host, path, query)
+
+    /** Whether an enabled URL rule has a query condition; only then do sinks extract the query. */
+    val matchesQueries: Boolean get() = matchers.get().matchesQueries
 
     /** Id of the enabled DOMAIN rule blocking a connection to [address]:[port]; see [NetworkMatchers.findConnect]. */
     fun blockingConnect(address: InetAddress, port: Int, book: AddressBook): String? =
@@ -54,6 +58,6 @@ internal class NetworkPolicy(
     val hasUrlRules: Boolean get() = !matchers.get().urls.isEmpty
 
     private fun build(): NetworkMatchers = log.guard("build network matchers") {
-        NetworkMatchers.of(rules, keepHosts, { TrackerProtection.sdkIdOf(it) != null }, switches::isEnabled)
+        NetworkMatchers.of(rules, keepHosts, TrackerRules::honorsKeepHosts, switches::isEnabled)
     } ?: NetworkMatchers.EMPTY
 }

@@ -71,14 +71,21 @@ internal val LOCATION_SDK_STATS_APPS: Set<String> = setOf(
     "com.xiaomi.metoknlp",
 )
 
-/** Target packages of `location.uplink`. */
+/** Target packages of `location.uplink-apps`: apps that bundle location SDKs but provide no positioning. */
 internal val LOCATION_UPLINK_APPS: Set<String> = setOf(
     "com.miui.hybrid",
     "com.mobiletools.systemhelper",
-    "com.xiaomi.finddevice",
-    "com.xiaomi.metoknlp",
     "com.xiaomi.shop",
     "com.xiaomi.smarthome",
+)
+
+/**
+ * Target packages of `location.uplink`: the positioning and Find Device services, kept apart from
+ * [LOCATION_UPLINK_APPS] because blocking there is not live-verified.
+ */
+internal val LOCATION_SERVICE_APPS: Set<String> = setOf(
+    "com.xiaomi.finddevice",
+    "com.xiaomi.metoknlp",
 )
 
 /** Target packages of `mistat.domains`. */

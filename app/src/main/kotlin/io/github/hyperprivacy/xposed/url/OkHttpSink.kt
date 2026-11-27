@@ -69,13 +69,13 @@ internal class OkHttpSink(private val sinks: SinkContext) {
         val call = chain.thisObject ?: return Verdict.Proceed
         if (!sinks.urlChecksActive) return Verdict.Proceed
         val url = reader.read(call)
-        val parts = UrlParts.parse(url) ?: return Verdict.Proceed
+        val parts = UrlParts.parse(url, keepQuery = sinks.matchesQueries) ?: return Verdict.Proceed
         if (sinks.checkParsed(parts) != null) return Verdict.Throw(sinks.urlFailure(url))
         // HTTPDNS by hand: IP in the URL, the real name in an explicit Host header.
         if (!IpLiterals.isIpLiteral(parts.host)) return Verdict.Proceed
         val host = UrlParts.hostOfHeader(reader.readHostHeader(call)) ?: return Verdict.Proceed
         if (IpLiterals.isIpLiteral(host)) return Verdict.Proceed
-        sinks.checkParsed(UrlParts(host, parts.path)) ?: return Verdict.Proceed
+        sinks.checkParsed(parts.copy(host = host)) ?: return Verdict.Proceed
         return Verdict.Throw(sinks.urlFailure(url))
     }
 }

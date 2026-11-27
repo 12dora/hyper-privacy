@@ -65,11 +65,14 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
     /** Whether [checkUrl] can return anything or record; lets hot sinks skip reading the URL at all. */
     val urlChecksActive: Boolean get() = policy.hasUrlRules || env.switches.observe
 
-    /** Rule id blocking a request to [host] with percent-*encoded* [rawPath], or `null`. */
-    fun checkUrl(host: String?, rawPath: String?): String? {
+    /** Whether an enabled URL rule has a query condition; sinks pass the raw query only then. */
+    val matchesQueries: Boolean get() = policy.matchesQueries
+
+    /** Rule id blocking a request to [host] with percent-*encoded* [rawPath] and raw [query], or `null`. */
+    fun checkUrl(host: String?, rawPath: String?, query: String? = null): String? {
         if (!urlChecksActive) return null
         val path = rawPath?.let(UrlParts::decodePath)
-        val ruleId = policy.blockingUrl(host, path)
+        val ruleId = policy.blockingUrl(host, path, query)
         observe(host, path, ruleId)
         if (ruleId != null) env.reporter.hit(env.packageName, ruleId, "$host$path")
         return ruleId
@@ -78,13 +81,13 @@ internal class SinkContext(val env: GuardEnv, private val policy: NetworkPolicy)
     /** As [checkUrl] for a full URL string; unparsable URLs are let through. */
     fun checkUrl(url: String?): String? {
         if (!urlChecksActive) return null
-        return checkParsed(UrlParts.parse(url) ?: return null)
+        return checkParsed(UrlParts.parse(url, keepQuery = policy.matchesQueries) ?: return null)
     }
 
-    /** As [checkUrl] for an already parsed URL (decoded path). */
+    /** As [checkUrl] for an already parsed URL (decoded path, raw query if kept). */
     fun checkParsed(parts: UrlParts): String? {
         if (!urlChecksActive) return null
-        val ruleId = policy.blockingUrl(parts.host, parts.path)
+        val ruleId = policy.blockingUrl(parts.host, parts.path, parts.query)
         observe(parts.host, parts.path, ruleId)
         if (ruleId != null) env.reporter.hit(env.packageName, ruleId, parts.host + parts.path)
         return ruleId

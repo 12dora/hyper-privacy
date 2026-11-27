@@ -5,9 +5,11 @@ import io.github.hyperprivacy.core.match.NetworkMatchers
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
+import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.rule.UrlPrefix
+import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.hyperprivacy.core.tracker.Trackers
@@ -52,6 +54,39 @@ class TrackerProtectionTest {
         assertEquals(Catalog.protectedAppRules.map { it.copy(packages = setOf(pkg)) }, appRules)
         assertTrue("httpdns.protected-apps" in TrackerRules.appRuleIds)
         assertTrue("mediadrm.device-id" in TrackerRules.appRuleIds)
+    }
+
+    @Test
+    fun `known-trackers rule blocks default sdks outside the scan, domain and url only`() {
+        val id = "known-trackers.all"
+        val rule = Catalog.protectedAppRules.single { it.id == id }
+        assertEquals(RulePayload.KnownTrackers, rule.payload)
+        assertFalse(rule.defaultOn)
+        val covered = TrackerRules.knownTrackers
+        assertTrue(covered.isNotEmpty())
+        assertTrue(covered.all { it.defaultBlock && it.blockable })
+        val excluded = setOf(TrackerCategory.IDENTIFICATION, TrackerCategory.PUSH)
+        assertTrue(covered.none { sdk -> sdk.categories.any { it in excluded } })
+        // Expanded where enforced into one DOMAIN and one URL rule sharing the id, minus detected SDKs.
+        val expanded = TrackerRules.rulesFor(pkg, listOf(blocking.id)).filter { it.id == id }
+        assertEquals(setOf(RuleKind.DOMAIN, RuleKind.URL), expanded.map { it.kind }.toSet())
+        val hosts = expanded.flatMap { (it.payload as? RulePayload.Domains)?.suffixes.orEmpty() }.toSet()
+        val others = covered.filter { it.id != blocking.id }.flatMap { it.blockHosts }.toSet()
+        assertEquals(others, hosts)
+        val optOut = Trackers.all.filter { !it.defaultBlock || TrackerCategory.IDENTIFICATION in it.categories }
+            .flatMap { it.blockHosts }.toSet() - others
+        assertTrue(hosts.none { it in optOut })
+        assertTrue(TrackerRules.honorsKeepHosts(id) && !TrackerRules.honorsKeepHosts("httpdns.protected-apps"))
+        // Off by default, on per app; SDK keep hosts stay reachable.
+        val raw = mapOf<String, Any>(TrackerProtection.protectKey(pkg) to "")
+        val all = TrackerRules.rulesFor(pkg, emptyList())
+        assertEquals(false, TrackerRules.resolve(raw, pkg, all)[id])
+        val on = TrackerRules.resolve(raw + (TrackerRules.appRuleKey(pkg, id) to true), pkg, all)
+        assertEquals(true, on[id])
+        val matchers = NetworkMatchers.of(all, Trackers.keepHosts, TrackerRules::honorsKeepHosts) { on[it] == true }
+        val host = others.first()
+        assertEquals(id, matchers.findHost(host))
+        Trackers.keepHosts.forEach { keep -> assertTrue(matchers.findHost(keep) != id, keep) }
     }
 
     @Test
