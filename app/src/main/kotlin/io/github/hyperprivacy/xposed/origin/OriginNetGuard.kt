@@ -19,7 +19,6 @@ import java.net.SocketImpl
 import java.net.URL
 import java.nio.channels.SocketChannel
 import java.nio.channels.spi.SelectorProvider
-import java.util.WeakHashMap
 import javax.net.ssl.SSLSocket
 
 /**
@@ -48,12 +47,8 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
     /** One OkHttp call class: its URL reader (if resolvable) and how many entries were hooked. */
     private class CallClass(val reader: OkHttpUrlReader?, val hooked: Int)
 
-    /** Call classes whose entries are hooked; weak keys, guarded by itself (first sight of a class only). */
-    private val hookedCallClasses = WeakHashMap<Class<*>, Boolean>()
-
-    private val callClasses = object : ClassValue<CallClass>() {
-        override fun computeValue(type: Class<*>): CallClass = hookCallEntries(type)
-    }
+    /** Call classes whose entries are hooked, on first sight of a class only. */
+    private val callClasses = OkHttpCalls.CallClasses(::hookCallEntries)
 
     /** Returns the number of hooked entry points. */
     fun install(): Int = listOf(
@@ -72,8 +67,7 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         }
         if (count > 0) return count
         // Renamed call class: tag what newCall returns, and hook that class's entries on first sight.
-        val client = Reflection.loadClass(OKHTTP_CLIENT, loader) ?: return 0
-        val newCall = client.declaredMethods.filter { it.name == NEW_CALL && it.parameterCount == 1 }
+        val newCall = OkHttpCalls.newCallMethods(loader)
         newCall.forEach { method ->
             hooks.hook(method, ExceptionMode.PROTECTIVE) { chain ->
                 val rule = if (origin.active) hooks.safely("newCall") { hooks.sdkRule() } else null
@@ -89,12 +83,12 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
     }
 
     /** Hooks the execution entries of call class [type], once per class whichever thread sees it first. */
-    private fun hookCallEntries(type: Class<*>): CallClass = synchronized(hookedCallClasses) {
+    private fun hookCallEntries(type: Class<*>, first: Boolean): CallClass {
         val reader = hooks.safely("okhttp reader") { OkHttpUrlReader.resolve(type) }
-        if (hookedCallClasses.put(type, true) != null) return CallClass(reader, 0)
+        if (!first) return CallClass(reader, 0)
         val entries = OkHttpCalls.entries(type, reader)
         entries.forEach { hooks.sink(it, Sinks.ORIGIN_OKHTTP, ::failCall) }
-        CallClass(reader, entries.size)
+        return CallClass(reader, entries.size)
     }
 
     private fun failCall(chain: Chain): Verdict {
@@ -201,8 +195,6 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
     }
 
     private companion object {
-        const val OKHTTP_CLIENT = "okhttp3.OkHttpClient"
-        const val NEW_CALL = "newCall"
         const val OPEN_CONNECTION = "openConnection"
         const val CONNECT = "connect"
         const val HTTP = "http"

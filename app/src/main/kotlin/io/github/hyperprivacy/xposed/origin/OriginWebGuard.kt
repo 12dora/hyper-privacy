@@ -1,6 +1,5 @@
 package io.github.hyperprivacy.xposed.origin
 
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import dalvik.system.BaseDexClassLoader
 import io.github.hyperprivacy.xposed.Sinks
@@ -20,7 +19,8 @@ import io.github.libxposed.api.XposedInterface.ExceptionMode
  *   web view the app takes back (an app load) is the app's again, and one another SDK loads is that
  *   SDK's. So an app's own web view costs at most one stack walk in its lifetime. Every request of
  *   a web view an enabled SDK owns is answered with the neutral empty response ([WebClientHooks]),
- *   except requests to keep hosts.
+ *   except requests to keep hosts. Service-worker fetches belong to no web view, so they cannot be
+ *   attributed here; the URL sink still checks them.
  * - `BaseDexClassLoader` construction: a loader an SDK creates (a plugin) makes the classes it
  *   defines count as that SDK. Hook trampolines (in-memory dex under the module's own loaders) are
  *   skipped.
@@ -81,8 +81,8 @@ internal class OriginWebGuard(private val hooks: OriginHooks) {
     }
 
     private fun answer(chain: Chain): Verdict {
-        val rule = origin.ruleOf(chain.getArg(WebClientHooks.VIEW_INDEX)) ?: return Verdict.Proceed
-        val request = chain.getArg(WebClientHooks.REQUEST_INDEX) as? WebResourceRequest ?: return Verdict.Proceed
+        val rule = origin.ruleOf(WebClientHooks.viewOf(chain)) ?: return Verdict.Proceed
+        val request = WebClientHooks.requestOf(chain) ?: return Verdict.Proceed
         if (AdOrigin.isKept(request.url?.host)) return Verdict.Proceed
         origin.hit(rule, "webview")
         return Verdict.Return(WebClientHooks.blockedResponse(request))

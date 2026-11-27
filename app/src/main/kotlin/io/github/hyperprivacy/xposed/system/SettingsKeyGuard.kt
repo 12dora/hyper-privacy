@@ -2,10 +2,12 @@ package io.github.hyperprivacy.xposed.system
 
 import android.content.Context
 import android.os.Binder
+import android.os.Build
 import android.provider.Settings
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppIndex
 import io.github.hyperprivacy.core.system.SettingsDenyList
+import io.github.hyperprivacy.core.system.SettingsMaskList
 import io.github.hyperprivacy.core.system.SettingsObservation
 import io.github.hyperprivacy.core.system.SettingsTable
 import io.github.hyperprivacy.xposed.FailOpenHooker
@@ -29,6 +31,12 @@ import java.lang.reflect.Field
  * through it, and listings skip a setting whose `isNull()` is true. For a hidden key the original
  * runs with an empty name instead, which returns the state's own null setting: the caller sees
  * "no such key", exactly as on a device that never wrote it.
+ *
+ * [SettingsMaskList] keys (user-set device names) are never hidden: apps and services read them
+ * without a fallback. The original runs and its result, a fresh copy of the stored setting
+ * (`return new Setting(setting)` in AOSP 16 / main), gets the neutral name in its `value` and
+ * `defaultValue` fields; the stored setting is untouched. The fields are resolved once at install;
+ * when the shape differs the keys are left alone (real value) rather than hidden.
  *
  * The method runs for every Settings read on the device, under SettingsProvider's lock: the
  * common path is one hash lookup, a few prefix checks and a volatile read; caller classification
@@ -68,7 +76,7 @@ internal class SettingsKeyGuard(
             return false
         }
         val stateKey = runCatching { type.getDeclaredField(STATE_KEY).apply { isAccessible = true } }.getOrNull()
-        val hook = Hook(stateKey, readAospKeys(classLoader))
+        val hook = Hook(stateKey, readAospKeys(classLoader), masker(method.returnType, via))
         // PROTECTIVE: we only ever proceed (possibly with another argument), never throw on purpose.
         xposed.hook(method)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
@@ -99,6 +107,37 @@ internal class SettingsKeyGuard(
         return loader
     }
 
+    /** The device-name substitution for [settingClass], or `null` (logged: names stay real) when its fields differ. */
+    private fun masker(settingClass: Class<*>, via: String): Masker? {
+        val fields = runCatching {
+            MASKED_FIELDS.map { name ->
+                val field = settingClass.getDeclaredField(name)
+                field.takeIf { it.type == String::class.java }?.apply { isAccessible = true }
+            }
+        }.getOrNull()
+        if (fields == null || fields.any { it == null }) {
+            log.warn("settings: $SETTING_CLASS fields $MASKED_FIELDS not found via $via; device names not masked")
+            return null
+        }
+        val marketName = log.guard("read market name") { systemProperty(MARKET_NAME_PROPERTY) }
+        return Masker(settingClass, fields.filterNotNull(), SettingsMaskList.neutralName(marketName, Build.MODEL))
+    }
+
+    private fun systemProperty(name: String): String? {
+        val type = Reflection.loadClass(SYSTEM_PROPERTIES_CLASS, null) ?: return null
+        return type.getMethod("get", String::class.java).invoke(null, name) as? String
+    }
+
+    /** Writes [neutral] into a returned copy of a masked setting; [settingClass] excludes the null setting. */
+    private class Masker(private val settingClass: Class<*>, private val fields: List<Field>, val neutral: String) {
+        fun mask(setting: Any?): Any? {
+            // The null setting is an anonymous subclass shared by every reader: never written.
+            if (setting == null || setting.javaClass !== settingClass) return setting
+            for (field in fields) field.set(setting, neutral)
+            return setting
+        }
+    }
+
     /** SettingsProvider's static `sAll{Global,System,Secure}Settings`: every AOSP-declared key. */
     private fun readAospKeys(classLoader: ClassLoader?): Array<Set<*>?> {
         val provider = Reflection.loadClass(PROVIDER_CLASS, classLoader)
@@ -114,26 +153,44 @@ internal class SettingsKeyGuard(
     }
 
     /** One hooked `getSettingLocked`, with the reflection handles of its own class loader. */
-    private inner class Hook(private val stateKey: Field?, private val aospKeys: Array<Set<*>?>) {
+    private inner class Hook(
+        private val stateKey: Field?,
+        private val aospKeys: Array<Set<*>?>,
+        private val masker: Masker?,
+    ) {
         fun decide(chain: Chain): Verdict {
             val key = chain.getArg(0) as? String ?: return Verdict.Proceed
-            val denied = SettingsDenyList.matcher.matches(key)
+            val masked = SettingsMaskList.matches(key) && masker != null
+            val denied = masked || SettingsDenyList.matcher.matches(key)
             val switches = state.switches ?: return Verdict.Proceed
             val observe = switches.observe
             if (!denied && !observe) return Verdict.Proceed
-            // SDK-sandbox callers count as third-party; other non-application uids proceed.
-            val appId = AppIndex.callerAppId(Binder.getCallingUid())
-            if (appId < 0) return Verdict.Proceed
             val index = state.index
-            // An app id missing from the snapshot is third-party (installed since): fail closed, and rebuild.
-            if (!index.isKnown(appId) && !index.isEmpty) state.requestIndexRefresh(appId)
-            if (!index.isThirdParty(appId)) return Verdict.Proceed
+            val appId = thirdPartyCaller(index)
+            if (appId < 0) return Verdict.Proceed
             val hide = denied && switches.isEnabled(RULE_ID)
             if (observe) observe(chain.thisObject, index, appId, key, hide)
             if (!hide) return Verdict.Proceed
             state.reporter?.hit(Catalog.SYSTEM_SCOPE, RULE_ID, "${index.packageOf(appId)} reading $key")
+            if (masked) return masked(chain)
             // An empty name makes the original return this state's null setting (TextUtils.isEmpty check).
             return Verdict.ProceedWith(arrayOf(""))
+        }
+
+        /** The calling app id when it is a third-party app (SDK sandboxes included), else -1. */
+        private fun thirdPartyCaller(index: AppIndex): Int {
+            // Other non-application uids proceed.
+            val appId = AppIndex.callerAppId(Binder.getCallingUid())
+            if (appId < 0) return -1
+            // An app id missing from the snapshot is third-party (installed since): fail closed, and rebuild.
+            if (!index.isKnown(appId) && !index.isEmpty) state.requestIndexRefresh(appId)
+            return if (index.isThirdParty(appId)) appId else -1
+        }
+
+        /** The original's result with the neutral name; it is a fresh copy, the stored setting is untouched. */
+        private fun masked(chain: Chain): Verdict {
+            val masker = masker ?: return Verdict.Proceed
+            return Verdict.Return(masker.mask(chain.proceed()))
         }
 
         private fun observe(settingsState: Any?, index: AppIndex, appId: Int, key: String, hidden: Boolean) {
@@ -143,7 +200,8 @@ internal class SettingsKeyGuard(
             val pkg = index.packageOf(appId) ?: return
             val reporter = state.reporter ?: return
             val fresh = reporter.observe(pkg, SettingsObservation.host(table), SettingsObservation.path(key), hidden)
-            if (fresh != null) log.info("settings: $pkg read vendor key ${table.label}/$key (hidden: $hidden)")
+            val kind = if (aosp.contains(key)) "key" else "vendor key"
+            if (fresh != null) log.info("settings: $pkg read $kind ${table.label}/$key (hidden: $hidden)")
         }
     }
 
@@ -155,6 +213,9 @@ internal class SettingsKeyGuard(
         private const val PROVIDER_CLASS = "com.android.providers.settings.SettingsProvider"
         private const val GET_SETTING = "getSettingLocked"
         private const val STATE_KEY = "mKey"
+        private val MASKED_FIELDS = listOf("value", "defaultValue")
+        private const val SYSTEM_PROPERTIES_CLASS = "android.os.SystemProperties"
+        private const val MARKET_NAME_PROPERTY = "ro.product.marketname"
         private val AOSP_FIELDS = mapOf(
             SettingsTable.GLOBAL to "sAllGlobalSettings",
             SettingsTable.SYSTEM to "sAllSystemSettings",

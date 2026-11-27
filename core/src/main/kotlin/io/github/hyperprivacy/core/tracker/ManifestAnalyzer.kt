@@ -15,6 +15,9 @@ package io.github.hyperprivacy.core.tracker
  * @property appRoots the app's strongest roots: its package and the packages of its application
  *   class and launcher activities. No derived root (relocated or suspected) is ever taken inside
  *   one of them: only a database prefix can claim code there.
+ * @property userDns the app resolves names for the user (a browser, a VPN or DNS tool): public DoH
+ *   resolvers are the user's choice there, so only SDK HTTPDNS is blocked. Found by the module
+ *   app from the package manager, not from the manifest bytes.
  */
 public data class OriginHints(
     val detected: Set<String> = emptySet(),
@@ -22,6 +25,7 @@ public data class OriginHints(
     val own: Set<String> = emptySet(),
     val suspects: List<Suspect> = emptyList(),
     val appRoots: Set<String> = emptySet(),
+    val userDns: Boolean = false,
 ) {
     /** A suspected ad package: its root and the simple names of the components that matched. */
     public data class Suspect(val prefix: String, val components: List<String>)
@@ -30,8 +34,8 @@ public data class OriginHints(
     val isEmpty: Boolean get() = relocated.isEmpty() && suspects.isEmpty()
 
     /**
-     * Compact form for preferences: comma-separated `r:<sdkId>:<root>`, `o:<root>`, `a:<root>` and
-     * `s:<root>:<name>/<name>` tokens ([detected] is stored separately). Class names contain none
+     * Compact form for preferences: comma-separated `r:<sdkId>:<root>`, `o:<root>`, `a:<root>`,
+     * `s:<root>:<name>/<name>` and `d` ([userDns]) tokens ([detected] is stored separately). Class names contain none
      * of `, ` `:` `/`.
      */
     public fun encode(): String = buildList {
@@ -39,6 +43,7 @@ public data class OriginHints(
         own.forEach { add("$OWN$SEP$it") }
         appRoots.forEach { add("$APP$SEP$it") }
         suspects.forEach { add("$SUSPECT$SEP${it.prefix}$SEP${it.components.joinToString(NAME_SEP)}") }
+        if (userDns) add(USER_DNS)
     }.joinToString(LIST_SEP)
 
     public companion object {
@@ -51,6 +56,7 @@ public data class OriginHints(
         private const val OWN = "o"
         private const val APP = "a"
         private const val SUSPECT = "s"
+        private const val USER_DNS = "d"
         private const val SUSPECT_FIELDS = 3
 
         /** Inverse of [encode]; malformed tokens are skipped, [detected] is empty. */
@@ -60,7 +66,8 @@ public data class OriginHints(
             val own = LinkedHashSet<String>()
             val apps = LinkedHashSet<String>()
             val suspects = ArrayList<Suspect>()
-            for (token in text.split(LIST_SEP)) {
+            val tokens = text.split(LIST_SEP)
+            for (token in tokens) {
                 val fields = token.split(SEP)
                 when (fields[0]) {
                     RELOCATED -> if (fields.size == SUSPECT_FIELDS && isRoot(fields[2]) && fields[1].isNotEmpty()) {
@@ -78,7 +85,7 @@ public data class OriginHints(
                     else -> Unit
                 }
             }
-            return OriginHints(emptySet(), relocated, own, suspects, apps)
+            return OriginHints(emptySet(), relocated, own, suspects, apps, USER_DNS in tokens)
         }
 
         /** The root of a two-field `<tag>:<root>` token, if well-formed. */

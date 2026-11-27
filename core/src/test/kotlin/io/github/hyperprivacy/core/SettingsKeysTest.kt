@@ -10,6 +10,7 @@ import io.github.hyperprivacy.core.scope.PackageRules
 import io.github.hyperprivacy.core.status.ObservedEndpoint
 import io.github.hyperprivacy.core.system.SettingsDenyList
 import io.github.hyperprivacy.core.system.SettingsKeyMatcher
+import io.github.hyperprivacy.core.system.SettingsMaskList
 import io.github.hyperprivacy.core.system.SettingsObservation
 import io.github.hyperprivacy.core.system.SettingsTable
 import org.junit.jupiter.api.Test
@@ -51,8 +52,30 @@ class SettingsKeysTest {
             "com.miui.yellowpage_preferences.pref_uuid", "green_kid_device_id", "last_synced_account",
             "virtualsim_account_rule_1234567890", "antispam_sync_token", "account_msg_unread",
             "cloud_msg_account_1234", "com.xiaomi.market_need_update_app_packages_list", "miui_home_hide_app_list",
-            "notificationbar_launch_list", "agent_sign_x", "device_name", "bluetooth_name",
+            "notificationbar_launch_list", "agent_sign_x",
         ).forEach { assertTrue(deny.matches(it), it) }
+    }
+
+    @Test
+    fun `device names are masked, never hidden`() {
+        listOf("device_name", "bluetooth_name").forEach {
+            assertTrue(SettingsMaskList.matches(it), it)
+            assertFalse(deny.matches(it), "$it must stay readable (non-null) for apps")
+        }
+        listOf("device_name_x", "bluetooth_address", "android_id", "", null).forEach {
+            assertFalse(SettingsMaskList.matches(it), it.toString())
+        }
+        val denyPrefixes = SettingsDenyList.PATTERNS.map { it.removeSuffix("*") }
+        assertTrue(SettingsMaskList.KEYS.none { key -> denyPrefixes.any(key::startsWith) })
+    }
+
+    @Test
+    fun `neutral device name is the unrenamed default`() {
+        assertEquals("Xiaomi 15", SettingsMaskList.neutralName(" Xiaomi 15 ", "24129PN74C"))
+        assertEquals("24129PN74C", SettingsMaskList.neutralName("", "24129PN74C"))
+        assertEquals("24129PN74C", SettingsMaskList.neutralName(null, "24129PN74C"))
+        assertEquals("Android", SettingsMaskList.neutralName(null, " "))
+        assertEquals("Android", SettingsMaskList.neutralName(null, null))
     }
 
     @Test

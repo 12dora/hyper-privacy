@@ -52,6 +52,6 @@ internal class TrackerStore(context: Context) {
         const val FIELDS = 3
 
         /** Bumped when the cached fields change, so older entries are rescanned. */
-        const val FORMAT = "2"
+        const val FORMAT = "3"
     }
 }
