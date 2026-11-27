@@ -1,0 +1,73 @@
+package io.github.hyperprivacy.xposed.fp
+
+import android.content.Intent
+import android.os.BatteryManager
+import io.github.hyperprivacy.core.sensor.BatteryReadings
+import io.github.hyperprivacy.core.sensor.SensorBlur
+import io.github.hyperprivacy.xposed.GuardEnv
+import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.Hooker
+
+/**
+ * Battery readings of rule `sensor.data`, rounded as [BatteryReadings] describes:
+ * `BatteryManager#getIntProperty(int)` and `#getLongProperty(int)` (current now / average, charge
+ * and energy counters; every other property passes), and the voltage, temperature and hidden
+ * `charge_counter` extras of `ACTION_BATTERY_CHANGED` at the points of [BatteryIntentHooks], on a
+ * copy. Level, scale, status, health, plug type and the rest stay as delivered.
+ *
+ * Property reads are rare (each one is a binder call to the battery service, far heavier than the
+ * rounding); a battery intent is copied only when a rounded extra differs.
+ */
+internal class BatteryReadingHooks(private val env: GuardEnv, private val state: FingerprintState<SensorBlur>) {
+    /** Returns the number of methods hooked. */
+    fun install(): Int {
+        val properties = listOfNotNull(
+            env.declared(BatteryManager::class.java, "getIntProperty", Int::class.javaPrimitiveType!!),
+            env.declared(BatteryManager::class.java, "getLongProperty", Int::class.javaPrimitiveType!!),
+        )
+        return env.hookAll(properties, PropertyHook()) +
+            BatteryIntentHooks(env, state, SensorDataGuard.BATTERY_SINK, ::rounded).install()
+    }
+
+    /** A copy of [intent] with rounded readings, or `null` when rounding changes nothing. */
+    private fun rounded(intent: Intent): Intent? {
+        val voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+        val temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+        val charge = intent.getIntExtra(EXTRA_CHARGE_COUNTER, 0)
+        val newVoltage = BatteryReadings.voltage(voltage)
+        val newTemperature = BatteryReadings.temperature(temperature)
+        val newCharge = BatteryReadings.chargeCounter(charge)
+        if (newVoltage == voltage && newTemperature == temperature && newCharge == charge) return null
+        state.hit(GROUP)
+        return Intent(intent).apply {
+            if (newVoltage != voltage) putExtra(BatteryManager.EXTRA_VOLTAGE, newVoltage)
+            if (newTemperature != temperature) putExtra(BatteryManager.EXTRA_TEMPERATURE, newTemperature)
+            if (newCharge != charge) putExtra(EXTRA_CHARGE_COUNTER, newCharge)
+        }
+    }
+
+    /** After the original: the rounded value of the property named by the first argument. */
+    private inner class PropertyHook : Hooker {
+        override fun intercept(chain: Chain): Any? {
+            val real = chain.proceed()
+            if (!state.enabled) return real
+            val id = chain.getArg(0) as? Int ?: return real
+            val value = when (real) {
+                is Int -> real.toLong()
+                is Long -> real
+                else -> return real
+            }
+            val out = BatteryReadings.property(id, value)
+            if (out == value) return real
+            state.hit(GROUP)
+            return if (real is Int) out.toInt() else out
+        }
+    }
+
+    companion object {
+        val GROUP = TraitGroup("battery-readings")
+
+        /** `BatteryManager.EXTRA_CHARGE_COUNTER`, hidden from the SDK. */
+        private const val EXTRA_CHARGE_COUNTER = "charge_counter"
+    }
+}
