@@ -50,6 +50,12 @@ public object SettingsDenyList {
         "pref_mipub_random_device_id",
         "com.miui.yellowpage_preferences.pref_uuid",
         "green_kid_device_id",
+        // User-set device names: free text that often carries the owner's name. Reads fall back to
+        // the model name in apps (Settings shows it until renamed); the key is only hidden, since
+        // SettingsState#getSettingLocked can only return the null setting, not a substitute value.
+        // Global device_name is a public constant, Secure bluetooth_name its Bluetooth twin.
+        "device_name",
+        "bluetooth_name",
         // Xiaomi account id and account-derived state; virtualsim keys embed the account id in the name.
         "last_synced_account",
         "virtualsim_account_rule_*",

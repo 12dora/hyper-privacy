@@ -45,8 +45,12 @@ internal object TrackerGuards {
         log.verbose = { switches.observe }
         log.info("tracker protection for $packageName: ${detected.size} SDKs detected, ${rules.size} rules")
         val relay = relayKeys(switches, packageName)
-        val origin = { env: GuardEnv -> installOrigin(env, raw, switches) { prefs.all } }
-        AppGuards(xposed, log, packageName, classLoader, rules, switches, relay, origin).install()
+        val extra = { env: GuardEnv ->
+            installOrigin(env, raw, switches) { prefs.all }
+            env.log.guard("live stack guard") { LiveStackGuard(env).install() }
+            Unit
+        }
+        AppGuards(xposed, log, packageName, classLoader, rules, switches, relay, extra).install()
     }
 
     /** This app's relay credentials for the current module secret, derived once per secret. */
