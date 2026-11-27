@@ -8,7 +8,7 @@
 ![LSPosed API 101+](https://img.shields.io/badge/LSPosed-API%20101%2B-7E57C2)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-在设置里关掉「用户体验计划」，系统应用就停止上报了吗？并没有。HyperPrivacy 在一台 HyperOS 4 真机上把 318 个系统应用挨个排查了一遍，将能找到的统计、日志、广告、设备标识和应用列表上报通道整理成 102 条规则，帮你一键拦住。而日常离不开的应用商店、推送、云同步、查找设备、天气和系统更新，全部照常工作。
+在设置里关掉「用户体验计划」，系统应用就停止上报了吗？并没有。HyperPrivacy 在一台 HyperOS 4 真机上把 318 个系统应用挨个排查了一遍，将能找到的统计、日志、广告、设备标识和应用列表上报通道整理成 109 条规则，帮你一键拦住。而日常离不开的应用商店、推送、云同步、查找设备、天气和系统更新，全部照常工作。
 
 从 0.4 开始，它的保护范围也延伸到了你自己安装的应用：离线识别每个应用里内置的追踪 SDK，想保护哪个就开哪个，广告 SDK 还能不看域名、按来源直接拦住。
 
@@ -38,8 +38,8 @@
 
 **系统应用防护**
 
-- **102 条规则，覆盖 120 个系统应用**：按用途整理为统计分析、日志诊断、广告、设备标识、应用列表、个人数据 6 类，一目了然。
-- **默认配置足够省心**：102 条规则里 90 条默认开启，装好即用。其中通讯录、短信原文、应用列表、设备指纹、短信链接这类高风险泄露，即使拦截会带来一点副作用也默认阻止，并在规则里写明影响；另外 12 条拦了会影响安全、支付、账号、定位等功能的规则默认关闭，需要时可以手动开启。
+- **109 条规则，覆盖 121 个系统应用**：按用途整理为统计分析、日志诊断、广告、设备标识、应用列表、个人数据 6 类，一目了然。
+- **默认配置足够省心**：109 条规则里 96 条默认开启，装好即用。其中通讯录、短信原文、应用列表、设备指纹、短信链接这类高风险泄露，即使拦截会带来一点副作用也默认阻止，并在规则里写明影响；另外 13 条拦了会影响安全、支付、账号、定位等功能的规则默认关闭，需要时可以手动开启。
 - **隐藏设备标识**：第三方应用读取 OAID / VAID / AAID 时只会拿到全零结果（符合行业规范的「限制广告追踪」值），小米自家服务不受影响。
 
 **第三方应用防护（0.4 新增）**
@@ -212,7 +212,7 @@ python3 -I scripts/gen-trackers.py   # 修改 data/trackers.json 后重新生成
 
 Turning off Xiaomi's "User Experience Program" doesn't stop system apps from reporting back. **HyperPrivacy** is an LSPosed module for Xiaomi HyperOS that blocks system telemetry, ad SDKs, device-ID collection, and installed-app-list uploads, and since 0.4 it can protect the apps you install yourself, all without breaking any of the vendor services you rely on (app store, push, cloud sync, Find Device, weather, OTA).
 
-- **Grounded in real-device evidence**: 102 evidence-backed rules (90 on by default) covering 120 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
+- **Grounded in real-device evidence**: 109 evidence-backed rules (96 on by default) covering 121 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
 - **Protects the apps you install (0.4)**: an offline scan identifies embedded tracker SDKs (a signature database of 208 SDKs, 69 of them ad SDKs); per app and per SDK you choose what to block. Ad SDKs are blocked by the origin of their requests and ad pages rather than by domain, so a changed host or a renamed package does not slip through.
 - **Per-app privacy hardening**: a separate DRM device ID per app, forced system DNS, and optional per-app hardware-trait randomisation.
 - **System-level hiding**: identifier-bearing system settings and the installed-app list are hidden from third-party apps you choose, and the module hides itself from them by default. These need one reboot after installing or updating.
