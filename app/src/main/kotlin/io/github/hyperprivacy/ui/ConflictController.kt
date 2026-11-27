@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.conflict.ModuleScanner
-import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.core.conflict.OverlapHit
 import io.github.hyperprivacy.core.system.AppListConfig
 import kotlinx.coroutines.CoroutineDispatcher
@@ -81,15 +80,9 @@ internal class ConflictController(
     /** The hint to show, or `null`; [appListHidingOn] is whether this module hides apps right now. */
     fun ui(appListHidingOn: Boolean): ConflictUi? {
         val seen = dismissed()
-        val visible = hits.filter { it.packageName !in seen }.sortedWith(compareBy({ it.label }, { it.packageName }))
-        if (visible.isEmpty()) return null
-        val groups = OverlapArea.entries.mapNotNull { area ->
-            val labels = visible.filter { area in it.areas }.map { it.label }.distinct()
-            labels.takeIf { it.isNotEmpty() }?.let { ConflictGroup(area, it) }
-        }
-        if (groups.isEmpty()) return null
-        val ui = ConflictUi(groups, canDisableAppList = false)
-        return ui.copy(canDisableAppList = ui.appListOverlap && appListHidingOn)
+        val visible = hits.filter { it.packageName !in seen }
+            .map { ConflictModule(it.packageName, it.label, it.areas.toList()) }
+        return ConflictUi.of(visible, appListHidingOn)
     }
 
     /** Turns off every app-list hiding setting of this module; the result undoes it ([restoreAppListHiding]). */

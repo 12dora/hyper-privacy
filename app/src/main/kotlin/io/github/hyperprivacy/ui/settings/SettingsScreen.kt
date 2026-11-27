@@ -1,7 +1,11 @@
 package io.github.hyperprivacy.ui.settings
 
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -23,12 +27,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -72,6 +79,10 @@ internal fun SettingsScreen(
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val repository = stringResource(R.string.repository_url)
+    val context = LocalContext.current
+    val noBrowser = stringResource(R.string.settings_link_none)
+    // No network access here (the app has no INTERNET permission): the browser shows the latest release.
+    val checkUpdate = { openLink(context, "$repository/releases/latest", noBrowser) }
     // Only for the count on the endpoints row; the endpoints page keeps the list fresh.
     ObservedRefresh(polling = false, onRefresh = onRefreshObserved)
     Scaffold(
@@ -89,7 +100,7 @@ internal fun SettingsScreen(
             privacySection(state, onSelfHideChange, onOpenAllowlist)
             backupSection(state.module.canEdit, backup) { confirmReset = true }
             diagnosticsSection(state, DiagnosticsActions(onOpenHealth, onExport, onDiagnosticChange, onOpenEndpoints))
-            aboutSection(state, repository, onOpenRepository = { runCatching { uriHandler.openUri(repository) } })
+            aboutSection(state, repository, checkUpdate) { runCatching { uriHandler.openUri(repository) } }
         }
     }
     if (confirmReset) {
@@ -224,7 +235,12 @@ private fun LazyListScope.diagnosticsSection(state: UiState, actions: Diagnostic
 
 private data class AboutEntry(@StringRes val title: Int, val value: String, val onClick: (() -> Unit)? = null)
 
-private fun LazyListScope.aboutSection(state: UiState, repository: String, onOpenRepository: () -> Unit) {
+private fun LazyListScope.aboutSection(
+    state: UiState,
+    repository: String,
+    onCheckUpdate: () -> Unit,
+    onOpenRepository: () -> Unit,
+) {
     val rows = listOfNotNull(
         AboutEntry(R.string.app_name, state.versionName),
         state.framework?.let { AboutEntry(R.string.about_framework, it) },
@@ -232,7 +248,11 @@ private fun LazyListScope.aboutSection(state: UiState, repository: String, onOpe
     )
     item(key = "about-title") { SectionHeader(stringResource(R.string.settings_about)) }
     groupedItems(rows, key = { "about/${it.title}" }) { row ->
-        ValueRow(stringResource(row.title), row.value, onClick = row.onClick)
+        if (row.title == R.string.app_name) {
+            VersionRow(row.value, onCheckUpdate)
+        } else {
+            ValueRow(stringResource(row.title), row.value, onClick = row.onClick)
+        }
     }
     item(key = "about-note") {
         Text(
@@ -242,6 +262,33 @@ private fun LazyListScope.aboutSection(state: UiState, repository: String, onOpe
             modifier = Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
         )
     }
+}
+
+/** The version, with "check for updates" at its end: it opens the latest release page in the browser. */
+@Composable
+private fun VersionRow(version: String, onCheckUpdate: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = Dimens.RowMinHeight)
+            .padding(start = Dimens.Gutter, end = Dimens.Small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TitleSummary(
+            title = stringResource(R.string.app_name),
+            summary = version,
+            modifier = Modifier.weight(1f).padding(vertical = Dimens.RowVertical),
+        )
+        TextButton(onClick = onCheckUpdate) { Text(stringResource(R.string.settings_check_update)) }
+    }
+}
+
+/** Opens [url] in whatever app handles links; without one, says so instead of failing. */
+private fun openLink(context: Context, url: String, unavailable: String) {
+    val opened = runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.isSuccess
+    if (!opened) runCatching { Toast.makeText(context, unavailable, Toast.LENGTH_SHORT).show() }
 }
 
 @Composable

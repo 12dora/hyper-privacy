@@ -1,6 +1,5 @@
 package io.github.hyperprivacy.ui
 
-import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -16,9 +15,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.hyperprivacy.R
@@ -103,9 +98,7 @@ internal fun TabsPage(state: UiState, shell: Shell) {
 
 @Composable
 private fun OverviewTab(state: UiState, shell: Shell) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val actions = remember(shell, scope, context) {
+    val actions = remember(shell) {
         val model = shell.model
         OverviewActions(
             status = StatusActions(
@@ -113,7 +106,7 @@ private fun OverviewTab(state: UiState, shell: Shell) {
                 onEnableScope = model.device::request,
                 onPause = model.pause::pause,
                 onResume = model.pause::resume,
-                onDisableAppListHiding = { scope.launch { disableAppListHiding(model, shell.snackbar, context) } },
+                onOpenConflicts = { shell.nav.push(Route.Conflicts) },
                 onDismissConflict = model.conflicts::dismiss,
             ),
             onOpenSettings = { shell.nav.push(Route.Settings) },
@@ -158,16 +151,4 @@ private fun SystemTab(state: UiState, shell: Shell) {
         listState = system.scroll.list,
         barState = system.scroll.bar,
     )
-}
-
-/** Turns off app-list hiding for the overlap hint, and offers to take it back for a while. */
-private suspend fun disableAppListHiding(model: UiModel, snackbar: SnackbarHostState, context: Context) {
-    val restore = model.conflicts.disableAppListHiding() ?: return
-    snackbar.currentSnackbarData?.dismiss()
-    val result = snackbar.showSnackbar(
-        message = context.getString(R.string.conflict_applist_off),
-        actionLabel = context.getString(R.string.action_undo),
-        duration = SnackbarDuration.Long,
-    )
-    if (result == SnackbarResult.ActionPerformed) model.conflicts.restoreAppListHiding(restore)
 }
