@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.config.ProtectionPause
 import io.github.hyperprivacy.core.health.RebootReason
+import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.ui.Attention
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
@@ -82,13 +83,20 @@ private fun statusDetail(module: ModuleState, enabledCount: Int, reboot: RebootR
     ModuleState.CHECKING -> null
 }
 
+/** Callbacks of the overlap detail page. */
+internal class ConflictActions(
+    val onBack: () -> Unit,
+    val onDisableAppList: () -> Unit,
+    val onOpenRules: (Category) -> Unit,
+)
+
 /** Callbacks of the status card. */
 internal class StatusActions(
     val onOpenHealth: () -> Unit = {},
     val onEnableScope: () -> Unit = {},
     val onPause: (ProtectionPause.Option) -> Unit = {},
     val onResume: () -> Unit = {},
-    val onDisableAppListHiding: () -> Unit = {},
+    val onOpenConflicts: () -> Unit = {},
     val onDismissConflict: () -> Unit = {},
 )
 
@@ -124,7 +132,7 @@ internal fun StatusCard(state: UiState, actions: StatusActions, modifier: Modifi
                     CardRow.SCOPE -> ScopeRow(state.scope, actions.onEnableScope)
 
                     CardRow.CONFLICT -> state.conflict?.let {
-                        ConflictRow(it, actions.onDisableAppListHiding, actions.onDismissConflict)
+                        ConflictRow(it, actions.onOpenConflicts, actions.onDismissConflict)
                     }
 
                     CardRow.ATTENTION -> AttentionRow(state.attention, actions.onOpenHealth)

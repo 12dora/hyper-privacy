@@ -33,6 +33,18 @@ class ModuleOverlapTest {
     }
 
     @Test
+    fun `keywords find device identifier rewriting`() {
+        assertTrue(OverlapArea.DEVICE_ID in areas("Fake Android ID and IMEI per app"))
+        assertTrue(OverlapArea.DEVICE_ID in areas("随机设备标识"))
+        assertEquals(emptySet(), areas("Improves device idle battery life"))
+    }
+
+    @Test
+    fun `each area links to its own rule category`() {
+        assertEquals(OverlapArea.entries.size, OverlapArea.entries.map { it.category }.toSet().size)
+    }
+
+    @Test
     fun `unrelated modules and look-alike words do not match`() {
         assertEquals(emptySet(), areas("Adds a dark theme and improves the status bar clock"))
         assertEquals(emptySet(), areas("Load more downloads, heads-up tweaks, padding fixes"))

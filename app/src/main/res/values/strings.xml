@@ -234,6 +234,8 @@
     <string name="settings_reset_body">Rules, per-app options, default settings and app-list settings return to their defaults, and diagnostic mode turns off. Protected apps stay protected.</string>
     <string name="settings_reset_confirm">Restore</string>
     <string name="settings_about">About</string>
+    <string name="settings_check_update">Check for updates</string>
+    <string name="settings_link_none">No app can open this link</string>
     <string name="about_framework">Framework</string>
     <string name="about_repository">Source code</string>
     <string name="common_separator" translatable="false">" · "</string>
@@ -336,6 +338,18 @@
     <string name="conflict_area_applist">App-list hiding</string>
     <string name="conflict_area_ads">Ad blocking</string>
     <string name="conflict_area_privacy">Privacy reporting</string>
+    <string name="conflict_area_device">Device IDs</string>
+    <string name="conflict_details">Details</string>
+    <string name="conflict_detail_title">Overlapping modules</string>
+    <string name="conflict_detail_intro_body">These modules do the same work as this one. With both active, the problems below can occur. Keeping one side is enough.</string>
+    <string name="conflict_detail_empty">No overlapping modules found</string>
+    <string name="conflict_applist_body">Both hide the app list: more apps may be hidden, and they can stay hidden after this module stops hiding them.</string>
+    <string name="conflict_ads_body">Both block ads: when an app misbehaves, it is hard to tell which side blocked it.</string>
+    <string name="conflict_privacy_body">Both block privacy reporting: one request may be handled twice, which makes problems harder to trace.</string>
+    <string name="conflict_device_body">Both rewrite device IDs: apps may read inconsistent IDs, and sign-in or verification may fail.</string>
+    <string name="conflict_fix_applist_body">Suggestion: turn off this module\'s app-list hiding, or turn off the matching feature in that module.</string>
+    <string name="conflict_fix_rules_body">Suggestion: turn off the related rules in this module, or the matching feature in that module.</string>
+    <string name="conflict_open_rules">Related rules</string>
     <string name="conflict_line">%1$s: %2$s</string>
     <plurals name="conflict_names_more">
         <item quantity="one">%1$s and %2$d more</item>

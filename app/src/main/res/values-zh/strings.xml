@@ -213,6 +213,8 @@
     <string name="settings_reset_body">规则、各应用选项、默认设置和应用列表设置将恢复默认，并关闭诊断模式。已开启防护的应用保持开启。</string>
     <string name="settings_reset_confirm">恢复</string>
     <string name="settings_about">关于</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_link_none">没有可打开链接的应用</string>
     <string name="about_framework">框架</string>
     <string name="about_repository">开源仓库</string>
     <plurals name="scope_missing_apps">
@@ -309,6 +311,18 @@
     <string name="conflict_area_applist">应用列表隐藏</string>
     <string name="conflict_area_ads">广告拦截</string>
     <string name="conflict_area_privacy">隐私上报拦截</string>
+    <string name="conflict_area_device">设备标识改写</string>
+    <string name="conflict_details">查看详情</string>
+    <string name="conflict_detail_title">功能重叠的模块</string>
+    <string name="conflict_detail_intro_body">以下模块与本模块做着相同的事，两边同时生效时可能出现下列问题。保留一方即可。</string>
+    <string name="conflict_detail_empty">未发现功能重叠的模块</string>
+    <string name="conflict_applist_body">两边都隐藏应用列表：被隐藏的应用可能更多，关闭本模块的隐藏后仍可能看不到。</string>
+    <string name="conflict_ads_body">两边都拦截广告：某个应用异常时，难以判断是哪一方拦截的。</string>
+    <string name="conflict_privacy_body">两边都拦截隐私上报：同一请求可能被重复处理，问题更难定位。</string>
+    <string name="conflict_device_body">两边都改写设备标识：应用读到的标识可能前后不一致，登录或验证可能失败。</string>
+    <string name="conflict_fix_applist_body">建议：关闭本模块的应用列表隐藏，或在该模块中关闭对应功能。</string>
+    <string name="conflict_fix_rules_body">建议：在本模块中关闭相关规则，或在该模块中关闭对应功能。</string>
+    <string name="conflict_open_rules">查看相关规则</string>
     <string name="conflict_line">%1$s：%2$s</string>
     <plurals name="conflict_names_more">
         <item quantity="other">%1$s及另外 %2$d&#160;个</item>
