@@ -52,7 +52,7 @@ internal class LiveStackGuard(private val env: GuardEnv) {
         } catch (_: Throwable) {
             result // Fail open: the unfiltered trace is still a working answer.
         } finally {
-            busy.set(false)
+            busy.remove() // No per-thread entry left behind.
         }
     }
 

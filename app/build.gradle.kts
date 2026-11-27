@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.ApplicationVariant
 
 plugins {
@@ -19,6 +20,39 @@ abstract class GenerateScopeTask : JavaExec() {
             queriesManifest.get().asFile.path,
         )
         super.exec()
+    }
+}
+
+/**
+ * Fails a minified build unless R8 put the module's renamed classes into the `-repackageclasses`
+ * package: stack scrubbing (ModuleFrames) recognises module frames by that prefix alone.
+ */
+abstract class CheckModulePackageTask : DefaultTask() {
+    @get:InputFile
+    abstract val mapping: RegularFileProperty
+
+    @get:InputFile
+    abstract val rules: RegularFileProperty
+
+    @get:OutputFile
+    abstract val stamp: RegularFileProperty
+
+    @TaskAction
+    fun check() {
+        val pkg = Regex("""^-repackageclasses '([A-Za-z_][A-Za-z0-9_]*)'""", RegexOption.MULTILINE)
+            .find(rules.get().asFile.readText())?.groupValues?.get(1)
+            ?: throw GradleException("proguard-rules.pro has no -repackageclasses '<package>'")
+        val text = mapping.get().asFile.readText()
+        for (type in listOf("ModuleFrames", "LiveStackGuard\$SingleHooker")) {
+            val source = Regex.escape("io.github.hyperprivacy.xposed.$type")
+            val line = Regex("^$source -> ([^:]+):$", RegexOption.MULTILINE)
+                .find(text)?.groupValues?.get(1)
+                ?: throw GradleException("R8 mapping lacks io.github.hyperprivacy.xposed.$type")
+            if (line.substringBeforeLast('.', "") != pkg) {
+                throw GradleException("$type was mapped to $line, outside the module package $pkg")
+            }
+        }
+        stamp.get().asFile.writeText(pkg)
     }
 }
 
@@ -109,6 +143,16 @@ val generateScope = tasks.register<GenerateScopeTask>("generateXposedScope") {
 }
 
 androidComponents {
+    onVariants(selector().withBuildType("release")) { variant: ApplicationVariant ->
+        val name = variant.name.replaceFirstChar { it.uppercase() }
+        val check = tasks.register<CheckModulePackageTask>("check${name}ModulePackage") {
+            description = "Checks that R8 moved module classes into the -repackageclasses package."
+            mapping.set(variant.artifacts.get(SingleArtifact.OBFUSCATION_MAPPING_FILE))
+            rules.set(layout.projectDirectory.file("proguard-rules.pro"))
+            stamp.set(layout.buildDirectory.file("intermediates/modulePackage/${variant.name}/package.txt"))
+        }
+        tasks.matching { it.name == "assemble$name" || it.name == "bundle$name" }.configureEach { dependsOn(check) }
+    }
     onVariants { variant: ApplicationVariant ->
         variant.sources.resources?.addGeneratedSourceDirectory(generateScope, GenerateScopeTask::resourcesDir)
         variant.sources.manifests.addGeneratedManifestFile(generateScope, GenerateScopeTask::queriesManifest)
