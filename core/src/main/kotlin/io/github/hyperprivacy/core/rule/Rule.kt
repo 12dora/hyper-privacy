@@ -142,6 +142,17 @@ public sealed interface RulePayload {
         }
     }
 
+    /**
+     * The hosts and URL prefixes of every SDK in the tracker database that generic protection
+     * blocks by default (not identification, not push), for protected third-party apps whose scan
+     * found nothing, e.g. packed apps. Resolved only where the rule is enforced
+     * ([io.github.hyperprivacy.core.tracker.TrackerRules.rulesFor] turns it into DOMAIN and URL
+     * rules with the same id), so building the catalog never parses the tracker table.
+     */
+    public data object KnownTrackers : RulePayload {
+        override val kind: RuleKind get() = RuleKind.DOMAIN
+    }
+
     /** Hide identifiers served by [source] from callers that are not system apps (zeroed or absent). */
     public data class Identifiers(val source: IdentifierSource) : RulePayload {
         override val kind: RuleKind get() = RuleKind.IDENTIFIER

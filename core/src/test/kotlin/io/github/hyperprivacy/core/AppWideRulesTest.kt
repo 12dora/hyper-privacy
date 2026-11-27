@@ -89,7 +89,7 @@ class AppWideRulesTest {
         assertEquals(Catalog.protectedAppRules, protectedRules.inProcess(Catalog.PROTECTED_APPS))
         Catalog.allPackages.forEach { assertEquals(emptyList(), protectedRules.inProcess(it), it) }
         assertEquals(
-            mapOf(MEDIA_DRM to true, PROTECTED_HTTPDNS to true, HARDWARE to false),
+            mapOf(MEDIA_DRM to true, PROTECTED_HTTPDNS to true, HARDWARE to false, "known-trackers.all" to false),
             ConfigCodec.decode(emptyMap<String, Any>(), Catalog.protectedAppRules),
         )
     }
