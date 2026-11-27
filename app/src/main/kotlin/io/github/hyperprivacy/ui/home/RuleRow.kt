@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -64,14 +68,29 @@ internal fun RuleRow(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                text = summaryLine(entry),
-                style = MaterialTheme.typography.bodySmall,
-                color = attention?.tint() ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                // Copy is length-gated in CatalogCopyTest to fit one line; two lines are only a safety net.
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // A declared side effect gets a small marker, so the trade-off shows without opening the rule.
+            val impact = attention == null && rule.impact != null
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Tiny),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (impact) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(Dimens.InlineIcon),
+                    )
+                }
+                Text(
+                    text = summaryLine(entry),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = attention?.tint() ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                    // Copy is length-gated in CatalogCopyTest to fit one line; two lines are only a safety net.
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Switch(
             checked = entry.item.enabled,

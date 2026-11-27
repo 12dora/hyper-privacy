@@ -26,4 +26,5 @@ internal object Dimens {
     val Swatch = 48.dp
     val HeaderIcon = 20.dp
     val StatusIcon = 20.dp
+    val InlineIcon = 14.dp
 }
