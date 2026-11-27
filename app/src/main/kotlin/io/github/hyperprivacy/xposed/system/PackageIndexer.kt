@@ -56,10 +56,8 @@ internal class PackageIndexer(
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == ACTION_PREFERRED_ACTIVITY_CHANGED) {
-                log.guard("refresh home app") { refreshHome() }
-            } else {
-                log.guard("schedule app index") { scheduleRebuild() }
+            log.guard("package broadcast") {
+                if (intent.action == ACTION_PREFERRED_ACTIVITY_CHANGED) refreshHome() else scheduleRebuild()
             }
         }
     }

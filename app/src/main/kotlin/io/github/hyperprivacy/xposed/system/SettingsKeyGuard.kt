@@ -80,7 +80,10 @@ internal class SettingsKeyGuard(
             log.warn("settings: $STATE_CLASS#$GET_SETTING(String) not found via $via")
             return false
         }
-        val stateKey = runCatching { type.getDeclaredField(STATE_KEY).apply { isAccessible = true } }.getOrNull()
+        val stateKey = runCatching {
+            type.getDeclaredField(STATE_KEY).takeIf { it.type == Long::class.javaPrimitiveType }
+                ?.apply { isAccessible = true }
+        }.getOrNull()
         val nullSetting = runCatching {
             type.getDeclaredField(NULL_SETTING)
                 .takeIf { !Modifier.isStatic(it.modifiers) && it.type == method.returnType }
@@ -189,7 +192,10 @@ internal class SettingsKeyGuard(
         private fun masked(chain: Chain, detail: String): Verdict {
             val masker = masker ?: return Verdict.Proceed
             val settingsState = chain.thisObject
+            val absent = nullSetting?.get(settingsState)
             return Verdict.Transform { setting ->
+                // The shared "absent" answer is never copied, whatever class it is.
+                if (setting == null || setting === absent) return@Transform setting
                 masker.mask(settingsState, setting)?.also { state.reporter?.hit(Catalog.SYSTEM_SCOPE, RULE_ID, detail) }
                     ?: setting
             }

@@ -80,7 +80,6 @@ internal class RuleSwitches private constructor(
     }
 
     private fun refresh() {
-        // A failed read keeps the previous snapshot: the last good switches stay in force.
         log.guard("publish switches") { publish() }
         listeners.forEach { listener -> log.guard("switch listener") { listener() } }
     }
@@ -88,7 +87,8 @@ internal class RuleSwitches private constructor(
     /** Reads and publishes atomically; the diagnostics flag follows inside the lock, so it cannot go stale either. */
     @Synchronized
     private fun publish() {
-        val raw = log.guard("read switches") { prefs?.all }.orEmpty()
+        // No preferences: defaults. A read that fails keeps the previous snapshot (the last good switches).
+        val raw = if (prefs == null) emptyMap() else log.guard("read switches") { prefs.all } ?: return
         // The only clock read: once per preference change, never per check and never from a timer.
         // Corrupt values read as the safe defaults: not paused, diagnostics off, no secret.
         val paused = log.guard("read pause") {

@@ -249,8 +249,8 @@ internal class SensorEventHooks(private val env: GuardEnv, private val state: Fi
 
     companion object {
         val GROUP = TraitGroup("sensor-events")
-        private val INT = Int::class.javaPrimitiveType!!
-        private val LONG = Long::class.javaPrimitiveType!!
+        private val INT = java.lang.Integer.TYPE
+        private val LONG = java.lang.Long.TYPE
         private const val MANAGER = "android.hardware.SystemSensorManager"
         private const val BASE_QUEUE = "$MANAGER\$BaseEventQueue"
         private const val EVENT_QUEUE = "$MANAGER\$SensorEventQueue"
