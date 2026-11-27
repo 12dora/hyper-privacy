@@ -93,7 +93,7 @@ internal class AppScanner(
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun scan(app: UserApp): AppScan? = try {
         val dex = DexScanner.scanApks(app.apks)
-        val hints = manifestHints(app)
+        val hints = manifestHints(app, dex)
         AppScan(dex + hints.detected, hints.copy(detected = emptySet())).also {
             store.putScan(app.packageName, app.key, it)
         }
@@ -103,8 +103,9 @@ internal class AppScanner(
 
     // Same policy: a malformed manifest (any Exception) yields no manifest findings, never a crash.
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
-    private fun manifestHints(app: UserApp): OriginHints = try {
-        app.apks.firstOrNull()?.let(ManifestScanner::scan)?.let { ManifestAnalyzer.analyze(it) } ?: OriginHints.EMPTY
+    private fun manifestHints(app: UserApp, dex: Set<String>): OriginHints = try {
+        app.apks.firstOrNull()?.let(ManifestScanner::scan)?.let { ManifestAnalyzer.analyze(it, detected = dex) }
+            ?: OriginHints.EMPTY
     } catch (_: Exception) {
         OriginHints.EMPTY
     }
