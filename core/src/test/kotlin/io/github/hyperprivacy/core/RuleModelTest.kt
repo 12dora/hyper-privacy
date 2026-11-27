@@ -45,7 +45,7 @@ class RuleModelTest {
     fun `kind derives from payload`() {
         assertEquals(RuleKind.FIREWALL, rule(payload = RulePayload.Firewall).kind)
         assertEquals(RuleKind.DOMAIN, rule(payload = RulePayload.Domains(listOf("a.com"))).kind)
-        assertEquals(RuleKind.METHOD, rule(payload = RulePayload.Method("a.B", MethodPattern.parse("c"))).kind)
+        assertEquals(RuleKind.METHOD, rule(payload = RulePayload.Method("a.B", MethodPattern.parse("track"))).kind)
     }
 
     @Test

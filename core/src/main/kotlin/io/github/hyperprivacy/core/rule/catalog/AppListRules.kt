@@ -83,12 +83,15 @@ internal val appListRules: List<Rule> = listOf(
             className = "com.miui.guardprovider.action.impl.CollectPackagesAction",
             method = MethodPattern.parse("a"),
             allowNullReturn = true,
+            params = listOf("android.content.Context", "java.lang.Object"),
+            returns = "q5",
         ),
         category = Category.APP_LIST,
         evidence = "dex: push action collect_package → CollectPackagesAction.a(Context, Object) checks a " +
             "server-supplied checkUrl then PackageUploadWorker uploads the full APK + certs to a server-supplied " +
-            "uploadUrl (hosts unknown, so method-level); returning null is safe: ActionDispatcher wraps a() in " +
-            "try/catch(Exception) and reports error -3",
+            "uploadUrl (hosts unknown, so method-level); returning null is safe: the only caller, ActionDispatcher " +
+            "(l4.a), calls it through the action interface j2 inside try/catch(Exception) and reports error -3. " +
+            "Pinned to q5 a(Context, Object), the interface method; a rebuilt app with other names leaves it off",
     ),
     Rule(
         id = "guard.app-detect",
