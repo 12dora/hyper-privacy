@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.core.rule.catalog
 
 import io.github.hyperprivacy.core.rule.Category
+import io.github.hyperprivacy.core.rule.MethodPattern
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
@@ -38,6 +39,32 @@ internal val diagnosticsRules: List<Rule> = listOf(
         evidence = "dex: powerkeeper port.sec.miui.com/mqsas/fileUploadWithUrlId?bizName={aftersale,themal,test}, " +
             "preview.port.sec{,.intl}.miui.com/v2/data/mqsUpload; misightservice /mqsas/kdxFileUpload. Firmware " +
             "check /mqsas/ffu/checkUpgrade left allowed",
+    ),
+    Rule(
+        id = "misight.event-bus",
+        packages = setOf(
+            "com.miui.aod",
+            "com.miui.misightservice",
+            "com.miui.securitycenter",
+            "com.miui.thirdappassistant",
+            "com.xiaomi.gnss.polaris",
+            "com.xiaomi.joyose",
+            "com.xiaomi.misettings",
+            "com.xiaomi.trustservice",
+        ),
+        title = Text("故障事件总线", "Fault event bus"),
+        summary = Text("阻止事件交给系统诊断守护进程", "Stop events to diagnostics daemon"),
+        payload = RulePayload.Method(
+            className = "com.miui.misight.mievent.MiSight",
+            method = MethodPattern.parse("nativeSendEvent"),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "dex: Lcom/miui/misight/mievent/MiSight; private static native int nativeSendEvent(byte[]) in " +
+            "aod, misightservice, securitycenter, thirdappassistant, joyose, gnss.polaris, misettings, " +
+            "trustservice (libmievent.so; securitycore ships the lib without the Java class, so is not targeted). " +
+            "jadx MiSight.sendEvent builds \"EventId <id> -t <ts> -paraList <params>\" and discards the return " +
+            "value; native side forwards to the root misight daemon (libmisight_jni: sendEventMisight), which " +
+            "uploads fault logs. Returning 0 is benign because no caller reads it",
     ),
     Rule(
         id = "xmsf.remote-log",
@@ -355,16 +382,47 @@ internal val diagnosticsRules: List<Rule> = listOf(
     ),
     Rule(
         id = "simactivate.tee-report",
-        packages = setOf("com.xiaomi.simactivate.service"),
+        packages = setOf("com.miui.bugreport", "com.xiaomi.simactivate.service"),
         title = Text("TEE 异常上报", "TEE error reports"),
         summary = Text("阻止上报安全芯片异常", "Blocks secure chip error reports"),
         payload = RulePayload.Urls(listOf(UrlPrefix("tz.sec.xiaomi.com", "/session"))),
         category = Category.DIAGNOSTICS,
         evidence = "dex: SIM activation service POST https://tz.sec.xiaomi.com/session with OAID, deviceId and " +
             "cpuId when TEE checks fail (telemetry only); review: /session may back a Passport fallback when TEE " +
-            "is unavailable — unproven, so default off",
+            "is unavailable — unproven, so default off; jadx bugreport com.xiaomi.passport.SecurityDeviceReporter " +
+            "(bundled Passport SDK) posts the same https://tz.sec.xiaomi.com/session with fidNonce/fidNonceSign",
         defaultOn = false,
         impact = Text("可能影响小米账号登录", "Xiaomi account sign-in may fail"),
+    ),
+    Rule(
+        id = "xiaoai.speech-dump",
+        packages = setOf("com.xiaomi.aiasst.service", "com.xiaomi.aiasst.vision"),
+        title = Text("语音数据转存", "Voice data dump"),
+        summary = Text("阻止上传语音调试转存数据", "Block voice debug dump uploads"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("speech.xiaomixiaoai.com", "/speech/v2.0/dump"),
+                UrlPrefix("speech-preview.xiaomixiaoai.com", "/speech/v2.0/dump"),
+                UrlPrefix("speech-staging.xiaomixiaoai.com", "/speech/v2.0/dump"),
+                UrlPrefix("preview4test-speech.xiaomixiaoai.com", "/speech/v2.0/dump"),
+                UrlPrefix("eu-speech.ai.xiaomi.com", "/speech/v2.0/dump"),
+            ),
+        ),
+        category = Category.DIAGNOSTICS,
+        evidence = "dex: aiasst.service and aiasst.vision hold {speech,speech-preview,speech-staging," +
+            "preview4test-speech}.xiaomixiaoai.com/speech/v2.0/dump (vision also eu-speech.ai.xiaomi.com); " +
+            "live recognition uses /speech/v1.0/longaccess and /speech/v1.0/wensheng/store, left open",
+    ),
+    Rule(
+        id = "mtb.kumiho",
+        packages = setOf("com.xiaomi.mtb"),
+        title = Text("调制解调测试校验", "Modem test tool check"),
+        summary = Text("阻止测试工具连接工程服务器", "Block the test tool's engineering server"),
+        payload = RulePayload.Domains(listOf("kumiho.pt.xiaomi.com")),
+        category = Category.DIAGNOSTICS,
+        evidence = "jadx com.xiaomi.mtb.UrlPermissionCheckDefaultInit: mMiServerCheckUrlCloud https://kumiho.pt." +
+            "xiaomi.com/mtb?check, mMiServerMsgUrl …/mtb?msg; MtbBroadcastReceiverBase configures them only from " +
+            "XIAOMI_ACTION_BC_MI_SERVER_* broadcasts (engineering authentication of the Modem Test Box)",
     ),
     Rule(
         id = "guard.scan-result-report",

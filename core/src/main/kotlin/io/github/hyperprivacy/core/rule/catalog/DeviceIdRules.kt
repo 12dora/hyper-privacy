@@ -124,11 +124,17 @@ internal val deviceIdRules: List<Rule> = listOf(
         id = "misight.trial-check",
         packages = setOf("com.miui.misightservice"),
         title = Text("内测设备核验", "Beta device check"),
-        summary = Text("阻止以 OAID 查询内测资格", "Block OAID-based beta-device checks"),
-        payload = RulePayload.Urls(listOf(UrlPrefix("data.pt.xiaomi.com", "/dataplatform/api/v1/trial-records/"))),
+        summary = Text("阻止以设备标识查询内测资格", "Block beta checks by device ID"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("data.pt.xiaomi.com", "/dataplatform/api/v1/trial-records/"),
+                UrlPrefix("nptapi.mioffice.cn", "/NptApi/apk/mqs/"),
+            ),
+        ),
         category = Category.DEVICE_ID,
         evidence = "evidence.md L581 misightservice data.pt.xiaomi.com/dataplatform/api/v1/trial-records/oaid/check " +
-            "(sends OAID)",
+            "(sends OAID); jadx misightservice cloud.utils.HttpUtils.checkBetaUserBySN GET " +
+            "https://nptapi.mioffice.cn/NptApi/apk/mqs/isTrialDevice?sn=<serial>",
     ),
     Rule(
         id = "systemhelper.firewall",
