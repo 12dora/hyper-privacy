@@ -109,6 +109,7 @@ public data class OriginHints(
  */
 public object ManifestAnalyzer {
     public const val MIN_SEGMENTS: Int = 2
+    private const val MIN_NAMESPACE_SEGMENTS = 4
     public const val MAX_RELOCATED: Int = 32
     public const val MAX_SUSPECTS: Int = 16
     public const val MAX_OWN: Int = 64
@@ -118,6 +119,11 @@ public object ManifestAnalyzer {
     private class Anchor(val tail: String, val sdkId: String)
 
     private val anchors: List<Anchor> by lazy { anchorsOf(Trackers.all) }
+
+    /** A package an SDK owns through its class-name prefixes (see [namespacesOf]). */
+    private class Namespace(val root: String, val sdkId: String)
+
+    private val namespaces: List<Namespace> by lazy { namespacesOf(Trackers.all) }
 
     /**
      * Class simple-name tokens of ad pages and ad services: `Ad`/`Ads`/`AD` as a CamelCase word
@@ -137,15 +143,19 @@ public object ManifestAnalyzer {
         matcher: CodePrefixMatcher = Trackers.matcher,
         trackers: List<TrackerSdk> = Trackers.all,
     ): OriginHints {
-        val anchorList = if (trackers === Trackers.all) anchors else anchorsOf(trackers)
+        val default = trackers === Trackers.all
+        val anchorList = if (default) anchors else anchorsOf(trackers)
+        val spaces = if (default) namespaces else namespacesOf(trackers)
         val apps = appRoots(info, matcher)
         val found = Found(apps)
         for (component in info.components) {
             val name = component.className
             val known = matcher.match(name)
             val anchor = if (known == null) anchorList.firstOrNull { name.endsWith(".${it.tail}") } else null
+            val space = if (known == null && anchor == null) spaces.firstOrNull { name.startsWith(it.root) } else null
             when {
                 known != null -> found.detected += known
+                space != null -> found.detected += space.sdkId
                 anchor != null -> found.relocate(name.substring(0, name.length - anchor.tail.length), anchor.sdkId)
                 else -> found.candidates += component
             }
@@ -213,6 +223,21 @@ public object ManifestAnalyzer {
         segments(root) >= MIN_SEGMENTS && own.none { it.startsWith(root) } && apps.none { root.startsWith(it) }
 
     private fun segments(root: String): Int = root.count { it == '.' }
+
+    /**
+     * The packages SDKs own through class-name prefixes: a prefix without a trailing dot
+     * (`com.google.android.gms.ads.AdView`) names a class, so its package (`com.google.android.gms.ads.`)
+     * is the SDK's namespace. A component of that package no prefix matches (the SDK's own
+     * `AdActivity`) still belongs to the SDK, never to the suspects. Packages with fewer than
+     * [MIN_NAMESPACE_SEGMENTS] segments are ignored (never `com.google.android.gms.`), and the
+     * longest root wins; a sibling SDK's longer prefix (`...ads.identifier.`) matches first anyway.
+     */
+    private fun namespacesOf(trackers: List<TrackerSdk>): List<Namespace> = trackers.flatMap { sdk ->
+        sdk.codePrefixes.filterNot { it.endsWith('.') }.mapNotNull { prefix ->
+            val root = prefix.substringBeforeLast('.', "").let { if (it.isEmpty()) it else "$it." }
+            root.takeIf { segments(it) >= MIN_NAMESPACE_SEGMENTS }?.let { Namespace(it, sdk.id) }
+        }
+    }.distinctBy { it.root }.sortedByDescending { it.root.length }
 
     private fun anchorsOf(trackers: List<TrackerSdk>): List<Anchor> = trackers.flatMap { sdk ->
         sdk.anchors.mapNotNull { anchor ->
