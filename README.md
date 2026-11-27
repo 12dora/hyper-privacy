@@ -231,10 +231,11 @@ Keywords: HyperOS privacy, MIUI telemetry blocker, Xiaomi ad blocker, OneTrack, 
     <td align="center"><img src="docs/images/contributors/opus.svg" width="72" height="72" alt="Opus 5.5"><br><b>Opus 5.5</b></td>
     <td align="center"><img src="docs/images/contributors/gemini.svg" width="72" height="72" alt="Gemini 4 Neon"><br><b>Gemini 4 Neon</b></td>
     <td align="center"><img src="docs/images/contributors/grok.svg" width="72" height="72" alt="Grok 4.6"><br><b>Grok 4.6</b></td>
+    <td align="center"><img src="docs/images/contributors/mythos.svg" width="72" height="72" alt="Mythos 5.2"><br><b>Mythos 5.2</b></td>
   </tr>
 </table>
 
-<sub>头像图标来自 LobeHub Icons（MIT），商标归各自所有者。</sub>
+Mythos 5.2 参与了红蓝对抗演练：以攻击方的视角模拟普通应用尝试绕过防护，帮助我们发现并补上薄弱环节。
 
 ## 许可证
 
