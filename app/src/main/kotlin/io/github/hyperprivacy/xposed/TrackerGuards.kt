@@ -47,7 +47,7 @@ internal object TrackerGuards {
         log.info("tracker protection for $packageName: ${detected.size} SDKs detected, ${rules.size} rules")
         val relay = relayKeys(switches, packageName)
         val extra = { env: GuardEnv ->
-            installOrigin(env, raw, switches) { prefs.all }
+            env.log.guard("origin protection") { installOrigin(env, raw, switches) { prefs.all } }
             env.log.guard("live stack guard") { LiveStackGuard(env).install() }
             Unit
         }
@@ -73,8 +73,11 @@ internal object TrackerGuards {
         origin.refresh(raw)
         switches.addListener { origin.refresh() }
         val hooks = OriginHooks(env, origin)
-        val count = OriginNetGuard(hooks).install() + OriginWebGuard(hooks).install() +
-            AdPageGuard(env, origin).install()
+        val count = listOf(
+            "network" to { OriginNetGuard(hooks).install() },
+            "web" to { OriginWebGuard(hooks).install() },
+            "ad pages" to { AdPageGuard(env, origin).install() },
+        ).sumOf { (name, install) -> env.log.guard("origin $name") { install() } ?: 0 }
         env.log.info("origin protection for ${env.packageName}: $count entry points, active=${origin.active}")
     }
 }

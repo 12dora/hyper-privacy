@@ -123,8 +123,12 @@ internal class WebClientHooks private constructor(
     }
 
     private fun dispatch(chain: Chain): Any? {
-        val request = chain.getArg(surface.requestIndex)
-        if (request != null && deciding.get() === request) return chain.proceed()
+        val request = try {
+            chain.getArg(surface.requestIndex).takeUnless { it != null && deciding.get() === it }
+        } catch (_: Throwable) {
+            // Unreadable arguments: nothing to decide on.
+            null
+        } ?: return chain.proceed()
         for (entry in entries) {
             when (val verdict = decide(entry, chain)) {
                 Verdict.Proceed -> Unit
@@ -168,10 +172,16 @@ internal class WebClientHooks private constructor(
         Verdict.Proceed
     }
 
-    /** The concrete `shouldInterceptRequest` of this surface declared by [cls], if any. */
+    /**
+     * The concrete `shouldInterceptRequest` of this surface declared by [cls], if any. Its declared
+     * return type must hold the plain [WebResourceResponse] an entry returns: a covariant override
+     * (`MyResponse shouldInterceptRequest(…)`) is left alone, as substituting would be a
+     * `ClassCastException` in the app.
+     */
     private fun interceptMethod(cls: Class<*>): Method? = cls.declaredMethods.firstOrNull {
         it.name == SHOULD_INTERCEPT_REQUEST && !Modifier.isAbstract(it.modifiers) && !it.isBridge &&
-            it.parameterTypes.contentEquals(surface.parameterTypes)
+            it.parameterTypes.contentEquals(surface.parameterTypes) &&
+            it.returnType.isAssignableFrom(WebResourceResponse::class.java)
     }
 
     companion object {

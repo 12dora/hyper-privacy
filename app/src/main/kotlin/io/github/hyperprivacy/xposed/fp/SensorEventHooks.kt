@@ -99,9 +99,9 @@ internal class SensorEventHooks(private val env: GuardEnv, private val state: Fi
 
     private inner class DispatchHook(private val streams: Streams) : Hooker {
         override fun intercept(chain: Chain): Any? {
-            if (!state.enabled) return chain.proceed()
-            val deliver = if (SinkStats.enabled) measured(chain) else deliver(chain)
-            return if (deliver) chain.proceed() else null
+            val deliver = state.safely { !state.enabled || if (SinkStats.enabled) measured(chain) else deliver(chain) }
+            // void: returning null without proceeding drops the event.
+            return if (deliver != false) chain.proceed() else null
         }
 
         private fun measured(chain: Chain): Boolean {
@@ -129,38 +129,46 @@ internal class SensorEventHooks(private val env: GuardEnv, private val state: Fi
     /** `dispatchAdditionalInfoEvent`: not delivered for a changed kind. */
     private inner class InfoHook(private val streams: Streams) : Hooker {
         override fun intercept(chain: Chain): Any? {
-            if (!state.enabled) return chain.proceed()
-            val queue = chain.thisObject ?: return chain.proceed()
-            val handle = chain.getArg(0) as? Int ?: return chain.proceed()
+            val drop = state.safely { drops(chain) } == true
+            return if (drop) null else chain.proceed()
+        }
+
+        private fun drops(chain: Chain): Boolean {
+            if (!state.enabled) return false
+            val queue = chain.thisObject ?: return false
+            val handle = chain.getArg(0) as? Int ?: return false
             val kind = streams.find(queue, handle)?.kind ?: SensorKind.NONE
-            if (kind == SensorKind.NONE) return chain.proceed()
+            if (kind == SensorKind.NONE) return false
             state.hit(GROUP)
-            return null
+            return true
         }
     }
 
     /** `addSensorEvent(Sensor)`: a fresh stream for the sensor just added to this queue. */
-    private class AddHook(private val streams: Streams) : Hooker {
+    private inner class AddHook(private val streams: Streams) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val result = chain.proceed()
-            val queue = chain.thisObject
-            val sensor = chain.getArg(0) as? Sensor
-            if (queue != null && sensor != null) streams.register(queue, sensor)
+            state.safely {
+                val queue = chain.thisObject
+                val sensor = chain.getArg(0) as? Sensor
+                if (queue != null && sensor != null) streams.register(queue, sensor)
+            }
             return result
         }
     }
 
     /** `SensorDirectChannel#configure(Sensor, int)`: starting a changed kind fails with 0. */
     private inner class DirectConfigureHook : Hooker {
-        override fun intercept(chain: Chain): Any? {
-            if (!state.enabled) return chain.proceed()
-            val sensor = chain.getArg(0) as? Sensor ?: return chain.proceed()
-            val rate = chain.getArg(1) as? Int ?: return chain.proceed()
-            if (rate == SensorDirectChannel.RATE_STOP || SensorKind.of(sensor.type) == SensorKind.NONE) {
-                return chain.proceed()
-            }
+        // int configure(Sensor, int): 0 is its own "not supported" answer.
+        override fun intercept(chain: Chain): Any? = if (state.safely { refuses(chain) } == true) 0 else chain.proceed()
+
+        private fun refuses(chain: Chain): Boolean {
+            if (!state.enabled) return false
+            val sensor = chain.getArg(0) as? Sensor ?: return false
+            val rate = chain.getArg(1) as? Int ?: return false
+            if (rate == SensorDirectChannel.RATE_STOP || SensorKind.of(sensor.type) == SensorKind.NONE) return false
             state.hit(GROUP)
-            return 0
+            return true
         }
     }
 
@@ -168,9 +176,11 @@ internal class SensorEventHooks(private val env: GuardEnv, private val state: Fi
     private inner class DirectCapabilityHook(private val unsupported: Any) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val real = chain.proceed()
-            if (!state.enabled || real == unsupported) return real
-            val sensor = chain.thisObject as? Sensor ?: return real
-            return if (SensorKind.of(sensor.type) == SensorKind.NONE) real else unsupported
+            val hide = state.safely {
+                state.enabled && real != unsupported &&
+                    (chain.thisObject as? Sensor)?.let { SensorKind.of(it.type) != SensorKind.NONE } == true
+            }
+            return if (hide == true) unsupported else real
         }
     }
 

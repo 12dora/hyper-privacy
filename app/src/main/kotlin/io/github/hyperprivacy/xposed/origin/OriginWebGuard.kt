@@ -6,7 +6,6 @@ import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.hyperprivacy.xposed.url.WebClientHooks
 import io.github.libxposed.api.XposedInterface.Chain
-import io.github.libxposed.api.XposedInterface.ExceptionMode
 
 /**
  * Web view and class loader creation points of [AdOrigin]:
@@ -46,7 +45,7 @@ internal class OriginWebGuard(private val hooks: OriginHooks) {
         if (count == 0) return 0
         WebView::class.java.declaredMethods.filter { it.name in LOAD_METHODS }.forEach { method ->
             val urlLoad = method.name in URL_LOADS
-            hooks.hook(method, ExceptionMode.PROTECTIVE) { chain ->
+            hooks.hook(method) { chain ->
                 if (origin.active) hooks.safely("webview load") { onLoad(chain, urlLoad) }
                 chain.proceed()
             }

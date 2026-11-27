@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.io.FileDescriptor
+import java.io.IOException
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -32,6 +33,7 @@ import java.net.SocketAddress
  * volatile read; otherwise one hash probe per connect.
  */
 internal class ConnectGuard(private val sinks: SinkContext) {
+    @Volatile
     private var refusal: ConnectRefusal? = null
 
     /** Returns whether at least one entry point was hooked. */
@@ -116,8 +118,10 @@ internal class ConnectGuard(private val sinks: SinkContext) {
         Class.forName(NIO_NET).declaredMethods.filter { method ->
             val types = method.parameterTypes
             val address = types.indexOf(InetAddress::class.java)
+            // The refusal is a checked IOException: only where the method declares it may it be thrown.
             method.name == CONNECT && Modifier.isStatic(method.modifiers) && !Modifier.isNative(method.modifiers) &&
-                address >= 0 && types.getOrNull(address + 1) == Int::class.javaPrimitiveType
+                address >= 0 && types.getOrNull(address + 1) == Int::class.javaPrimitiveType &&
+                method.exceptionTypes.any { it.isAssignableFrom(IOException::class.java) }
         }.maxByOrNull { it.parameterCount }
     } catch (_: ReflectiveOperationException) {
         null

@@ -4,6 +4,7 @@ import android.os.StrictMode
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
+import android.system.StructTimeval
 import io.github.hyperprivacy.core.net.PlausibleErrors
 import io.github.libxposed.api.XposedInterface
 import java.io.FileDescriptor
@@ -14,6 +15,7 @@ import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * libcore's refused connect as this device would produce it, for [ConnectGuard]:
@@ -27,13 +29,31 @@ import java.util.concurrent.ThreadLocalRandom
  *   invoker) fail against a closed loopback port. Nothing leaves the device. When the harvest is
  *   impossible (no `IoBridge`, no INTERNET permission, an unexpected result) the scrubber falls
  *   back to one synthesized frame.
+ * - **Bounded**: the probe socket carries a send timeout of [HARVEST_TIMEOUT_MS] (which also
+ *   bounds a blocking `connect`), so a loopback port that drops instead of refusing costs at most
+ *   that once, and yields no template. Exactly one thread harvests per mode, without a lock: the
+ *   others (and any later call if the harvest failed) take the synthesized frame instead of waiting.
  *
  * Both probes run under a lax StrictMode thread policy, so they never raise a network-on-main-
  * thread violation of their own; every failure degrades the error's fidelity, never the block.
  */
 internal class ConnectRefusal(private val xposed: XposedInterface, private val bridgeConnect: Method?) {
-    private val timedFrames: TopFrames? by lazy { harvest(timed = true) }
-    private val blockingFrames: TopFrames? by lazy { harvest(timed = false) }
+    private val timedFrames = Harvest(timed = true)
+    private val blockingFrames = Harvest(timed = false)
+
+    /** One mode's template: claimed by the first caller, read lock-free by everyone. */
+    private inner class Harvest(private val timed: Boolean) {
+        private val claimed = AtomicBoolean()
+
+        @Volatile
+        private var frames: TopFrames? = null
+
+        fun get(): TopFrames? {
+            frames?.let { return it }
+            if (claimed.get() || !claimed.compareAndSet(false, true)) return null
+            return harvest(timed).also { frames = it }
+        }
+    }
 
     /** The refusal of a connect of [fd] (when known) to [address]:[port] with [timeoutMs]. */
     fun verdict(fd: FileDescriptor?, address: InetAddress, port: Int, timeoutMs: Int): Verdict.Throw {
@@ -41,8 +61,8 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         val error = NetErrors.connectRefused(address, port, timeoutMs, local?.first, local?.second ?: 0)
         val top = when {
             bridgeConnect == null -> null
-            timeoutMs > 0 -> timedFrames
-            else -> blockingFrames
+            timeoutMs > 0 -> timedFrames.get()
+            else -> blockingFrames.get()
         }
         return Verdict.Throw(error, top)
     }
@@ -88,6 +108,8 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         val method = bridgeConnect ?: return@withLaxThreadPolicy null
         val fd = Os.socket(OsConstants.AF_INET6, OsConstants.SOCK_STREAM, 0)
         try {
+            // Bounds the blocking (timeout 0) connect too: Linux applies SO_SNDTIMEO to connect().
+            Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_SNDTIMEO, PROBE_TIMEOUT)
             val invoker = xposed.getInvoker(method).setType(XposedInterface.Invoker.Type.ORIGIN)
             invoker.invoke(
                 null,
@@ -125,7 +147,8 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.LAX)
         return try {
             block()
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
+            // Fidelity only: the block itself never depends on the probe.
             null
         } finally {
             StrictMode.setThreadPolicy(saved)
@@ -142,5 +165,6 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         const val PROBE_PORT = 9
         const val HARVEST_TIMEOUT_MS = 250
         val LOOPBACK = byteArrayOf(127, 0, 0, 1)
+        val PROBE_TIMEOUT: StructTimeval = StructTimeval.fromMillis(HARVEST_TIMEOUT_MS.toLong())
     }
 }

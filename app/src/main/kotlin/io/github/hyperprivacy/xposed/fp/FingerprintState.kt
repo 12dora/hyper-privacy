@@ -48,6 +48,22 @@ internal class FingerprintState<T : Any>(
     private var cached: Cached<T>? = null
 
     private val warnedNoSecret = AtomicBoolean()
+    private val failures = AtomicInteger()
+
+    /**
+     * Runs [block], the hook's own logic; any failure is logged (bounded) and yields `null`, which
+     * every hook of this rule reads as "leave the call as it is". Free on the hot path.
+     */
+    inline fun <R> safely(block: () -> R): R? = try {
+        block()
+    } catch (t: Throwable) {
+        failed(t)
+        null
+    }
+
+    fun failed(error: Throwable) {
+        if (failures.incrementAndGet() <= MAX_LOGGED_FAILURES) env.log.error("$ruleId hook failed", error)
+    }
 
     /**
      * Re-reads the switch and drops constants derived from a secret that has since changed.
@@ -141,12 +157,13 @@ internal fun GuardEnv.reportSink(sink: String, install: () -> Int): Int {
 }
 
 private const val ARMED = 1
+private const val MAX_LOGGED_FAILURES = 5
 
 /**
  * After the original ran: [body] maps its result to a replacement, or returns `null` to keep it.
- * Installed with [ExceptionMode.PROTECTIVE], so a failure in [body] returns the real result, while
- * the original's own exceptions still reach the caller. In diagnostics mode the cost of [body] is
- * recorded under [sink] (one volatile read otherwise).
+ * A failure in [body] returns the real result ([FingerprintState.safely]; [ExceptionMode.PROTECTIVE]
+ * as a second line), while the original's own exceptions still reach the caller. In diagnostics
+ * mode the cost of [body] is recorded under [sink] (one volatile read otherwise).
  */
 internal class ResultHook(private val state: FingerprintState<*>, sink: String, private val body: (Any?) -> Any?) :
     Hooker {
@@ -154,11 +171,15 @@ internal class ResultHook(private val state: FingerprintState<*>, sink: String, 
 
     override fun intercept(chain: Chain): Any? {
         val real = chain.proceed()
-        if (!state.enabled) return real
-        if (!SinkStats.enabled) return body(real) ?: real
+        return state.safely { replacement(real) } ?: real
+    }
+
+    private fun replacement(real: Any?): Any? {
+        if (!state.enabled) return null
+        if (!SinkStats.enabled) return body(real)
         val start = System.nanoTime()
         try {
-            return body(real) ?: real
+            return body(real)
         } finally {
             cell.record(System.nanoTime() - start)
         }
@@ -175,12 +196,17 @@ internal class ArgumentHook(private val state: FingerprintState<*>, sink: String
     private val cell = SinkStats.cell(sink)
 
     override fun intercept(chain: Chain): Any? {
-        if (!state.enabled) return chain.proceed()
-        val replacement = if (SinkStats.enabled) measured(chain) else body(chain.getArg(0))
-        if (replacement == null) return chain.proceed()
+        val args = state.safely { replacedArgs(chain) } ?: return chain.proceed()
+        return chain.proceed(args)
+    }
+
+    /** The arguments with the first one replaced, or `null` to proceed unchanged. */
+    private fun replacedArgs(chain: Chain): Array<Any?>? {
+        if (!state.enabled) return null
+        val replacement = (if (SinkStats.enabled) measured(chain) else body(chain.getArg(0))) ?: return null
         val args = chain.args.toTypedArray()
         args[0] = replacement
-        return chain.proceed(args)
+        return args
     }
 
     private fun measured(chain: Chain): Any? {

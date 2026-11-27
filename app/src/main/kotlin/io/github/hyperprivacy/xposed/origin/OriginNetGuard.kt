@@ -8,7 +8,6 @@ import io.github.hyperprivacy.xposed.Verdict
 import io.github.hyperprivacy.xposed.url.OkHttpCalls
 import io.github.hyperprivacy.xposed.url.OkHttpUrlReader
 import io.github.libxposed.api.XposedInterface.Chain
-import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.net.InetSocketAddress
@@ -69,11 +68,11 @@ internal class OriginNetGuard(private val hooks: OriginHooks) {
         // Renamed call class: tag what newCall returns, and hook that class's entries on first sight.
         val newCall = OkHttpCalls.newCallMethods(loader)
         newCall.forEach { method ->
-            hooks.hook(method, ExceptionMode.PROTECTIVE) { chain ->
+            hooks.hook(method) { chain ->
                 val rule = if (origin.active) hooks.safely("newCall") { hooks.sdkRule() } else null
                 val call = chain.proceed()
                 if (call != null && rule != null) {
-                    origin.tag(call, rule)
+                    hooks.safely("call tag") { origin.tag(call, rule) }
                     hooks.safely("call class") { callClasses.get(call.javaClass) }
                 }
                 call

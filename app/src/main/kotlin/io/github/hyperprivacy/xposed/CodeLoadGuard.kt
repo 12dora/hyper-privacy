@@ -3,6 +3,7 @@ package io.github.hyperprivacy.xposed
 import dalvik.system.BaseDexClassLoader
 import io.github.hyperprivacy.core.status.CodeLoads
 import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.io.File
 import java.lang.reflect.Executable
 import java.lang.reflect.Modifier
@@ -52,16 +53,16 @@ internal class CodeLoadGuard(private val env: GuardEnv) {
     }
 
     private fun hookAfter(executable: Executable, record: (Chain) -> Unit) {
-        env.xposed.hook(executable).intercept { chain ->
-            val result = chain.proceed()
-            if (env.switches.observe) {
+        env.log.guard("code-load hook ${executable.name}") {
+            env.xposed.hook(executable).setExceptionMode(ExceptionMode.PROTECTIVE).intercept { chain ->
+                val result = chain.proceed()
                 try {
-                    record(chain)
+                    if (env.switches.observe) record(chain)
                 } catch (_: Throwable) {
                     // Diagnostics are best effort and must never affect the load.
                 }
+                result
             }
-            result
         }
     }
 

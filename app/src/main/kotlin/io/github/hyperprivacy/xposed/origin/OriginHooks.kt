@@ -39,7 +39,7 @@ internal class OriginHooks(val env: GuardEnv, val origin: AdOrigin) {
     fun creation(executables: Collection<Executable>, name: String, decide: (Chain) -> Unit): Int {
         val building = ThreadLocal.withInitial { Building() }
         executables.forEach { executable ->
-            hook(executable, ExceptionMode.PROTECTIVE) { chain ->
+            hook(executable) { chain ->
                 if (!origin.active) return@hook chain.proceed()
                 val target = chain.thisObject
                 val state = building.get() ?: return@hook chain.proceed()
@@ -57,15 +57,27 @@ internal class OriginHooks(val env: GuardEnv, val origin: AdOrigin) {
         return executables.size
     }
 
-    /** An execution sink named [sink] (one of `Sinks.ORIGIN_*`): may fail the call with a [Verdict.Throw]. */
+    /**
+     * An execution sink named [sink] (one of `Sinks.ORIGIN_*`): may fail the call with a
+     * [Verdict.Throw], so the deliberate exception must pass ([ExceptionMode.PASSTHROUGH]);
+     * [FailOpenHooker] keeps every other failure of [decide] from reaching the app.
+     */
     fun sink(executable: Executable, sink: String, decide: (Chain) -> Verdict) {
         env.xposed.hook(executable)
             .setExceptionMode(ExceptionMode.PASSTHROUGH)
             .intercept(FailOpenHooker(log, sink, decide))
     }
 
-    fun hook(executable: Executable, mode: ExceptionMode, hooker: Hooker) {
-        env.xposed.hook(executable).setExceptionMode(mode).intercept(hooker)
+    /** A sink that only proceeds, returns or rewrites arguments (never [Verdict.Throw]): fully protective. */
+    fun rewriteSink(executable: Executable, sink: String, decide: (Chain) -> Verdict) {
+        env.xposed.hook(executable)
+            .setExceptionMode(ExceptionMode.PROTECTIVE)
+            .intercept(FailOpenHooker(log, sink, decide))
+    }
+
+    /** Hooks [executable] with [hooker], which must guard its own logic (see [safely]). */
+    fun hook(executable: Executable, hooker: Hooker) {
+        env.xposed.hook(executable).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(hooker)
     }
 
     /** Tags the object under construction when an enabled ad SDK's code is creating it. */

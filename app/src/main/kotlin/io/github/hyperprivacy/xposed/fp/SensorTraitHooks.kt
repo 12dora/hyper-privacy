@@ -35,12 +35,17 @@ internal class SensorTraitHooks(private val env: GuardEnv, private val state: Fi
 
     private fun installToString(): Int {
         val method = env.declared(Sensor::class.java, "toString") ?: return 0
-        val fields = listOf(VERSION_FIELD, RESOLUTION_FIELD, POWER_FIELD).map { name ->
-            runCatching { Sensor::class.java.getDeclaredField(name).apply { isAccessible = true } }.getOrNull()
+        // Read with getInt / getFloat: a field of any other type (an OEM change) leaves toString alone.
+        val int = Int::class.javaPrimitiveType
+        val float = Float::class.javaPrimitiveType
+        val fields = listOf(VERSION_FIELD to int, RESOLUTION_FIELD to float, POWER_FIELD to float).map { (name, type) ->
+            runCatching {
+                Sensor::class.java.getDeclaredField(name).takeIf { it.type == type }?.apply { isAccessible = true }
+            }.getOrNull()
         }
         val (version, resolution, power) = fields
         if (version == null || resolution == null || power == null) {
-            env.log.warn("Sensor fields not found in ${env.packageName}; toString left as it is")
+            env.log.warn("Sensor fields not found or reshaped in ${env.packageName}; toString left as it is")
             return 0
         }
         return env.hookAll(listOf(method), ToStringHook(version, resolution, power))
@@ -53,10 +58,15 @@ internal class SensorTraitHooks(private val env: GuardEnv, private val state: Fi
     ) : Hooker {
         override fun intercept(chain: Chain): Any? {
             val real = chain.proceed()
-            if (!state.enabled) return real
-            val text = real as? String ?: return real
-            val sensor = chain.thisObject as? Sensor ?: return real
-            val traits = state.value() ?: return real
+            return state.safely { rewrite(chain, real) } ?: real
+        }
+
+        /** The string with the per-app tokens, or `null` to keep [real]. */
+        private fun rewrite(chain: Chain, real: Any?): String? {
+            if (!state.enabled) return null
+            val text = real as? String ?: return null
+            val sensor = chain.thisObject as? Sensor ?: return null
+            val traits = state.value() ?: return null
             val v = version.getInt(sensor)
             val r = resolution.getFloat(sensor)
             val p = power.getFloat(sensor)
@@ -64,7 +74,7 @@ internal class SensorTraitHooks(private val env: GuardEnv, private val state: Fi
             val out = text.replaceFirst("\", version=$v,", "\", version=${traits.version(v)},")
                 .replaceFirst(", resolution=$r,", ", resolution=${traits.resolution(r)},")
                 .replaceFirst(", power=$p,", ", power=${traits.power(p)},")
-            if (out == text) return real
+            if (out == text) return null
             state.hit(GROUP)
             return out
         }
