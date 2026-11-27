@@ -19,6 +19,12 @@ internal sealed interface Verdict {
 
     /** Run the original with [args] substituted, e.g. a request URL rewritten to a black hole. */
     class ProceedWith(val args: Array<Any?>) : Verdict
+
+    /**
+     * Run the original once and return [transform] of its result. The original's exceptions
+     * propagate unchanged; a failure of [transform] itself returns the original result (fail-open).
+     */
+    class Transform(val transform: (Any?) -> Any?) : Verdict
 }
 
 /**
@@ -63,7 +69,15 @@ internal class FailOpenHooker(
             is Verdict.Return -> verdict.value
             is Verdict.Throw -> throw StackScrub.scrub(verdict.error, chain.executable, verdict.top)
             is Verdict.ProceedWith -> chain.proceed(verdict.args)
+            is Verdict.Transform -> transformed(chain.proceed(), verdict)
         }
+    }
+
+    private fun transformed(result: Any?, verdict: Verdict.Transform): Any? = try {
+        verdict.transform(result)
+    } catch (t: Throwable) {
+        if (failures.incrementAndGet() <= MAX_LOGGED_FAILURES) log.error("$name result transform failed", t)
+        result
     }
 
     private fun measured(chain: Chain): Verdict {
