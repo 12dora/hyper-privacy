@@ -17,47 +17,57 @@ import java.lang.reflect.Modifier
  * ([DefaultReturn.isValidFor]) all agree; anything else is left alone (the rule just stays off).
  *
  * Java methods are hooked regardless of the switch and consult it per call, so toggling takes
- * effect live. Native methods are different: running the original before the class's own
- * initialiser has bound the library could fail with `UnsatisfiedLinkError`, and forcing that
- * initialiser early can poison the class for the whole process. So a native method is hooked only
- * when its rule is on as the process starts, and its hook never calls through; a change of the
- * switch applies after the app restarts.
+ * effect live. Native methods are different: they are hooked only after the library binding them
+ * ([RulePayload.Method.nativeLibrary]) has loaded ([NativeLibraries]; at once if it already is),
+ * so the hook can never stand in the way of the class's own `System.loadLibrary` /
+ * `RegisterNatives`, and the hook never calls through (an original reached before binding could
+ * fail with `UnsatisfiedLinkError`). They are hooked only when the rule is on as the process
+ * starts and then stay replaced: pause and switch changes apply after the app restarts.
  */
 internal class MethodGuard(private val env: GuardEnv) {
     private val xposed get() = env.xposed
     private val log get() = env.log
     private val packageName get() = env.packageName
 
-    /** Returns the number of methods hooked, or [DEFERRED] when native targets wait for the rule to be on at start. */
+    /** Returns the number of methods hooked or armed, or [DEFERRED] when native targets wait for the next start. */
     fun install(rule: Rule, payload: RulePayload.Method): Int {
         val type = Reflection.loadClass(payload.className, env.classLoader) ?: run {
             log.warn("${rule.id}: class ${payload.className} not found in $packageName")
             return 0
         }
-        val candidates = type.declaredMethods.filter { it.isCandidate(payload) }
-        val enabledAtStart = env.switches.isEnabled(rule.id)
-        var deferred = false
-        val hooked = candidates.count { method ->
-            val native = Modifier.isNative(method.modifiers)
-            if (native && !enabledAtStart) {
-                deferred = true
-                return@count false
-            }
-            when (val replacement = DefaultReturn.forType(method.returnType, payload.allowNullReturn)) {
-                Replacement.Skip -> false
+        val targets = type.declaredMethods.filter { it.isCandidate(payload) }.mapNotNull { method ->
+            val replacement = DefaultReturn.forType(method.returnType, payload.allowNullReturn) as? Replacement.Return
+            when {
+                replacement == null -> null
 
-                is Replacement.Return -> {
-                    if (!DefaultReturn.isValidFor(method.returnType, replacement.value)) {
-                        log.warn("${rule.id}: ${method.name} returns ${method.returnType.name}; not hooked")
-                        false
-                    } else {
-                        hook(rule.id, method, replacement.value, native)
-                    }
+                !DefaultReturn.isValidFor(method.returnType, replacement.value) -> null.also {
+                    log.warn("${rule.id}: ${method.name} returns ${method.returnType.name}; not hooked")
                 }
+
+                else -> method to replacement.value
             }
         }
-        log.info("${rule.id}: hooked $hooked method(s) of ${payload.className} in $packageName")
-        return if (hooked == 0 && deferred) DEFERRED else hooked
+        val (natives, java) = targets.partition { (method, _) -> Modifier.isNative(method.modifiers) }
+        val hooked = java.count { (method, value) -> hook(rule.id, method, value, native = false) }
+        val armed = installNatives(rule, payload, natives)
+        log.info("${rule.id}: hooked $hooked method(s) of ${payload.className} in $packageName, $armed native")
+        return if (hooked == 0 && armed == DEFERRED) DEFERRED else hooked + maxOf(armed, 0)
+    }
+
+    /** Hooks [natives] once their library is loaded; returns how many are hooked or armed, or [DEFERRED]. */
+    private fun installNatives(rule: Rule, payload: RulePayload.Method, natives: List<Pair<Method, Any?>>): Int {
+        if (natives.isEmpty()) return 0
+        val library = payload.nativeLibrary ?: run {
+            log.warn("${rule.id}: native target without a library to wait for; not hooked")
+            return 0
+        }
+        if (!env.switches.isEnabled(rule.id)) return DEFERRED
+        val hookAll = { natives.forEach { (method, value) -> hook(rule.id, method, value, native = true) } }
+        if (NativeLibraries.isMapped(library)) {
+            hookAll()
+            return natives.size
+        }
+        return if (NativeLibraries.afterLoad(xposed, log, library, hookAll)) natives.size else 0
     }
 
     private fun hook(ruleId: String, method: Method, value: Any?, native: Boolean): Boolean = log.guard(

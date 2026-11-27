@@ -138,6 +138,10 @@ public sealed interface RulePayload {
      * alone, so an app update that renames or reshapes the target only turns the rule off. Both are
      * required for a null return and for an obfuscated name ([MethodPattern.isObfuscated]), since
      * R8 hands such names to unrelated methods from one release to the next; see [MethodShape].
+     *
+     * [nativeLibrary] names the library (`System.loadLibrary` name, e.g. `mievent`) that binds the
+     * class's native methods. A matching native method is hooked only once that library has loaded
+     * (and only while the rule is on as the app starts); without it, native methods are left alone.
      */
     public data class Method(
         val className: String,
@@ -145,6 +149,7 @@ public sealed interface RulePayload {
         val allowNullReturn: Boolean = false,
         val params: List<String>? = null,
         val returns: String? = null,
+        val nativeLibrary: String? = null,
     ) : RulePayload {
         override val kind: RuleKind get() = RuleKind.METHOD
 
@@ -156,9 +161,17 @@ public sealed interface RulePayload {
             require(!(allowNullReturn || method.isObfuscated) || (params != null && returns != null)) {
                 "Method $className#$method returns null or has an obfuscated name, so it must pin params and returns"
             }
+            require(nativeLibrary == null || LIBRARY_NAME.matches(nativeLibrary)) {
+                "Method $className#$method has an invalid native library name: $nativeLibrary"
+            }
             require(!allowNullReturn || returns == null || returns !in MethodShape.PRIMITIVE_NAMES) {
                 "Method $className#$method cannot return null from primitive $returns"
             }
+        }
+
+        private companion object {
+            /** A bare `System.loadLibrary` name: no `lib` prefix, `.so` suffix or path. */
+            val LIBRARY_NAME = Regex("[A-Za-z0-9_][A-Za-z0-9_.+-]*")
         }
     }
 
