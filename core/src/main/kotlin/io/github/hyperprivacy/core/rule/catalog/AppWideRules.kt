@@ -13,7 +13,8 @@ import io.github.hyperprivacy.core.rule.Text
  * - [httpDnsRule] targets every package the module is injected into anyway (the packages of all
  *   other in-process catalog rules) except [HTTPDNS_EXCLUDED_APPS], so it never widens the LSPosed
  *   scope;
- * - [mediaDrmRule], [hardwareFingerprintRule] and [protectedHttpDnsRule] target only [Catalog.PROTECTED_APPS]:
+ * - [mediaDrmRule], [hardwareFingerprintRule], [sensorDataRule] and [protectedHttpDnsRule] target only
+ *   [Catalog.PROTECTED_APPS]:
  *   user-installed third-party apps the user chose to protect, never a vendor package.
  *
  * Both are `preventive`: a target that never trips them is the normal case.
@@ -57,6 +58,29 @@ internal fun hardwareFingerprintRule(): Rule = Rule(
         "readings (Sensor resolution/power/version list, statvfs f_fsid, battery EXTRA_CYCLE_COUNT) into a device " +
         "id that survives resets and links apps; replaced per app with values derived by HMAC-SHA256(secret, " +
         "label || package) at the Java API, sensor events, ranges, rates, names, model, SDK, ABI and paths untouched",
+    defaultOn = false,
+    preventive = true,
+)
+
+/**
+ * Coarser sensor and battery readings, for protected third-party apps only
+ * ([Catalog.protectedAppRules]) and off until the user enables it for an app. What changes and by
+ * how much is listed in `core.sensor.SensorBlur` and `core.sensor.BatteryReadings`; only the app's
+ * own process is affected, so system features such as auto-brightness keep the real readings.
+ */
+internal fun sensorDataRule(): Rule = Rule(
+    id = "sensor.data",
+    packages = setOf(Catalog.PROTECTED_APPS),
+    title = Text("保护传感器数据", "Protect sensor data"),
+    summary = Text("降低传感器与电池读数精度", "Coarser sensor and battery readings"),
+    payload = RulePayload.Identifiers(IdentifierSource.SENSOR_DATA),
+    category = Category.PERSONAL_DATA,
+    evidence = "Permission-free channels: motion and magnetic sensor calibration identifies a device (SensorID, " +
+        "IEEE S&P 2019) and fast motion streams allow input and speech inference; fine pressure reveals the floor, " +
+        "fine light changes reveal screen content, battery current/voltage/charge readings reveal activity and " +
+        "battery wear. Readings are given a per-app gain/offset (HMAC-SHA256(secret, label || package)) and " +
+        "dithered quantisation, motion streams are capped at 50 Hz, direct sensor channels are refused, pressure, " +
+        "light and battery readings are rounded; battery level, status and plug state are untouched",
     defaultOn = false,
     preventive = true,
 )

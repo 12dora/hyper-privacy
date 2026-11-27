@@ -11,6 +11,7 @@ import io.github.hyperprivacy.core.rule.catalog.httpDnsRule
 import io.github.hyperprivacy.core.rule.catalog.mediaDrmRule
 import io.github.hyperprivacy.core.rule.catalog.personalDataRules
 import io.github.hyperprivacy.core.rule.catalog.protectedHttpDnsRule
+import io.github.hyperprivacy.core.rule.catalog.sensorDataRule
 
 /**
  * The built-in rule set. Adding a rule is a data-only change: append an entry to the list of its
@@ -56,7 +57,8 @@ public object Catalog {
      * ([io.github.hyperprivacy.core.tracker.TrackerRules.appRules]); the app's own switch for it
      * overrides the global `rule.<id>` value.
      */
-    public val protectedAppRules: List<Rule> = listOf(mediaDrmRule(), protectedHttpDnsRule(), hardwareFingerprintRule())
+    public val protectedAppRules: List<Rule> =
+        listOf(mediaDrmRule(), protectedHttpDnsRule(), hardwareFingerprintRule(), sensorDataRule())
 
     /** Ids of [protectedAppRules]. */
     public val protectedAppRuleIds: Set<String> = protectedAppRules.mapTo(LinkedHashSet()) { it.id }
