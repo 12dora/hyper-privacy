@@ -11,9 +11,9 @@ import io.github.libxposed.api.XposedInterface.Hooker
 /**
  * Battery readings of rule `sensor.data`, rounded as [BatteryReadings] describes:
  * `BatteryManager#getIntProperty(int)` and `#getLongProperty(int)` (current now / average, charge
- * and energy counters; every other property passes), and the voltage, temperature and hidden
- * `charge_counter` extras of `ACTION_BATTERY_CHANGED` at the points of [BatteryIntentHooks], on a
- * copy. Level, scale, status, health, plug type and the rest stay as delivered.
+ * and energy counters; every other property passes), `#computeChargeTimeRemaining`, and the
+ * voltage, temperature and hidden `charge_counter` extras of `ACTION_BATTERY_CHANGED` at the
+ * points of [BatteryIntentHooks], on a copy. Level, scale, status, health, plug type and the rest stay as delivered.
  *
  * Property reads are rare (each one is a binder call to the battery service, far heavier than the
  * rounding); a battery intent is copied only when a rounded extra differs.
@@ -25,8 +25,18 @@ internal class BatteryReadingHooks(private val env: GuardEnv, private val state:
             env.declared(BatteryManager::class.java, "getIntProperty", Int::class.javaPrimitiveType!!),
             env.declared(BatteryManager::class.java, "getLongProperty", Int::class.javaPrimitiveType!!),
         )
+        val chargeTime = listOfNotNull(env.declared(BatteryManager::class.java, "computeChargeTimeRemaining"))
         return env.hookAll(properties, PropertyHook()) +
+            env.hookAll(chargeTime, ResultHook(state, SensorDataGuard.BATTERY_SINK, ::chargeTime)) +
             BatteryIntentHooks(env, state, SensorDataGuard.BATTERY_SINK, ::rounded).install()
+    }
+
+    private fun chargeTime(real: Any?): Any? {
+        val millis = real as? Long ?: return null
+        val out = BatteryReadings.chargeTimeRemaining(millis)
+        if (out == millis) return null
+        state.hit(GROUP)
+        return out
     }
 
     /** A copy of [intent] with rounded readings, or `null` when rounding changes nothing. */
@@ -52,15 +62,14 @@ internal class BatteryReadingHooks(private val env: GuardEnv, private val state:
             val real = chain.proceed()
             if (!state.enabled) return real
             val id = chain.getArg(0) as? Int ?: return real
-            val value = when (real) {
-                is Int -> real.toLong()
-                is Long -> real
+            val out: Any = when (real) {
+                is Int -> BatteryReadings.intProperty(id, real)
+                is Long -> BatteryReadings.property(id, real)
                 else -> return real
             }
-            val out = BatteryReadings.property(id, value)
-            if (out == value) return real
+            if (out == real) return real
             state.hit(GROUP)
-            return if (real is Int) out.toInt() else out
+            return out
         }
     }
 
