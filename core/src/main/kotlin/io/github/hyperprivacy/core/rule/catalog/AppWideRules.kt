@@ -79,7 +79,8 @@ internal fun sensorDataRule(): Rule = Rule(
         "IEEE S&P 2019) and fast motion streams allow input and speech inference; fine pressure reveals the floor, " +
         "fine light changes reveal screen content, battery current/voltage/charge readings reveal activity and " +
         "battery wear. Readings are given a per-app gain/offset (HMAC-SHA256(secret, label || package)) and " +
-        "dithered quantisation, motion streams are capped at 50 Hz, direct sensor channels are refused, pressure, " +
+        "dithered quantisation, motion streams are capped at 62.5 Hz, direct channels and additional info are " +
+        "withheld (Java sensor API only; the NDK sensor API is not covered), pressure, " +
         "light and battery readings are rounded; battery level, status and plug state are untouched",
     defaultOn = false,
     preventive = true,

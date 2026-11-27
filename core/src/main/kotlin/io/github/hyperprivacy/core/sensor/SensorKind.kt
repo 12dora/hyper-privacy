@@ -7,7 +7,8 @@ package io.github.hyperprivacy.core.sensor
  *
  * [rateCapped] kinds are continuous streams fast enough for input and speech inference, delivered
  * at no more than [SensorStream.MAX_RATE_HZ]; pressure and light keep their rate (they are slow or
- * on-change, and dropping an on-change event could hide the last value for good).
+ * on-change; light drops only events that repeat the delivered level), and pose keeps it because
+ * its delta fields refer to the previous event.
  */
 public enum class SensorKind(public val rateCapped: Boolean) {
     NONE(rateCapped = false),
@@ -34,8 +35,11 @@ public enum class SensorKind(public val rateCapped: Boolean) {
     ACCELEROMETER_LIMITED_UNCALIBRATED(rateCapped = true),
     GYROSCOPE_LIMITED_UNCALIBRATED(rateCapped = true),
 
-    /** Gravity and linear acceleration: fused, `values[0..2]`, m/s². */
-    FUSED_ACCELERATION(rateCapped = true),
+    /** Fused gravity, `values[0..2]`, m/s²: the accelerometer's gain and offset. */
+    GRAVITY(rateCapped = true),
+
+    /** Fused linear acceleration, `values[0..2]`, m/s²: the accelerometer's gain only. */
+    LINEAR_ACCELERATION(rateCapped = true),
 
     /** Rotation vectors: unit quaternion `values[0..3]`; `values[4]` (heading accuracy) untouched. */
     ROTATION(rateCapped = true),
@@ -48,9 +52,10 @@ public enum class SensorKind(public val rateCapped: Boolean) {
 
     /**
      * Pose 6DOF: quaternions `values[0..3]` and `[7..10]`, translations `[4..6]` and `[11..13]`; the
-     * sequence number `[14]` untouched.
+     * sequence number `[14]` untouched. Not rate capped: the deltas and the sequence number refer
+     * to the previous event, so dropping events would break them.
      */
-    POSE(rateCapped = true),
+    POSE(rateCapped = false),
 
     /** Head tracker: rotation and angular velocity `values[0..5]`; the discontinuity count `values[6]` untouched. */
     HEAD_TRACKER(rateCapped = true),
@@ -99,7 +104,8 @@ public enum class SensorKind(public val rateCapped: Boolean) {
             TYPE_GYROSCOPE_LIMITED_AXES -> GYROSCOPE_LIMITED
             TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED -> ACCELEROMETER_LIMITED_UNCALIBRATED
             TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED -> GYROSCOPE_LIMITED_UNCALIBRATED
-            TYPE_GRAVITY, TYPE_LINEAR_ACCELERATION -> FUSED_ACCELERATION
+            TYPE_GRAVITY -> GRAVITY
+            TYPE_LINEAR_ACCELERATION -> LINEAR_ACCELERATION
             TYPE_ROTATION_VECTOR, TYPE_GAME_ROTATION_VECTOR, TYPE_GEOMAGNETIC_ROTATION_VECTOR -> ROTATION
             TYPE_ORIENTATION -> ORIENTATION
             TYPE_HEADING -> HEADING
