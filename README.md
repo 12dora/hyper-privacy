@@ -44,7 +44,7 @@
 
 **第三方应用防护（0.4 新增）**
 
-- **保护你安装的应用**：离线识别每个已安装应用内置的追踪 SDK，特征库收录 208 个 SDK（其中广告类 69 个）；每个应用、每个 SDK 都有单独的开关。
+- **保护你安装的应用**：离线识别每个已安装应用内置的追踪 SDK，特征库收录 210 个 SDK（其中广告类 71 个）；每个应用、每个 SDK 都有单独的开关。
 - **按来源拦截广告 SDK**：不依赖域名，SDK 换域名、换包名或以插件形式加载时同样有效。
 - **按应用的隐私增强**：隔离 DRM 设备号、强制使用系统 DNS，另有默认关闭的「随机化硬件指纹」与「保护传感器数据」。
 - **在系统层隐藏标识和应用列表**：向第三方应用隐藏账号与设备标识类设置项，并可让指定应用看不到你装了哪些其他应用。
@@ -213,7 +213,7 @@ python3 -I scripts/gen-trackers.py   # 修改 data/trackers.json 后重新生成
 Turning off Xiaomi's "User Experience Program" doesn't stop system apps from reporting back. **HyperPrivacy** is an LSPosed module for Xiaomi HyperOS that blocks system telemetry, ad SDKs, device-ID collection, and installed-app-list uploads, and since 0.4 it can protect the apps you install yourself, all without breaking any of the vendor services you rely on (app store, push, cloud sync, Find Device, weather, OTA).
 
 - **Grounded in real-device evidence**: 109 evidence-backed rules (96 on by default) covering 121 system apps, built from a full traffic and dex survey of a HyperOS 4 device.
-- **Protects the apps you install (0.4)**: an offline scan identifies embedded tracker SDKs (a signature database of 208 SDKs, 69 of them ad SDKs); per app and per SDK you choose what to block. Ad SDKs are blocked by the origin of their requests and ad pages rather than by domain, so a changed host or a renamed package does not slip through.
+- **Protects the apps you install (0.4)**: an offline scan identifies embedded tracker SDKs (a signature database of 210 SDKs, 71 of them ad SDKs); per app and per SDK you choose what to block. Ad SDKs are blocked by the origin of their requests and ad pages rather than by domain, so a changed host or a renamed package does not slip through.
 - **Per-app privacy hardening**: a separate DRM device ID per app, forced system DNS, and optional per-app hardware-trait randomisation.
 - **System-level hiding**: identifier-bearing system settings and the installed-app list are hidden from third-party apps you choose, and the module hides itself from them by default. These need one reboot after installing or updating.
 - **Six precise enforcement layers for system apps**: kernel firewall per uid, DNS, TLS SNI (defeats HTTPDNS and hard-coded IPs), HTTP client and WebView (path-level, so services sharing the same host keep working), SDK method no-op, and zeroed OAID/VAID/AAID for third-party apps.
