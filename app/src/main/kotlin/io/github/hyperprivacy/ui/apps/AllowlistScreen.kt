@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -90,7 +93,15 @@ internal fun AllowlistScreen(
             item(key = "note") { Note(R.string.apps_allow_note) }
             item(key = "search") {
                 SingleCard(Modifier.padding(bottom = Dimens.GroupGap)) {
-                    Row(Modifier.padding(horizontal = Dimens.Gutter).heightIn(min = Dimens.RowMinHeight)) {
+                    Row(
+                        Modifier.padding(start = Dimens.Gutter).heightIn(min = Dimens.RowMinHeight),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         SearchField(query, { query = it }, focus, R.string.apps_search_hint)
                     }
                 }
