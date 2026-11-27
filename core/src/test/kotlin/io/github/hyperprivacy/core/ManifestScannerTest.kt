@@ -7,16 +7,19 @@ import io.github.hyperprivacy.core.tracker.ManifestInfo
 import io.github.hyperprivacy.core.tracker.ManifestInfo.Kind
 import io.github.hyperprivacy.core.tracker.ManifestScanner
 import io.github.hyperprivacy.core.tracker.OriginHints
+import io.github.hyperprivacy.core.tracker.OriginMatcher
 import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerSdk
+import io.github.hyperprivacy.core.tracker.Trackers
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -145,30 +148,119 @@ class ManifestScannerTest {
         assertEquals(listOf(suspect), hints.suspects)
     }
 
+    private fun sdk(id: String, vararg prefixes: String) = TrackerSdk(
+        id,
+        Text(id, id),
+        "v",
+        listOf(TrackerCategory.ADS),
+        prefixes.toList(),
+        emptyList(),
+        emptyList(),
+        emptyList(),
+    )
+
+    private fun manifest(vararg classes: String) = ManifestInfo(
+        packageName = PKG,
+        applicationClass = "$PKG.App",
+        components = classes.map { ManifestInfo.Component(Kind.ACTIVITY, it) },
+    )
+
     @Test
-    fun `a class prefix claims its package only when the package is specific`() {
-        val sdk = TrackerSdk(
-            "x",
-            Text("x", "x"),
-            "v",
-            listOf(TrackerCategory.ADS),
-            listOf("com.google.Shared", "org.deep.sdk.core.Entry"),
-            emptyList(),
-            emptyList(),
-            emptyList(),
+    fun `a namespace only vetoes suspects of a detected sdk, in its own package`() {
+        val x = sdk("x", "com.google.Shared", "org.deep.sdk.core.Entry")
+        val matcher = CodePrefixMatcher(x.codePrefixes.map { it to x.id })
+        val info = manifest(
+            "com.google.other.AdActivity",
+            "org.deep.sdk.core.AdActivity",
+            "org.deep.sdk.core.sub.AdActivity",
         )
-        val matcher = CodePrefixMatcher(sdk.codePrefixes.map { it to sdk.id })
-        val info = ManifestInfo(
-            packageName = PKG,
-            applicationClass = "$PKG.App",
-            components = listOf(
-                ManifestInfo.Component(Kind.ACTIVITY, "com.google.other.AdActivity"),
-                ManifestInfo.Component(Kind.ACTIVITY, "org.deep.sdk.core.AdActivity"),
-            ),
+        // Not detected: the namespace proves nothing, every ad-looking component stays a suspect.
+        val alone = ManifestAnalyzer.analyze(info, matcher, listOf(x))
+        assertEquals(emptySet(), alone.detected)
+        assertEquals(
+            listOf("com.google.other.", "org.deep.sdk.core.", "org.deep.sdk.core.sub."),
+            alone.suspects.map { it.prefix },
         )
-        val hints = ManifestAnalyzer.analyze(info, matcher, listOf(sdk))
-        assertEquals(setOf("x"), hints.detected)
-        assertEquals(listOf("com.google.other."), hints.suspects.map { it.prefix })
+        // Detected by the dex scan: its package (shallow roots excepted) is no suspect, subpackages still are.
+        val known = ManifestAnalyzer.analyze(info, matcher, listOf(x), detected = setOf("x"))
+        assertEquals(emptySet(), known.detected)
+        assertEquals(listOf("com.google.other.", "org.deep.sdk.core.sub."), known.suspects.map { it.prefix })
+        // Detected through the manifest itself.
+        val viaManifest = ManifestAnalyzer.analyze(
+            manifest("org.deep.sdk.core.Entry", "org.deep.sdk.core.AdActivity"),
+            matcher,
+            listOf(x),
+        )
+        assertEquals(setOf("x"), viaManifest.detected)
+        assertEquals(emptyList(), viaManifest.suspects)
+    }
+
+    @Test
+    fun `a package two sdks name belongs to neither`() {
+        val a = sdk("a", "org.deep.sdk.core.EntryA")
+        val b = sdk("b", "org.deep.sdk.core.EntryB")
+        val matcher = CodePrefixMatcher(listOf(a, b).flatMap { s -> s.codePrefixes.map { it to s.id } })
+        val hints = ManifestAnalyzer.analyze(
+            manifest("org.deep.sdk.core.AdActivity"),
+            matcher,
+            listOf(a, b),
+            setOf("a", "b"),
+        )
+        assertEquals(listOf("org.deep.sdk.core."), hints.suspects.map { it.prefix })
+    }
+
+    @Test
+    fun `an anchor never relocates into another sdk's namespace`() {
+        val a = sdk("a", "com.vendor.a.").copy(anchors = listOf("com.vendor.a.ui.RewardAdActivity"))
+        val b = sdk("b", "org.deep.sdk.core.Entry")
+        val matcher = CodePrefixMatcher(listOf(a, b).flatMap { s -> s.codePrefixes.map { it to s.id } })
+        val trackers = listOf(a, b)
+        val inside = ManifestAnalyzer.analyze(manifest("org.deep.sdk.core.ui.RewardAdActivity"), matcher, trackers)
+        assertEquals(emptyMap(), inside.relocated)
+        val elsewhere = ManifestAnalyzer.analyze(manifest("com.packed.x.ui.RewardAdActivity"), matcher, trackers)
+        assertEquals(mapOf("com.packed.x." to "a"), elsewhere.relocated)
+        assertEquals(setOf("a"), elsewhere.detected)
+    }
+
+    @Test
+    fun `excluded sibling libraries of an sdk namespace detect nothing`() {
+        val info = manifest(
+            "com.huawei.hms.ads.identifier.AdIdActivity",
+            "com.google.firebase.analytics.connector.internal.AnalyticsConnectorRegistrar",
+        )
+        val hints = ManifestAnalyzer.analyze(info)
+        assertFalse("huawei-ads" in hints.detected, "${hints.detected}")
+        assertFalse("google-firebase-analytics" in hints.detected, "${hints.detected}")
+        // Even with the SDKs detected, a subpackage component is not vouched for.
+        val known = ManifestAnalyzer.analyze(info, detected = setOf("huawei-ads", "google-firebase-analytics"))
+        assertEquals(listOf("com.huawei.hms.ads.identifier."), known.suspects.map { it.prefix })
+    }
+
+    @Test
+    fun `database ad components attribute at runtime`() {
+        val ids = listOf("google-admob", "mopub", "fivead")
+        val sdks = ids.map { assertNotNull(Trackers.byId(it), it) }
+        sdks.forEach { assertTrue(it.originBlockable && it.switchable, it.id) }
+        val matcher = OriginMatcher(sdks.flatMap { s -> s.codePrefixes.map { it to s.id } }, listOf("$PKG."))
+        mapOf(
+            "com.google.android.gms.ads.AdActivity" to "google-admob",
+            "com.google.android.gms.ads.AdService" to "google-admob",
+            "com.google.android.gms.ads.MobileAdsInitProvider" to "google-admob",
+            "com.google.android.gms.ads.NotificationHandlerActivity" to "google-admob",
+            "com.google.android.gms.ads.OutOfContextTestingActivity" to "google-admob",
+            "com.mopub.mobileads.S2SInterstitialActivity" to "mopub",
+            "com.mopub.common.MoPubBrowser" to "mopub",
+            "com.five_corp.ad.AdActivity" to "fivead",
+        ).forEach { (name, id) ->
+            val kind = matcher.classify(name)
+            assertTrue(kind >= 0, name)
+            assertEquals(id, matcher.sdkId(kind), name)
+        }
+        assertEquals(
+            OriginMatcher.UNKNOWN,
+            matcher.classify("com.google.android.gms.ads.identifier.AdvertisingIdClient"),
+        )
+        assertEquals(OriginMatcher.OWN, matcher.classify("$PKG.ads.AdActivity"))
     }
 
     @Test
