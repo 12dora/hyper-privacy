@@ -118,6 +118,12 @@ android {
         jniLibs.keepDebugSymbols += "**/libandroidx.graphics.path.so"
     }
 
+    testOptions {
+        // JVM tests of the hook layer: framework stubs answer defaults instead of throwing "Stub!".
+        unitTests.isReturnDefaultValues = true
+        unitTests.all { it.useJUnitPlatform() }
+    }
+
     lint {
         warningsAsErrors = true
         abortOnError = true
@@ -176,4 +182,10 @@ dependencies {
     implementation(libs.compose.icons.core)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+
+    testImplementation(libs.libxposed.api)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.kotlin.test.junit5)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
