@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.hyperprivacy.conflict.ModuleScanner
+import io.github.hyperprivacy.core.conflict.DeclaredScope
+import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.core.conflict.OverlapHit
 import io.github.hyperprivacy.core.system.AppListConfig
 import kotlinx.coroutines.CoroutineDispatcher
@@ -23,8 +25,10 @@ internal class AppListRestore(val hiddenFrom: Set<String>, val selfHide: Boolean
  * one action: turning off this module's own app-list hiding. Other modules are only ever read,
  * never changed. Scanning runs on [Dispatchers.IO]; state is confined to [worker].
  *
- * A dismissed hint stays dismissed for the modules it named (stored locally, never in the remote
- * preferences); a module that appears later raises it again.
+ * A dismissed hint stays dismissed for the modules and areas it named (stored locally, never in
+ * the remote preferences); a module that appears later, or a known one found doing more, raises it
+ * again. Settings and the detail page list every module, dismissed or not. The scopes modules
+ * declare are read only when the detail page asks ([loadScopes]).
  */
 internal class ConflictController(
     context: Context,
@@ -38,6 +42,9 @@ internal class ConflictController(
     private val scanner by lazy { ModuleScanner(appContext) }
     private val dismissedStore by lazy { appContext.getSharedPreferences(DISMISSED_FILE, Context.MODE_PRIVATE) }
     private var hits: List<OverlapHit> = emptyList()
+
+    /** Declared scopes by package, read on request. Worker only. */
+    private var scopes: Map<String, DeclaredScope> = emptyMap()
 
     /** A scan is running; a refresh meanwhile only asks for one more pass ([again]). Both on [worker]. */
     private var scanning = false
@@ -68,11 +75,27 @@ internal class ConflictController(
         }
     }
 
-    /** Hides the hint for the modules it names now. */
     override fun dismiss() {
         scope.launch(worker) {
-            val all = dismissed() + hits.map { it.packageName }
-            dismissedStore.edit { putStringSet(DISMISSED_KEY, all) }
+            val all = dismissed() + hits.flatMap { hit -> hit.areas.map { dismissKey(hit.packageName, it) } }
+            runCatching { dismissedStore.edit { putStringSet(DISMISSED_KEY, all) } }
+            onChange()
+        }
+    }
+
+    override fun restoreHint() {
+        scope.launch(worker) {
+            runCatching { dismissedStore.edit { remove(DISMISSED_KEY) } }
+            onChange()
+        }
+    }
+
+    override fun loadScopes() {
+        scope.launch(worker) {
+            val missing = hits.map { it.packageName }.filter { it !in scopes }
+            if (missing.isEmpty()) return@launch
+            val read = withContext(Dispatchers.IO) { missing.associateWith { scanner.declaredScope(it) } }
+            scopes = scopes + read
             onChange()
         }
     }
@@ -80,9 +103,20 @@ internal class ConflictController(
     /** The hint to show, or `null`; [appListHidingOn] is whether this module hides apps right now. */
     fun ui(appListHidingOn: Boolean): ConflictUi? {
         val seen = dismissed()
-        val visible = hits.filter { it.packageName !in seen }
-            .map { ConflictModule(it.packageName, it.label, it.areas.toList()) }
+        val visible = modules().map { module ->
+            module.copy(areas = module.areas.filter { dismissKey(module.packageName, it) !in seen })
+        }
         return ConflictUi.of(visible, appListHidingOn)
+    }
+
+    /** Every overlapping module, dismissed ones included, or `null` when there is none. */
+    fun all(appListHidingOn: Boolean): ConflictUi? = ConflictUi.of(modules(), appListHidingOn)
+
+    /** Whether any module or area was dismissed from the hint. */
+    val anyDismissed: Boolean get() = dismissed().isNotEmpty()
+
+    private fun modules(): List<ConflictModule> = hits.map {
+        ConflictModule(it.packageName, it.label, it.areas.toList(), scopes[it.packageName] ?: DeclaredScope.Unknown)
     }
 
     /** Turns off every app-list hiding setting of this module; the result undoes it ([restoreAppListHiding]). */
@@ -91,10 +125,13 @@ internal class ConflictController(
         val raw = runCatching { target.all }.getOrNull() ?: return@withContext null
         val hidden = raw.filter { (key, value) -> key.startsWith(AppListConfig.HIDE_PREFIX) && value == true }.keys
         val selfHide = raw[AppListConfig.SELF_HIDE_KEY] as? Boolean
+        // Already off (a second tap before the hint updated): nothing to undo, so the first undo is kept.
+        if (hidden.isEmpty() && selfHide == false) return@withContext null
         pendingWrites.put(AppListConfig.SELF_HIDE_KEY, false)
         onChange()
+        // Committed on the worker, so a call queued behind this one already reads the result.
         val written = runCatching {
-            target.edit {
+            target.edit(commit = true) {
                 hidden.forEach(::remove)
                 putBoolean(AppListConfig.SELF_HIDE_KEY, false)
             }
@@ -131,7 +168,11 @@ internal class ConflictController(
         }
     }
 
-    private fun dismissed(): Set<String> = dismissedStore.getStringSet(DISMISSED_KEY, null).orEmpty()
+    /** Dismissed `package|AREA` pairs; entries of an older format (package only) are simply not matched. */
+    private fun dismissed(): Set<String> =
+        runCatching { dismissedStore.getStringSet(DISMISSED_KEY, null) }.getOrNull().orEmpty()
+
+    private fun dismissKey(packageName: String, area: OverlapArea) = "$packageName|${area.name}"
 
     private companion object {
         const val DISMISSED_FILE = "conflict"

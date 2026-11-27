@@ -5,33 +5,68 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.conflict.OurSide
+import io.github.hyperprivacy.core.conflict.OverlapArea
+import io.github.hyperprivacy.core.conflict.OverlapTarget
+import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.Category
+import io.github.hyperprivacy.core.tracker.TrackerRules
+import io.github.hyperprivacy.ui.apps.AppsUi
 import io.github.hyperprivacy.ui.home.ConflictActions
+import io.github.hyperprivacy.ui.home.ConflictDetails
 import io.github.hyperprivacy.ui.home.ConflictScreen
 import io.github.hyperprivacy.ui.home.SystemView
+import io.github.hyperprivacy.ui.home.categoryItemIndex
 import kotlinx.coroutines.launch
 
 /* The overlap detail page, reached from the hint on Overview, wired to [UiModel.conflicts] and the System tab. */
 
 @Composable
 internal fun ConflictsPage(state: UiState, shell: Shell, modifier: Modifier) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val actions = remember(shell, scope, context) {
+    // The application context: the undo snackbar may still be showing after this page is gone.
+    val context = LocalContext.current.applicationContext
+    val stateNow = rememberUpdatedState(state)
+    val model = shell.model
+    val apps by model.trackers.state.collectAsStateWithLifecycle()
+    // Declared scopes and protected apps are read only now, off the main thread, never for Overview.
+    LaunchedEffect(model) {
+        model.conflicts.loadScopes()
+        model.trackers.start()
+    }
+    val actions = remember(shell, context) {
         ConflictActions(
             onBack = shell.nav::pop,
-            onDisableAppList = { scope.launch { disableAppListHiding(shell.model, shell.snackbar, context) } },
-            onOpenRules = { shell.openRules(it) },
+            onDisableAppList = { shell.scope.launch { disableAppListHiding(shell.model, shell.snackbar, context) } },
+            onOpenRules = { shell.openRules(stateNow.value, it) },
+            onOpenRule = { shell.nav.push(Route.RuleDetail(it)) },
+            onOpenApp = { pkg, protected -> shell.nav.push(if (protected) Route.UserApp(pkg) else Route.App(pkg)) },
+            onRestoreHint = model.conflicts::restoreHint,
         )
     }
+    val ours = remember(state.rules, apps.apps) { ourSide(state, apps) }
+    val labels = remember(state.apps, apps.apps) {
+        state.apps.associate { it.packageName to it.label } + apps.apps.associate { it.packageName to it.label }
+    }
+    val categories = remember(state.byCategory) { state.byCategory.mapTo(HashSet()) { it.category } }
+    // Until the first state arrives there is nothing to show, and "none found" would flash.
+    if (!state.loaded) return
     ConflictScreen(
-        conflict = state.conflict,
-        canEdit = state.module.canEdit,
+        details = ConflictDetails(
+            overlaps = state.overlaps,
+            canEdit = state.module.canEdit,
+            ruleCategories = categories,
+            ours = ours,
+            labels = labels,
+            dismissed = state.overlapsDismissed,
+        ),
         actions = actions,
         modifier = modifier,
         snackbarHostState = shell.snackbar,
@@ -39,19 +74,42 @@ internal fun ConflictsPage(state: UiState, shell: Shell, modifier: Modifier) {
 }
 
 /**
- * Shows this module's built-in rules of [category] on the System tab: the pages over the tabs are
- * closed, the list is grouped by type, and only that category is unfolded, at the top.
+ * What this module does, for intersecting with other modules' scopes: the built-in rules that are
+ * on, and per protected app the options that are on, by the overlap area they belong to.
  */
-private fun Shell.openRules(category: Category) {
+private fun ourSide(state: UiState, apps: AppsUi): OurSide {
+    val protectedOptions = apps.apps.filter { it.protected }.associate { app ->
+        val byArea = HashMap<OverlapArea, MutableList<String>>()
+        fun add(category: Category?, id: String) {
+            category?.let(OverlapArea::of)?.let { byArea.getOrPut(it) { ArrayList() } += id }
+        }
+        app.sdks.filter { it.blocked }.forEach { add(TrackerRules.categoryOf(it.category), it.id) }
+        app.appRules.filter { it.enabled }.forEach { rule ->
+            add(Catalog.protectedAppRules.firstOrNull { it.id == rule.id }?.category, rule.id)
+        }
+        if (app.hideApps) add(Category.APP_LIST, OverlapTarget.HIDE_APPS)
+        app.packageName to byArea.mapValues { it.value.toList() }
+    }
+    return OurSide(state.rules.filter { it.enabled }.map { it.rule }, protectedOptions)
+}
+
+/**
+ * Shows this module's built-in rules of [category] on the System tab: the pages over the tabs are
+ * closed, the list is grouped by type, only that category is unfolded, and it is scrolled to with
+ * the title bar expanded.
+ */
+private fun Shell.openRules(state: UiState, category: Category) {
     nav.popToRoot()
     tab = Tab.SYSTEM
     system.view = SystemView.CATEGORY
     system.expanded = listOf(CategoryGroup.keyOf(category))
-    system.scroll.list.requestScrollToItem(0)
+    system.scroll.bar.heightOffset = 0f
+    system.scroll.bar.contentOffset = 0f
+    system.scroll.list.requestScrollToItem(categoryItemIndex(state, category) ?: 0)
 }
 
 /** Turns off app-list hiding for the overlap hint, and offers to take it back for a while. */
-internal suspend fun disableAppListHiding(model: UiModel, snackbar: SnackbarHostState, context: Context) {
+private suspend fun disableAppListHiding(model: UiModel, snackbar: SnackbarHostState, context: Context) {
     val restore = model.conflicts.disableAppListHiding() ?: return
     snackbar.currentSnackbarData?.dismiss()
     val result = snackbar.showSnackbar(

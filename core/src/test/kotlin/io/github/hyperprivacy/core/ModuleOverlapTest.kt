@@ -34,6 +34,8 @@ class ModuleOverlapTest {
 
     @Test
     fun `keywords find device identifier rewriting`() {
+        assertTrue(OverlapArea.DEVICE_ID in areas(null, pkg = "eu.faircode.xlua"))
+        assertTrue(OverlapArea.DEVICE_ID in areas(null, pkg = "biz.bokhorst.xprivacy"))
         assertTrue(OverlapArea.DEVICE_ID in areas("Fake Android ID and IMEI per app"))
         assertTrue(OverlapArea.DEVICE_ID in areas("随机设备标识"))
         assertEquals(emptySet(), areas("Improves device idle battery life"))

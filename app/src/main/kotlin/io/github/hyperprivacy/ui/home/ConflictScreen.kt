@@ -24,12 +24,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.conflict.DeclaredScope
+import io.github.hyperprivacy.core.conflict.OurSide
 import io.github.hyperprivacy.core.conflict.OverlapArea
+import io.github.hyperprivacy.core.conflict.OverlapTargets
+import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.ui.ConflictModule
 import io.github.hyperprivacy.ui.ConflictUi
 import io.github.hyperprivacy.ui.Dimens
@@ -52,21 +58,36 @@ private fun OverlapArea.copy(): AreaCopy = when (this) {
 }
 
 /**
+ * What the detail page shows: every overlapping module ([overlaps], dismissed ones included), what
+ * this module does ([ours], to intersect with each module's declared scope), app labels by package,
+ * and the categories that have rules on this device.
+ */
+internal class ConflictDetails(
+    val overlaps: ConflictUi?,
+    val canEdit: Boolean,
+    val ruleCategories: Set<Category>,
+    val ours: OurSide = OurSide(emptyList(), emptyMap()),
+    val labels: Map<String, String> = emptyMap(),
+    /** Some overlap was dismissed from Overview; the page offers to show it there again. */
+    val dismissed: Boolean = false,
+)
+
+/**
  * The overlap hint in full: for each module found on this device, its own label and package, then
- * one row per area it overlaps in with the likely symptom, a suggestion, and the way to the matching
- * switches of this module. Other modules are never changed. Without data (dismissed meanwhile, or
- * nothing usable found) the page says so instead of showing anything partial.
+ * one row per area it overlaps in with the likely symptom, a suggestion and the way to the matching
+ * switches of this module. Where the module declares its scope, the row also lists the apps both
+ * act on and exactly which rules or options of this module are on there. Other modules are never
+ * changed. Without data the page says so instead of showing anything partial.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ConflictScreen(
-    conflict: ConflictUi?,
-    canEdit: Boolean,
+    details: ConflictDetails,
     actions: ConflictActions,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
-    val modules = conflict?.modules.orEmpty()
+    val modules = details.overlaps?.modules.orEmpty()
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -75,6 +96,13 @@ internal fun ConflictScreen(
                     Text(stringResource(R.string.conflict_detail_title), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
                 navigationIcon = { BackButton(actions.onBack) },
+                actions = {
+                    if (details.dismissed) {
+                        TextButton(onClick = actions.onRestoreHint) {
+                            Text(stringResource(R.string.conflict_restore_hint))
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -86,17 +114,38 @@ internal fun ConflictScreen(
                 return@LazyColumn
             }
             item(key = "intro") { Note(R.string.conflict_detail_intro_body) }
-            modules.forEach { module ->
-                moduleSection(module, canDisableAppList = canEdit && conflict?.canDisableAppList == true, actions)
-            }
+            val canDisable = details.canEdit && details.overlaps?.canDisableAppList == true
+            modules.forEach { module -> moduleSection(module, details, canDisable, actions) }
         }
     }
 }
 
-private fun LazyListScope.moduleSection(module: ConflictModule, canDisableAppList: Boolean, actions: ConflictActions) {
+private fun LazyListScope.moduleSection(
+    module: ConflictModule,
+    details: ConflictDetails,
+    canDisableAppList: Boolean,
+    actions: ConflictActions,
+) {
     item(key = "module/${module.packageName}") { ModuleHeader(module) }
     groupedItems(module.areas, key = { "module/${module.packageName}/$it" }) { area ->
-        AreaRow(area, canDisableAppList = canDisableAppList && area == OverlapArea.APP_LIST, actions)
+        // Pure and bounded by the inputs; recomputed only when they change.
+        val targets = remember(module.scope, area, details.ours) { OverlapTargets.of(module.scope, area, details.ours) }
+        AreaRow(
+            area = area,
+            canDisableAppList = canDisableAppList && area == OverlapArea.APP_LIST,
+            hasRules = area.category in details.ruleCategories,
+            actions = actions,
+        ) {
+            if (targets != null) {
+                TargetList(
+                    key = "${module.packageName}/$area",
+                    targets = targets,
+                    allApps = module.scope == DeclaredScope.AllApps,
+                    labels = details.labels,
+                    actions = actions,
+                )
+            }
+        }
     }
 }
 
@@ -122,14 +171,28 @@ private fun ModuleHeader(module: ConflictModule) {
 }
 
 @Composable
-private fun AreaRow(area: OverlapArea, canDisableAppList: Boolean, actions: ConflictActions) {
+private fun AreaRow(
+    area: OverlapArea,
+    canDisableAppList: Boolean,
+    hasRules: Boolean,
+    actions: ConflictActions,
+    targets: @Composable () -> Unit,
+) {
     val copy = area.copy()
-    Column(Modifier.fillMaxWidth().padding(start = Dimens.Gutter, end = Dimens.Small, top = Dimens.RowVertical)) {
+    val areaLabel = stringResource(area.labelRes())
+    val openRules = stringResource(R.string.conflict_open_rules)
+    val hasActions = hasRules || canDisableAppList
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = Dimens.Gutter, end = Dimens.Small, top = Dimens.RowVertical)
+            .padding(bottom = if (hasActions) 0.dp else Dimens.RowVertical),
+    ) {
         Column(
             modifier = Modifier.padding(end = Dimens.Small).semantics(mergeDescendants = true) {},
             verticalArrangement = Arrangement.spacedBy(Dimens.Tiny),
         ) {
-            Text(stringResource(area.labelRes()), style = MaterialTheme.typography.bodyLarge)
+            Text(areaLabel, style = MaterialTheme.typography.bodyLarge)
             Text(
                 text = stringResource(copy.symptom),
                 style = MaterialTheme.typography.bodySmall,
@@ -141,12 +204,20 @@ private fun AreaRow(area: OverlapArea, canDisableAppList: Boolean, actions: Conf
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        targets()
+        if (!hasActions) return@Column
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Dimens.Small, Alignment.End),
         ) {
-            TextButton(onClick = { actions.onOpenRules(area.category) }) {
-                Text(stringResource(R.string.conflict_open_rules))
+            if (hasRules) {
+                // Every area has this button: TalkBack also says which area it belongs to.
+                TextButton(
+                    onClick = { actions.onOpenRules(area.category) },
+                    modifier = Modifier.semantics { contentDescription = "$openRules, $areaLabel" },
+                ) {
+                    Text(openRules)
+                }
             }
             if (canDisableAppList) {
                 FilledTonalButton(onClick = actions.onDisableAppList) {
@@ -168,6 +239,7 @@ private fun ConflictScreenPreview() {
             ),
             appListHidingOn = true,
         )
-        ConflictScreen(conflict, canEdit = true, actions = ConflictActions({}, {}, {}))
+        val details = ConflictDetails(conflict, canEdit = true, ruleCategories = Category.entries.toSet())
+        ConflictScreen(details, actions = ConflictActions({}, {}, {}))
     }
 }

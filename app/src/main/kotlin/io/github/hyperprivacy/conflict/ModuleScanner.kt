@@ -9,6 +9,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.core.content.edit
 import io.github.hyperprivacy.BuildConfig
+import io.github.hyperprivacy.core.conflict.DeclaredScope
 import io.github.hyperprivacy.core.conflict.ModuleOverlap
 import io.github.hyperprivacy.core.conflict.OverlapHit
 import java.io.File
@@ -94,6 +95,49 @@ internal class ModuleScanner(context: Context) {
         return if (areas.isEmpty()) null else OverlapHit(pkg, label, areas)
     }
 
+    /**
+     * The scope [packageName] declares in its own APK (modern `META-INF/xposed/scope.list`, else
+     * the legacy `xposedscope` array), [DeclaredScope.Unknown] when it declares none or anything
+     * fails. Kept in memory per build, never on disk. Blocking: call off the main thread.
+     */
+    fun declaredScope(packageName: String): DeclaredScope = runCatching {
+        val flags = PackageManager.PackageInfoFlags.of(PackageManager.GET_META_DATA.toLong())
+        val info = pm.getPackageInfo(packageName, flags)
+        val app = info.applicationInfo ?: return@runCatching DeclaredScope.Unknown
+        val build = info.longVersionCode to info.lastUpdateTime
+        synchronized(scopes) { scopes[packageName] }?.takeIf { it.first == build }?.let { return@runCatching it.second }
+        val scope = modernScope(app).takeUnless { it == DeclaredScope.Unknown } ?: legacyScope(app)
+        synchronized(scopes) { scopes[packageName] = build to scope }
+        scope
+    }.getOrDefault(DeclaredScope.Unknown)
+
+    private val scopes = HashMap<String, Pair<Pair<Long, Long>, DeclaredScope>>()
+
+    /** `scope.list` from the base APK or a split; size-capped before it is read. */
+    private fun modernScope(app: ApplicationInfo): DeclaredScope {
+        val apks = listOfNotNull(app.sourceDir) + app.splitSourceDirs.orEmpty()
+        apks.forEach { path ->
+            val text = runCatching {
+                ZipFile(File(path)).use { zip ->
+                    val entry = zip.getEntry(SCOPE_ENTRY) ?: return@use null
+                    if (entry.size > DeclaredScope.MAX_CHARS) return@use null
+                    zip.getInputStream(entry).use { String(it.readNBytes(DeclaredScope.MAX_CHARS + 1), Charsets.UTF_8) }
+                }
+            }.getOrNull()
+            if (text != null) return DeclaredScope.parseList(text)
+        }
+        return DeclaredScope.Unknown
+    }
+
+    /** The legacy `xposedscope` meta-data: a string-array resource of the module (or a single string). */
+    private fun legacyScope(app: ApplicationInfo): DeclaredScope {
+        val meta = app.metaData ?: return DeclaredScope.Unknown
+        val id = meta.getInt(LEGACY_SCOPE, 0)
+        if (id == 0) return DeclaredScope.of(meta.getString(LEGACY_SCOPE)?.split(';', ','))
+        val items = runCatching { pm.getResourcesForApplication(app).getStringArray(id).toList() }.getOrNull()
+        return DeclaredScope.of(items?.take(DeclaredScope.MAX_ENTRIES + 1))
+    }
+
     /** Whether the APK carries the modern module marker; an unreadable one is simply not a module. */
     private fun isModuleApk(app: ApplicationInfo): Boolean = runCatching {
         ZipFile(File(app.sourceDir)).use { zip -> MARKERS.any { zip.getEntry(it) != null } }
@@ -117,6 +161,8 @@ internal class ModuleScanner(context: Context) {
         const val KEY_CHARS = 32
         const val LEGACY_FLAG = "xposedmodule"
         const val LEGACY_DESCRIPTION = "xposeddescription"
+        const val LEGACY_SCOPE = "xposedscope"
+        const val SCOPE_ENTRY = "META-INF/xposed/scope.list"
         const val YES = "1"
         const val NO = "0"
         val HEX: HexFormat = HexFormat.of()

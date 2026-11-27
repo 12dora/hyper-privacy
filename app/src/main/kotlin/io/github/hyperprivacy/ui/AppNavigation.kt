@@ -18,6 +18,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -85,6 +86,8 @@ internal class Shell(
     val system: SystemMemory,
     val apps: AppsMemory,
     val snackbar: SnackbarHostState,
+    /** Outlives every page: work started from a page (a write, its undo snackbar) is not cut short by leaving it. */
+    val scope: CoroutineScope,
 ) {
     var tab by tab
 
@@ -132,8 +135,9 @@ internal fun AppNavigation(model: UiModel) {
     val system = rememberSystemMemory()
     val apps = rememberAppsMemory(model.trackers)
     val snackbar = remember { SnackbarHostState() }
-    val shell = remember(model, stackHolder, tabHolder, overview, system, apps, snackbar) {
-        Shell(model, Navigator(stackHolder), tabHolder, overview, system, apps, snackbar)
+    val shellScope = rememberCoroutineScope()
+    val shell = remember(model, stackHolder, tabHolder, overview, system, apps, snackbar, shellScope) {
+        Shell(model, Navigator(stackHolder), tabHolder, overview, system, apps, snackbar, shellScope)
     }
     ScopeMessages(model.device, snackbar)
     // Default unfolding is a one-off effect of the first state, not a write made while composing.
@@ -224,6 +228,7 @@ private fun SettingsPage(state: UiState, shell: Shell, modifier: Modifier) {
         onSelfHideChange = { model.setSwitch(ModuleSwitch.SELF_HIDE, it) },
         onResetDefaults = model::resetDefaults,
         onOpenEndpoints = { nav.push(Route.Endpoints) },
+        onOpenConflicts = { nav.push(Route.Conflicts) },
         onOpenAllowlist = { nav.push(Route.Allowlist) },
         onRefreshObserved = model::refreshObserved,
         modifier = modifier,

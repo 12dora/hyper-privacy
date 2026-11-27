@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.ui.CategoryGroup
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
@@ -118,6 +119,18 @@ internal fun SystemScreen(
             )
         }
     }
+}
+
+/**
+ * The list position of [category]'s header in the by-type view of [state] when it is the only one
+ * unfolded (`null`: the category has no rules on this device). Mirrors the items above the
+ * categories in [SystemScreen]: the locked hint, the view switcher and the empty hint.
+ */
+internal fun categoryItemIndex(state: UiState, category: Category): Int? {
+    val position = state.byCategory.indexOfFirst { it.category == category }.takeIf { it >= 0 } ?: return null
+    val settled = state.loaded && state.module != ModuleState.CHECKING
+    val above = listOf(settled && !state.module.canEdit, true, settled && state.rules.isEmpty()).count { it }
+    return above + position
 }
 
 private fun LazyListScope.categories(

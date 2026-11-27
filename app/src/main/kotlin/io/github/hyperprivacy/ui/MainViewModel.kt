@@ -254,12 +254,10 @@ internal class MainViewModel(application: Application) :
                 )
             },
         )
-        val until = pause.resolve(stored)
-        pause.track(until)
+        val until = pause.resolve(stored).also(pause::track)
         val selfHidden = pendingWrites.resolve(stored, AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
         val hidingApps = selfHidden || AppListConfig.decode(stored).restricted.isNotEmpty()
         val protectedApps = TrackerProtection.protectedPackages(stored).size
-        val otherProtectionOn = hidingApps || protectedApps > 0
         val suspected = runCatching { backend.health.suspected() }.getOrDefault(emptyList())
             .sortedByDescending { it.lastSeen }
             .map { it.toUi(backend.view.apps) }
@@ -290,9 +288,11 @@ internal class MainViewModel(application: Application) :
             scope = device.ui,
             rebootReason = rebootReason,
             pausedUntil = until,
-            otherProtectionOn = otherProtectionOn,
+            otherProtectionOn = hidingApps || protectedApps > 0,
             protectedApps = protectedApps,
             conflict = conflicts.ui(appListHidingOn = hidingApps),
+            overlaps = conflicts.all(appListHidingOn = hidingApps),
+            overlapsDismissed = conflicts.anyDismissed,
         )
     }
 

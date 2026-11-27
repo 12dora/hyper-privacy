@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import io.github.hyperprivacy.R
@@ -68,10 +69,12 @@ internal fun ConflictRow(
 ) {
     val colors = MaterialTheme.colorScheme
     val details = stringResource(R.string.conflict_details)
+    val openLabel = stringResource(R.string.rule_open_details)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClickLabel = details, onClick = onOpen)
+            // The whole card opens the details and is one TalkBack stop that reads the hint.
+            .clickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen)
             .padding(start = Dimens.Gutter, end = Dimens.Small, top = Dimens.RowVertical, bottom = Dimens.Tiny),
     ) {
         Row(
@@ -87,8 +90,7 @@ internal fun ConflictRow(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = Dimens.Small)
-                    .semantics(mergeDescendants = true) {},
+                    .padding(end = Dimens.Small),
                 verticalArrangement = Arrangement.spacedBy(Dimens.RowGap),
             ) {
                 Text(stringResource(R.string.conflict_title), style = MaterialTheme.typography.bodyLarge)
@@ -107,7 +109,10 @@ internal fun ConflictRow(
             horizontalArrangement = Arrangement.spacedBy(Dimens.Small, Alignment.End),
         ) {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
-            FilledTonalButton(onClick = onOpen) { Text(details) }
+            // Same action as the card itself, which TalkBack already offers: no second stop for it.
+            FilledTonalButton(onClick = onOpen, modifier = Modifier.semantics { hideFromAccessibility() }) {
+                Text(details)
+            }
         }
     }
 }
