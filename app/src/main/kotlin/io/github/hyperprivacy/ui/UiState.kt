@@ -2,6 +2,7 @@ package io.github.hyperprivacy.ui
 
 import androidx.compose.runtime.Immutable
 import io.github.hyperprivacy.core.config.ProtectionPause
+import io.github.hyperprivacy.core.conflict.DeclaredScope
 import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.health.RebootReason
@@ -110,7 +111,13 @@ internal data class ConflictGroup(val area: OverlapArea, val labels: List<String
 
 /** One overlapping module as found on this device: its own label, its package and what it overlaps in. */
 @Immutable
-internal data class ConflictModule(val packageName: String, val label: String, val areas: List<OverlapArea>)
+internal data class ConflictModule(
+    val packageName: String,
+    val label: String,
+    val areas: List<OverlapArea>,
+    /** The apps the module declares it hooks, once read ([ConflictModel.loadScopes]). */
+    val scope: DeclaredScope = DeclaredScope.Unknown,
+)
 
 /**
  * Other installed modules that overlap with this one, for the Home hint and its detail page:
@@ -125,8 +132,6 @@ internal data class ConflictUi(
     val canDisableAppList: Boolean,
     val modules: List<ConflictModule> = emptyList(),
 ) {
-    val appListOverlap: Boolean get() = groups.any { it.area == OverlapArea.APP_LIST }
-
     companion object {
         /**
          * The hint for [found] modules, or `null` when none overlaps in anything. A blank label
@@ -185,7 +190,12 @@ internal data class UiState(
     val otherProtectionOn: Boolean = false,
     /** User-installed apps with protection turned on, as stored. */
     val protectedApps: Int = 0,
+    /** The Overview hint: overlapping modules and areas not dismissed. */
     val conflict: ConflictUi? = null,
+    /** Every overlapping module, dismissed ones included, for Settings and the detail page. */
+    val overlaps: ConflictUi? = null,
+    /** Some overlap was dismissed from the Overview hint (it can be shown again). */
+    val overlapsDismissed: Boolean = false,
 ) {
     /**
      * A timed pause is shown, so the banner's countdown ticks. A pause until resumed shows no time

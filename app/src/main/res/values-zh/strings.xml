@@ -214,6 +214,11 @@
     <string name="settings_reset_confirm">恢复</string>
     <string name="settings_about">关于</string>
     <string name="settings_check_update">检查更新</string>
+    <string name="settings_conflicts">功能重叠的模块</string>
+    <string name="settings_conflicts_none">未发现</string>
+    <plurals name="settings_conflicts_count">
+        <item quantity="other">%d 个模块</item>
+    </plurals>
     <string name="settings_link_none">没有可打开链接的应用</string>
     <string name="about_framework">框架</string>
     <string name="about_repository">开源仓库</string>
@@ -314,7 +319,7 @@
     <string name="conflict_area_device">设备标识改写</string>
     <string name="conflict_details">查看详情</string>
     <string name="conflict_detail_title">功能重叠的模块</string>
-    <string name="conflict_detail_intro_body">以下模块与本模块做着相同的事，两边同时生效时可能出现下列问题。保留一方即可。</string>
+    <string name="conflict_detail_intro_body">以下模块的功能与本模块重叠，同时生效时可能出现下列问题，只需保留一方。</string>
     <string name="conflict_detail_empty">未发现功能重叠的模块</string>
     <string name="conflict_applist_body">两边都隐藏应用列表：被隐藏的应用可能更多，关闭本模块的隐藏后仍可能看不到。</string>
     <string name="conflict_ads_body">两边都拦截广告：某个应用异常时，难以判断是哪一方拦截的。</string>
@@ -323,6 +328,13 @@
     <string name="conflict_fix_applist_body">建议：关闭本模块的应用列表隐藏，或在该模块中关闭对应功能。</string>
     <string name="conflict_fix_rules_body">建议：在本模块中关闭相关规则，或在该模块中关闭对应功能。</string>
     <string name="conflict_open_rules">查看相关规则</string>
+    <string name="conflict_restore_hint">恢复首页提示</string>
+    <string name="conflict_targets_title">两边同时作用的应用</string>
+    <string name="conflict_targets_all">作用于全部应用，涉及已防护的应用</string>
+    <string name="conflict_targets_none_body">在其声明的应用中，本模块未开启相关规则。</string>
+    <plurals name="conflict_targets_more">
+        <item quantity="other">展开全部（%d 个应用）</item>
+    </plurals>
     <string name="conflict_line">%1$s：%2$s</string>
     <plurals name="conflict_names_more">
         <item quantity="other">%1$s及另外 %2$d&#160;个</item>

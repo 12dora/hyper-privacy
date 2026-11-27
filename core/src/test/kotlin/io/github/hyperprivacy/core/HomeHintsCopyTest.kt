@@ -75,6 +75,7 @@ class HomeHintsCopyTest {
         }
         listOf("conflict_fix_applist_body", "conflict_fix_rules_body").forEach { key ->
             assertTrue(zh.getValue(key).startsWith("建议："), key)
+            assertTrue(en.getValue(key).startsWith("Suggestion: "), key)
         }
     }
 
@@ -118,6 +119,7 @@ class HomeHintsCopyTest {
             "conflict_details",
             "conflict_detail_title",
             "conflict_open_rules",
+            "conflict_restore_hint",
             "action_undo",
             "settings_backup",
             "backup_export",

@@ -37,7 +37,14 @@ internal interface ConflictModel {
 
     fun restoreAppListHiding(restore: AppListRestore)
 
+    /** Hides the Overview hint for the modules and areas it names now. */
     fun dismiss()
+
+    /** Shows the Overview hint again for everything dismissed so far. */
+    fun restoreHint()
+
+    /** Reads the scopes the overlapping modules declare (off the main thread), for the detail page. */
+    fun loadScopes()
 }
 
 /** User-installed apps and their protection. */

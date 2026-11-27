@@ -31,9 +31,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
@@ -72,17 +73,17 @@ internal fun SettingsScreen(
     onSelfHideChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
     onOpenEndpoints: () -> Unit,
+    onOpenConflicts: () -> Unit,
     onOpenAllowlist: () -> Unit,
     onRefreshObserved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmReset by rememberSaveable { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
     val repository = stringResource(R.string.repository_url)
     val context = LocalContext.current
     val noBrowser = stringResource(R.string.settings_link_none)
     // No network access here (the app has no INTERNET permission): the browser shows the latest release.
-    val checkUpdate = { openLink(context, "$repository/releases/latest", noBrowser) }
+    val checkUpdate = { openLink(context, "${repository.trimEnd('/')}/releases/latest", noBrowser) }
     // Only for the count on the endpoints row; the endpoints page keeps the list fresh.
     ObservedRefresh(polling = false, onRefresh = onRefreshObserved)
     Scaffold(
@@ -99,8 +100,10 @@ internal fun SettingsScreen(
             appearanceSection(appearance, onAppearanceChange)
             privacySection(state, onSelfHideChange, onOpenAllowlist)
             backupSection(state.module.canEdit, backup) { confirmReset = true }
-            diagnosticsSection(state, DiagnosticsActions(onOpenHealth, onExport, onDiagnosticChange, onOpenEndpoints))
-            aboutSection(state, repository, checkUpdate) { runCatching { uriHandler.openUri(repository) } }
+            val diagnostics =
+                DiagnosticsActions(onOpenHealth, onExport, onDiagnosticChange, onOpenEndpoints, onOpenConflicts)
+            diagnosticsSection(state, diagnostics)
+            aboutSection(state, repository, checkUpdate) { openLink(context, repository, noBrowser) }
         }
     }
     if (confirmReset) {
@@ -191,13 +194,14 @@ private fun LazyListScope.backupSection(canEdit: Boolean, backup: BackupActions,
     }
 }
 
-private enum class DiagnosticsRow { HEALTH, EXPORT, MODE, ENDPOINTS }
+private enum class DiagnosticsRow { HEALTH, EXPORT, MODE, ENDPOINTS, CONFLICTS }
 
 private class DiagnosticsActions(
     val onOpenHealth: () -> Unit,
     val onExport: () -> Unit,
     val onDiagnosticChange: (Boolean) -> Unit,
     val onOpenEndpoints: () -> Unit,
+    val onOpenConflicts: () -> Unit,
 )
 
 private fun LazyListScope.diagnosticsSection(state: UiState, actions: DiagnosticsActions) {
@@ -229,6 +233,20 @@ private fun LazyListScope.diagnosticsSection(state: UiState, actions: Diagnostic
                 summary = endpointsSummary(state),
                 onClick = actions.onOpenEndpoints,
             )
+
+            // Always here, so a dismissed overlap hint can still be looked up (and shown again).
+            DiagnosticsRow.CONFLICTS -> {
+                val count = state.overlaps?.modules?.size ?: 0
+                NavRow(
+                    title = stringResource(R.string.settings_conflicts),
+                    summary = if (count > 0) {
+                        pluralStringResource(R.plurals.settings_conflicts_count, count, count)
+                    } else {
+                        stringResource(R.string.settings_conflicts_none)
+                    },
+                    onClick = actions.onOpenConflicts,
+                )
+            }
         }
     }
 }
@@ -277,7 +295,10 @@ private fun VersionRow(version: String, onCheckUpdate: () -> Unit) {
         TitleSummary(
             title = stringResource(R.string.app_name),
             summary = version,
-            modifier = Modifier.weight(1f).padding(vertical = Dimens.RowVertical),
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = Dimens.RowVertical)
+                .semantics(mergeDescendants = true) {},
         )
         TextButton(onClick = onCheckUpdate) { Text(stringResource(R.string.settings_check_update)) }
     }
@@ -286,7 +307,10 @@ private fun VersionRow(version: String, onCheckUpdate: () -> Unit) {
 /** Opens [url] in whatever app handles links; without one, says so instead of failing. */
 private fun openLink(context: Context, url: String, unavailable: String) {
     val opened = runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
     }.isSuccess
     if (!opened) runCatching { Toast.makeText(context, unavailable, Toast.LENGTH_SHORT).show() }
 }
@@ -318,6 +342,7 @@ private fun SettingsPreview() {
             onSelfHideChange = {},
             onResetDefaults = {},
             onOpenEndpoints = {},
+            onOpenConflicts = {},
             onOpenAllowlist = {},
             onRefreshObserved = {},
         )

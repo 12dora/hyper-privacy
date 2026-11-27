@@ -76,6 +76,10 @@ internal class DemoModel(paused: Boolean) :
         override fun restoreAppListHiding(restore: AppListRestore) = update { selfHidden = restore.selfHide ?: true }
 
         override fun dismiss() = update { conflictDismissed = true }
+
+        override fun restoreHint() = update { conflictDismissed = false }
+
+        override fun loadScopes() = Unit
     }
 
     override val trackers: AppsModel = object : AppsModel {

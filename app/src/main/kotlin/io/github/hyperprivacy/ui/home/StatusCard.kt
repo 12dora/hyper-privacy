@@ -88,6 +88,11 @@ internal class ConflictActions(
     val onBack: () -> Unit,
     val onDisableAppList: () -> Unit,
     val onOpenRules: (Category) -> Unit,
+    /** A built-in rule's detail page, where it can be turned off. */
+    val onOpenRule: (String) -> Unit = {},
+    /** An app's page: a protected app's (`true`) or a covered system app's. */
+    val onOpenApp: (String, Boolean) -> Unit = { _, _ -> },
+    val onRestoreHint: () -> Unit = {},
 )
 
 /** Callbacks of the status card. */

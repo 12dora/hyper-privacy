@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.ui
 
 import io.github.hyperprivacy.BuildConfig
+import io.github.hyperprivacy.core.conflict.DeclaredScope
 import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.core.health.Health
 import io.github.hyperprivacy.core.rule.Catalog
@@ -87,12 +88,19 @@ internal class DemoData(private val language: String) {
             pausedUntil = switches.pausedUntil,
             otherProtectionOn = true,
             protectedApps = users.apps.count { it.protected },
-            conflict = ConflictUi.of(
-                CONFLICTS.map { (pkg, label, areas) -> ConflictModule(pkg, label.resolve(language), areas) },
-                appListHidingOn = switches.selfHidden,
-            ).takeUnless { switches.conflictDismissed },
+            conflict = overlaps(switches).takeUnless { switches.conflictDismissed },
+            overlaps = overlaps(switches),
+            overlapsDismissed = switches.conflictDismissed,
         )
     }
+
+    /** The sample modules, with the scopes they declare (one all-apps, one unreadable). */
+    private fun overlaps(switches: DemoSwitches): ConflictUi? = ConflictUi.of(
+        CONFLICTS.map { (pkg, label, areas) ->
+            ConflictModule(pkg, label.resolve(language), areas, SCOPES[pkg] ?: DeclaredScope.Unknown)
+        },
+        appListHidingOn = switches.selfHidden,
+    )
 
     private fun item(rule: Rule, index: Int, enabled: Boolean, review: Boolean): RuleItem {
         val hits = if (enabled && index % HIT_EVERY == 0) HIT_BASE + index * HIT_STEP % HIT_SPREAD else 0L
@@ -193,6 +201,15 @@ internal class DemoData(private val language: String) {
             ),
             Triple("com.example.noads", Text("去广告", "No Ads"), listOf(OverlapArea.ADS)),
             Triple("com.example.splashskip", Text("开屏跳过", "Splash Skip"), listOf(OverlapArea.ADS)),
+        )
+
+        /** Scopes the sample modules declare; the rest declare none (area-level text only). */
+        val SCOPES: Map<String, DeclaredScope> = mapOf(
+            "com.example.adkit" to DeclaredScope.Apps(
+                setOf("com.miui.player", "com.android.browser", "com.xiaomi.market", "com.miui.securitycenter", "com.example.reader"),
+            ),
+            "com.example.cleaner" to DeclaredScope.AllApps,
+            "com.example.hideapps" to DeclaredScope.Apps(setOf("com.example.reader", "com.example.shop")),
         )
 
         /** Installed system apps of the demo device, with neutral display names. */

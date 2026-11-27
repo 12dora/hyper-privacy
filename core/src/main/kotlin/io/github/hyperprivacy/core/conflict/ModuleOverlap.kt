@@ -6,11 +6,20 @@ import io.github.hyperprivacy.core.rule.Category
  * What an installed Xposed module may also be doing that this module does. [category] is where the
  * matching built-in rules of this module live (the System tab category the hint links to).
  */
-public enum class OverlapArea(public val category: Category) {
+public enum class OverlapArea(public val category: Category, private val also: Set<Category> = emptySet()) {
     APP_LIST(Category.APP_LIST),
     ADS(Category.ADS),
-    PRIVACY(Category.ANALYTICS),
+    PRIVACY(Category.ANALYTICS, setOf(Category.DIAGNOSTICS, Category.PERSONAL_DATA)),
     DEVICE_ID(Category.DEVICE_ID),
+    ;
+
+    /** Whether this module's rules of [category] do this area's work. */
+    public fun covers(category: Category): Boolean = category == this.category || category in also
+
+    public companion object {
+        /** The area this module's rules of [category] belong to. */
+        public fun of(category: Category): OverlapArea? = entries.firstOrNull { it.covers(category) }
+    }
 }
 
 /** An installed module that overlaps, as found on this device. [label] is the app's own label. */
