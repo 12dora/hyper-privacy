@@ -81,12 +81,12 @@ internal object StackScrub {
         // Leading frames are the hook's own call path: drop all of ours, bundled Kotlin included.
         // Below the first foreign frame the app's own Kotlin runtime may appear, so keep it.
         var start = 0
-        while (start < frames.size && isModuleFrame(frames[start].className)) start++
+        while (start < frames.size && isModuleClass(frames[start].className)) start++
         for (i in start until frames.size) {
             val name = frames[i].className
             // The hooked method's own frame can survive below a synthesized one; never show it twice.
             val duplicate = i == start && !head.isNullOrEmpty() && frames[i] == head.last()
-            if (!duplicate && (KOTLIN_ROOTS.any(name::startsWith) || !isModuleFrame(name))) kept += frames[i]
+            if (!duplicate && (KOTLIN_ROOTS.any(name::startsWith) || !isModuleClass(name))) kept += frames[i]
         }
         return kept.toTypedArray()
     }
@@ -98,7 +98,8 @@ internal object StackScrub {
         return StackTraceElement(type.name, method, "$outer.java", PlausibleFrames.line(type.name, method))
     }
 
-    private fun isModuleFrame(className: String): Boolean {
+    /** Whether the module class loader defines [className]; cached, never throws. Also used by [LiveStackGuard]. */
+    fun isModuleClass(className: String): Boolean {
         if (moduleLoader == null || SHARED_ROOTS.any(className::startsWith)) return false
         ownership[className]?.let { return it }
         val ours = loadedByModule(className)

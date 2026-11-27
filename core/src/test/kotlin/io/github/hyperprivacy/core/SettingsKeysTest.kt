@@ -51,7 +51,7 @@ class SettingsKeysTest {
             "com.miui.yellowpage_preferences.pref_uuid", "green_kid_device_id", "last_synced_account",
             "virtualsim_account_rule_1234567890", "antispam_sync_token", "account_msg_unread",
             "cloud_msg_account_1234", "com.xiaomi.market_need_update_app_packages_list", "miui_home_hide_app_list",
-            "notificationbar_launch_list", "agent_sign_x",
+            "notificationbar_launch_list", "agent_sign_x", "device_name", "bluetooth_name",
         ).forEach { assertTrue(deny.matches(it), it) }
     }
 
@@ -60,7 +60,7 @@ class SettingsKeysTest {
         listOf(
             "android_id", "adb_enabled", "development_settings_enabled", "airplane_mode_on", "auto_time",
             "screen_brightness", "font_scale", "accessibility_enabled", "enabled_accessibility_services",
-            "default_input_method", "bluetooth_name", "device_name", "time_12_24", "location_mode",
+            "default_input_method", "bluetooth_address", "device_name_x", "time_12_24", "location_mode",
             "install_non_market_apps", "transition_animation_scale", "force_fsg_nav_bar", "ui_night_mode",
             "account", "virtualsim_account_rule",
         ).forEach { assertFalse(deny.matches(it), it) }
