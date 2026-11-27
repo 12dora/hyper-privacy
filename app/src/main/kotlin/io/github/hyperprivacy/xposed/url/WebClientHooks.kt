@@ -12,6 +12,7 @@ import io.github.hyperprivacy.xposed.StackScrub
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.ExceptionMode
 import io.github.libxposed.api.XposedInterface.Hooker
 import java.io.ByteArrayInputStream
 import java.lang.reflect.Method
@@ -42,7 +43,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * (`shouldInterceptRequest(WebResourceRequest)`, API 24; androidx `ServiceWorkerClientCompat`
  * reaches it through a framework subclass) instead. [registerServiceWorker] hooks that surface
  * the same way, as a separate instance. Deciders read the request with [requestOf], which works
- * for both; a service-worker request has no view ([viewOf] is `null`).
+ * for both; a service-worker request has no view ([viewOf] is `null`). Chromium asks only a client
+ * the app set: an app that never calls `setServiceWorkerClient` gets no callback, and its service
+ * workers stay outside this sink (installing a client ourselves would start WebView in every app).
+ *
+ * Hooks are PROTECTIVE: none of them throws on purpose (web deciders never return
+ * [Verdict.Throw]), so a module failure falls back to the original.
  */
 internal class WebClientHooks private constructor(
     private val xposed: XposedInterface,
@@ -83,7 +89,7 @@ internal class WebClientHooks private constructor(
         val base = surface.base
         val hooked = base.declaredConstructors
         hooked.forEach { constructor ->
-            xposed.hook(constructor).intercept { chain ->
+            xposed.hook(constructor).setExceptionMode(ExceptionMode.PROTECTIVE).intercept { chain ->
                 val result = chain.proceed()
                 chain.thisObject?.let { client ->
                     log.guard("${surface.name} client") { inspected.get(client.javaClass) }
@@ -92,7 +98,7 @@ internal class WebClientHooks private constructor(
             }
         }
         synchronized(hookedClasses) { hookedClasses[base] = true }
-        val baseEntry = interceptMethod(base)?.also { xposed.hook(it).intercept(dispatcher) }
+        val baseEntry = interceptMethod(base)?.also { hookEntry(it) }
         constructors = hooked.size
         log.info("${surface.name}: hooked ${hooked.size} constructor(s), base entry ${baseEntry != null}")
     }
@@ -104,12 +110,16 @@ internal class WebClientHooks private constructor(
             val current = cls
             log.guard("${surface.name} client ${current.name}") {
                 interceptMethod(current)?.let {
-                    xposed.hook(it).intercept(dispatcher)
+                    hookEntry(it)
                     log.info("${surface.name}: hooked shouldInterceptRequest of ${current.name}")
                 }
             }
             cls = current.superclass
         }
+    }
+
+    private fun hookEntry(method: Method) {
+        xposed.hook(method).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(dispatcher)
     }
 
     private fun dispatch(chain: Chain): Any? {
@@ -118,9 +128,17 @@ internal class WebClientHooks private constructor(
         for (entry in entries) {
             when (val verdict = decide(entry, chain)) {
                 Verdict.Proceed -> Unit
+
                 is Verdict.Return -> return verdict.value
+
                 is Verdict.Throw -> throw StackScrub.scrub(verdict.error, chain.executable, verdict.top)
+
                 is Verdict.ProceedWith -> return chain.proceed(verdict.args)
+
+                is Verdict.Transform -> {
+                    val result = chain.proceed()
+                    return runCatching { verdict.transform(result) }.getOrDefault(result)
+                }
             }
         }
         val outer = deciding.get()
@@ -128,7 +146,7 @@ internal class WebClientHooks private constructor(
         try {
             return chain.proceed()
         } finally {
-            deciding.set(outer)
+            if (outer == null) deciding.remove() else deciding.set(outer)
         }
     }
 
@@ -173,11 +191,13 @@ internal class WebClientHooks private constructor(
 
         private val shared = HashMap<Surface, WebClientHooks>()
 
-        /** The request a hooked `shouldInterceptRequest` of either surface was called with. */
-        fun requestOf(chain: Chain): WebResourceRequest? = chain.args.lastOrNull() as? WebResourceRequest
+        /** The request a hooked `shouldInterceptRequest` of either surface was called with (no allocation). */
+        fun requestOf(chain: Chain): WebResourceRequest? =
+            chain.getArg(chain.executable.parameterCount - 1) as? WebResourceRequest
 
         /** The WebView of a hooked `WebViewClient` call; `null` for a service-worker request. */
-        fun viewOf(chain: Chain): WebView? = chain.args.firstOrNull() as? WebView
+        fun viewOf(chain: Chain): WebView? =
+            if (chain.executable.parameterCount > 1) chain.getArg(0) as? WebView else null
 
         /**
          * Adds [decide] (measured as sink [sink]) to the process's WebView request hooks, installing
