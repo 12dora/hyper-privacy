@@ -34,6 +34,13 @@ class OkHttpEntriesTest {
     }
 
     @Test
+    fun `stripped throws with several candidates are ambiguous and hook nothing`() {
+        // e.g. a renamed entry next to a cached-response getter: throwing into the getter would crash.
+        assertEquals(emptyList(), select(M("execute"), M("a"), M("cached"), contract = true))
+        assertEquals(emptyList(), select(M("execute", throwsIo = true), M("a"), M("b")))
+    }
+
+    @Test
     fun `execute alone is used only when nothing else returns a Response`() {
         assertEquals(listOf(M("execute")), select(M("execute"), M("request", response = false), contract = true))
         assertEquals(emptyList(), select(M("request", response = false), M("timeout", response = false)))

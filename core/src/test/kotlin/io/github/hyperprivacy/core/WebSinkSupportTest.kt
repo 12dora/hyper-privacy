@@ -57,8 +57,11 @@ class WebSinkSupportTest {
     fun `obfuscated okhttp value classes are recognised by shape`() {
         assertTrue(OkHttpShapes.isHttpUrl(obfuscatedUrl))
         assertTrue(OkHttpShapes.isRequest(obfuscatedRequest, isUrlType))
-        val response = ClassShape("okhttp3.g0", listOf("okhttp3.e0", "okhttp3.d0", "int", S, "okhttp3.w"))
+        val fields = listOf("okhttp3.e0", "okhttp3.d0", "int", S, "okhttp3.w", "long", "long")
+        val response = ClassShape("okhttp3.g0", fields)
         assertTrue(OkHttpShapes.isResponse(response, obfuscatedRequest.name))
+        val holder = ClassShape("a.b", listOf("okhttp3.e0", "int"))
+        assertFalse(OkHttpShapes.isResponse(holder, obfuscatedRequest.name), "a Request and an int are not a Response")
     }
 
     @Test
