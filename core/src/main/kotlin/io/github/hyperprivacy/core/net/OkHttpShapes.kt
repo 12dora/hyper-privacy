@@ -41,3 +41,35 @@ public object OkHttpShapes {
     public fun isResponse(shape: ClassShape, requestType: String): Boolean =
         requestType in shape.fieldTypes && INT in shape.fieldTypes
 }
+
+/**
+ * Which methods of an OkHttp call class are its execution entry, the method both `execute()` and
+ * the async path (`AsyncCall.run`, which never goes through `execute()`) call:
+ * `getResponseWithInterceptorChain` by name (OkHttp 4 mangles it to `…$okhttp`); when R8 renamed it,
+ * the no-arg methods returning `Response` minus `execute()` (it only forwards to the entry) unless
+ * nothing else remains. Those declaring `IOException` are preferred. R8 may drop the entry's
+ * `throws` clause; it is then taken only when the call contract still proves that `IOException`
+ * travels through it: another `Response` method of the class (`execute()`) or of an interface it
+ * implements (`Call.execute()`, [contractThrowsIo]) declares it. Without that proof nothing is
+ * hooked (the sink stays off rather than throw a checked exception nobody expects).
+ */
+public object OkHttpEntries {
+    public const val ENTRY: String = "getResponseWithInterceptorChain"
+    public const val EXECUTE: String = "execute"
+
+    public fun <T> select(
+        candidates: List<T>,
+        name: (T) -> String,
+        isResponse: (T) -> Boolean,
+        throwsIo: (T) -> Boolean,
+        contractThrowsIo: Boolean = false,
+    ): List<T> {
+        val named = candidates.filter { name(it) == ENTRY || name(it).startsWith("$ENTRY$") }
+        if (named.isNotEmpty()) return named
+        val shaped = candidates.filter(isResponse)
+        val preferred = shaped.filter { name(it) != EXECUTE }.ifEmpty { shaped }
+        val throwing = preferred.filter(throwsIo)
+        if (throwing.isNotEmpty()) return throwing
+        return if (contractThrowsIo || shaped.any(throwsIo)) preferred else emptyList()
+    }
+}
