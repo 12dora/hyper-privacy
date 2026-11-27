@@ -114,11 +114,19 @@ internal val diagnosticsRules: List<Rule> = listOf(
         packages = setOf("com.android.fileexplorer", "com.mi.globalbrowser", "com.miui.extraphoto"),
         title = Text("海外崩溃日志", "Overseas crash logs"),
         summary = Text("阻止海外崩溃日志上报", "Block overseas crash logs"),
-        payload = RulePayload.Domains(listOf("crashlytics.com", "crashlyticsreports-pa.googleapis.com")),
+        payload = RulePayload.Domains(
+            listOf(
+                "firebase-settings.crashlytics.com",
+                "reports.crashlytics.com",
+                "update.crashlytics.com",
+                "crashlyticsreports-pa.googleapis.com",
+            ),
+        ),
         category = Category.DIAGNOSTICS,
         evidence = "dex: com/google/firebase/crashlytics in fileexplorer, globalbrowser, extraphoto; " +
-            "reports.crashlytics.com/spi/v1/platforms/android/apps/%s/reports, firebase-settings.crashlytics.com; " +
-            "libcrashlytics*.so",
+            "reports.crashlytics.com/spi/v1/platforms/android/apps/%s/reports, firebase-settings.crashlytics.com, " +
+            "update.crashlytics.com/spi/v1/platforms/android/apps (fileexplorer); libcrashlytics*.so. The " +
+            "crashlytics.com apex (vendor site, opened in the browser) is not matched",
     ),
     Rule(
         id = "xiaomi.rum",

@@ -6,6 +6,14 @@ import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.rule.UrlPrefix
 
+/** Background GPS-trail and hot-grid upload paths of the bundled location SDKs. */
+private val LOCATION_UPLINK_PATHS: List<UrlPrefix> = listOf(
+    UrlPrefix("itsdata.map.baidu.com", "/long-conn-gps/"),
+    UrlPrefix("aloc-gnss-eph.amap.com", "/collect-hot-grid"),
+    UrlPrefix("aloc-gnss-eph.aimap.com", "/collect-hot-grid"),
+    UrlPrefix("api.map.baidu.com", "/lbs_sdkcc/report"),
+)
+
 /** Location, Wi-Fi / cell environment and other personal data uploads. */
 internal val personalDataRules: List<Rule> = listOf(
     Rule(
@@ -83,22 +91,29 @@ internal val personalDataRules: List<Rule> = listOf(
         highRisk = true,
     ),
     Rule(
-        id = "location.uplink",
+        id = "location.uplink-apps",
         packages = LOCATION_UPLINK_APPS,
+        title = Text("应用轨迹上报", "App location trail reports"),
+        summary = Text("阻止后台轨迹与热点网格上报", "Block background GPS trail reports"),
+        payload = RulePayload.Urls(LOCATION_UPLINK_PATHS),
+        category = Category.PERSONAL_DATA,
+        evidence = "evidence.md L803/L913 itsdata.map.baidu.com/long-conn-gps/sdk.php (systemhelper); " +
+            "L546/L913/L1053 api.map.baidu.com/lbs_sdkcc/report; dex daup/itsdata.map.baidu.com in shop, " +
+            "systemhelper, cgicol/apilocate.amap.com in smarthome (tracker database baidu-location, amap-location, " +
+            "which block these paths by default). None of these apps provides positioning: their location " +
+            "lookups (loc.map.baidu.com, apilocate.amap.com) stay allowed",
+    ),
+    Rule(
+        id = "location.uplink",
+        packages = LOCATION_SERVICE_APPS,
         title = Text("定位长连上报", "Location uplink reports"),
         summary = Text("阻止轨迹长连与热点网格上报", "Block GPS uplink and hot-grid reports"),
-        payload = RulePayload.Urls(
-            listOf(
-                UrlPrefix("itsdata.map.baidu.com", "/long-conn-gps/"),
-                UrlPrefix("aloc-gnss-eph.amap.com", "/collect-hot-grid"),
-                UrlPrefix("aloc-gnss-eph.aimap.com", "/collect-hot-grid"),
-                UrlPrefix("api.map.baidu.com", "/lbs_sdkcc/report"),
-            ),
-        ),
+        payload = RulePayload.Urls(LOCATION_UPLINK_PATHS),
         category = Category.PERSONAL_DATA,
-        evidence = "evidence.md L803/L913 itsdata.map.baidu.com/long-conn-gps/sdk.php (systemhelper, finddevice); " +
-            "L971 metoknlp aloc-gnss-eph.{amap,aimap}.com/collect-hot-grid (A-GPS host); L546/L913/L1053 " +
-            "api.map.baidu.com/lbs_sdkcc/report. Not live-verified against Find Device / network location",
+        evidence = "evidence.md L913 itsdata.map.baidu.com/long-conn-gps/sdk.php (finddevice); L971 metoknlp " +
+            "aloc-gnss-eph.{amap,aimap}.com/collect-hot-grid (A-GPS host). The same paths are blocked by default " +
+            "in apps without positioning (location.uplink-apps); here they belong to Find Device and network " +
+            "location and are not live-verified",
         defaultOn = false,
         impact = Text("可能影响查找设备与网络定位", "May affect Find Device and location"),
     ),
