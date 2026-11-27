@@ -47,21 +47,43 @@ public object TrackerRules {
     /**
      * The in-process rules for a protected [packageName] whose scan found [detectedIds]: one or
      * two synthetic rules per blockable SDK, then [appRules]. Unknown and detection-only ids are
-     * skipped. [userDns] as in [appRules]. A [RulePayload.KnownTrackers] app rule becomes its DOMAIN
-     * and URL rules here ([knownTrackerPayloads]), leaving out the detected SDKs, whose own switches decide.
+     * skipped. [userDns] as in [appRules]. A [RulePayload.KnownTrackers] app rule stays unexpanded:
+     * the network policy expands it ([expandKnown]) only while it is on, so an app where it is off
+     * never builds (or parses) the tracker table for it.
      */
     public fun rulesFor(packageName: String, detectedIds: Collection<String>, userDns: Boolean = false): List<Rule> {
         val detected = detectedIds.distinct().sorted().mapNotNull(Trackers::byId)
         val sdkRules = detected.filter { it.blockable }.flatMap { sdk -> rulesOf(packageName, sdk) }
-        val skip = detected.mapTo(HashSet()) { it.id }
-        val app = appRules(packageName, userDns).flatMap { rule ->
-            if (rule.payload == RulePayload.KnownTrackers) {
-                knownTrackerPayloads(skip).map { rule.copy(payload = it) }
-            } else {
-                listOf(rule)
+        return sdkRules + appRules(packageName, userDns)
+    }
+
+    /**
+     * [rules] with each enabled [RulePayload.KnownTrackers] rule replaced by its DOMAIN and URL
+     * rules (same id) and disabled ones dropped; [rules] itself when there is none, so the cost
+     * while the rule is off is one scan of the list. [isEnabled] is the process's switch lookup,
+     * which [resolve] fills with every covered SDK's per-app switch while the rule is on.
+     *
+     * Semantics: the rule covers [knownTrackers] the scan did not detect (detected SDKs have their
+     * own rules and switches). An SDK whose switch is off for the app, detected or not, is never
+     * blocked by this rule: it is left out, and so are its hosts and URL prefixes where other
+     * covered SDKs share them (an equal host, or one below its block host).
+     */
+    public fun expandKnown(rules: List<Rule>, isEnabled: (String) -> Boolean): List<Rule> {
+        if (rules.none { it.payload == RulePayload.KnownTrackers }) return rules
+        val detected = rules.mapNotNullTo(HashSet()) { TrackerProtection.sdkIdOf(it.id) }
+        return rules.flatMap { rule ->
+            when {
+                rule.payload != RulePayload.KnownTrackers -> listOf(rule)
+
+                !isEnabled(rule.id) -> emptyList()
+
+                else -> {
+                    val off = knownTrackers.filter { !isEnabled(TrackerProtection.ruleId(it.id)) }
+                        .mapTo(HashSet()) { it.id }
+                    knownTrackerPayloads(skipIds = detected + off, offIds = off).map { rule.copy(payload = it) }
+                }
             }
         }
-        return sdkRules + app
     }
 
     /**
@@ -76,15 +98,23 @@ public object TrackerRules {
 
     /**
      * Payloads of a [RulePayload.KnownTrackers] rule: the deduplicated block hosts and URL prefixes
-     * of [knownTrackers] outside [skipIds]. Keep hosts apply to it ([honorsKeepHosts]).
+     * of [knownTrackers] outside [skipIds], minus every host and URL prefix of the [offIds] SDKs
+     * (switched off for the app) that another SDK shares. Keep hosts apply to it ([honorsKeepHosts]).
      */
-    public fun knownTrackerPayloads(skipIds: Set<String> = emptySet()): List<RulePayload> {
+    public fun knownTrackerPayloads(
+        skipIds: Set<String> = emptySet(),
+        offIds: Set<String> = emptySet(),
+    ): List<RulePayload> {
         val covered = knownTrackers.filter { it.id !in skipIds }
-        val hosts = covered.flatMapTo(LinkedHashSet()) { it.blockHosts }
-        val urls = covered.flatMapTo(LinkedHashSet()) { it.blockUrls }
+        val offSdks = Trackers.all.filter { it.id in offIds }
+        val offHosts = offSdks.flatMap { it.blockHosts }
+        val offUrls = offSdks.flatMapTo(HashSet()) { it.blockUrls }
+        val shadowed = { host: String -> offHosts.any { host == it || host.endsWith(".$it") } }
+        val hosts = covered.flatMapTo(LinkedHashSet()) { it.blockHosts }.filterNot(shadowed)
+        val urls = covered.flatMapTo(LinkedHashSet()) { it.blockUrls }.filterNot { it in offUrls || shadowed(it.host) }
         return listOfNotNull(
-            hosts.takeIf { it.isNotEmpty() }?.let { RulePayload.Domains(it.toList()) },
-            urls.takeIf { it.isNotEmpty() }?.let { RulePayload.Urls(it.toList()) },
+            hosts.takeIf { it.isNotEmpty() }?.let { RulePayload.Domains(it) },
+            urls.takeIf { it.isNotEmpty() }?.let { RulePayload.Urls(it) },
         )
     }
 
@@ -98,11 +128,13 @@ public object TrackerRules {
     /**
      * Effective switch of each rule from [rulesFor] under [raw]: nothing is on unless protection
      * is on for [packageName]; SDK rules follow [TrackerProtection.isBlocked] and the stored scan
-     * result, [appRules] follow [isAppRuleOn].
+     * result, [appRules] follow [isAppRuleOn]. While a [RulePayload.KnownTrackers] rule is on, the
+     * map also holds the per-app switch ([TrackerProtection.isBlocked]) of every covered SDK the scan
+     * did not detect, for [expandKnown]; nothing is added (and the table is not read) while it is off.
      */
     public fun resolve(raw: Map<String, *>, packageName: String, rules: List<Rule>): Map<String, Boolean> {
         val detected = TrackerProtection.detected(raw, packageName)?.toSet()
-        return rules.associate { rule ->
+        val switches = rules.associate { rule ->
             val sdk = TrackerProtection.sdkIdOf(rule.id)?.let(Trackers::byId)
             val on = when {
                 detected == null -> false
@@ -112,6 +144,14 @@ public object TrackerRules {
             }
             rule.id to on
         }
+        val known = rules.any { it.payload == RulePayload.KnownTrackers && switches[it.id] == true }
+        if (!known || detected == null) return switches
+        val out = HashMap(switches)
+        for (sdk in knownTrackers) {
+            if (sdk.id in detected) continue
+            out[TrackerProtection.ruleId(sdk.id)] = TrackerProtection.isBlocked(raw, packageName, sdk)
+        }
+        return out
     }
 
     private fun rulesOf(packageName: String, sdk: TrackerSdk): List<Rule> {

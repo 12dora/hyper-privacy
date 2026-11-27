@@ -18,13 +18,6 @@ internal class NetworkPolicy(
     private val switches: RuleSwitches,
     private val log: HookLog,
 ) {
-    /**
-     * Tracker-protected apps never block the hosts SDKs need for features (push, login, maps) by
-     * an SDK rule or the known-trackers rule; other app-level rules (HTTPDNS) are not overridden.
-     */
-    private val keepHosts: Set<String> =
-        if (rules.any { TrackerRules.honorsKeepHosts(it.id) }) Trackers.keepHosts else emptySet()
-
     private val matchers = AtomicReference(build())
 
     init {
@@ -57,7 +50,18 @@ internal class NetworkPolicy(
     /** Whether any URL-layer rule is currently enabled; lets sinks skip URL parsing entirely. */
     val hasUrlRules: Boolean get() = !matchers.get().urls.isEmpty
 
+    /**
+     * Tracker-protected apps never block the hosts SDKs need for features (push, login, maps) by
+     * an SDK rule or the known-trackers rule; other app-level rules (HTTPDNS) are not overridden.
+     * The known-trackers rule is expanded, and keep hosts loaded, only while such a rule is on.
+     */
     private fun build(): NetworkMatchers = log.guard("build network matchers") {
-        NetworkMatchers.of(rules, keepHosts, TrackerRules::honorsKeepHosts, switches::isEnabled)
+        val effective = TrackerRules.expandKnown(rules, switches::isEnabled)
+        val keepHosts = if (effective.any { TrackerRules.honorsKeepHosts(it.id) && switches.isEnabled(it.id) }) {
+            Trackers.keepHosts
+        } else {
+            emptySet()
+        }
+        NetworkMatchers.of(effective, keepHosts, TrackerRules::honorsKeepHosts, switches::isEnabled)
     } ?: NetworkMatchers.EMPTY
 }
