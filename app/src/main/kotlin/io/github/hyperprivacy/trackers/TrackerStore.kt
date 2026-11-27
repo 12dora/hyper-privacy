@@ -60,7 +60,9 @@ internal class TrackerStore(context: Context) {
         prefs.edit { putStringSet(APPLIED_KEY, applied + packages) }
     }
 
-    private fun appliedPackages(): Set<String> = prefs.getStringSet(APPLIED_KEY, null).orEmpty()
+    /** A missing or corrupted value (another type under the key) reads as "none yet", never throws. */
+    private fun appliedPackages(): Set<String> =
+        runCatching { prefs.getStringSet(APPLIED_KEY, null) }.getOrNull().orEmpty()
 
     private fun header(key: ScanKey) =
         listOf(key.versionCode, key.lastUpdateTime, Trackers.version, FORMAT).joinToString(SEPARATOR)

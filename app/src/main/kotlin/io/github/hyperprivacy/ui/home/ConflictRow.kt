@@ -20,11 +20,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
+import io.github.hyperprivacy.core.conflict.LabelGap
 import io.github.hyperprivacy.core.conflict.OverlapArea
 import io.github.hyperprivacy.ui.ConflictGroup
 import io.github.hyperprivacy.ui.ConflictUi
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
+import io.github.hyperprivacy.ui.LocalLanguageTag
 import io.github.hyperprivacy.ui.components.IconBadge
 
 /** Modules named per area; more are counted, so many modules never make the hint grow without bound. */
@@ -44,7 +46,9 @@ private fun OverlapArea.labelRes(): Int = when (this) {
 private fun groupLine(group: ConflictGroup): String {
     val shown = group.labels.take(MAX_NAMES).joinToString(stringResource(R.string.list_separator))
     val rest = group.labels.size - MAX_NAMES
-    val names = if (rest > 0) pluralStringResource(R.plurals.conflict_names_more, rest, shown, rest) else shown
+    // Chinese runs on from the names without a space, unless the last name ends in a Latin letter or digit.
+    val lead = if (LocalLanguageTag.current.startsWith("zh")) LabelGap.beforeCjk(shown) else shown
+    val names = if (rest > 0) pluralStringResource(R.plurals.conflict_names_more, rest, lead, rest) else shown
     return stringResource(R.string.conflict_line, stringResource(group.area.labelRes()), names)
 }
 
