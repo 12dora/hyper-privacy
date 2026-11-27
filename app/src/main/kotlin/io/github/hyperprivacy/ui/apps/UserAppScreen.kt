@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
@@ -42,7 +43,7 @@ import io.github.hyperprivacy.ui.components.countString
 import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
 
-private val HeaderIcon = 48.dp
+private val HeaderIcon = 36.dp
 
 /**
  * One user-installed app, in this order: the protection switch; detected tracker SDKs grouped by
@@ -63,7 +64,8 @@ internal fun UserAppScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = {},
+                // The app itself is the title: no empty bar above a separate header.
+                title = { if (app != null) Header(app) },
                 navigationIcon = { BackButton(actions.onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -82,7 +84,6 @@ internal fun UserAppScreen(
         }
         val sdkGroups = remember(app.sdks) { app.sdks.byCategory() }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
-            item(key = "header") { Header(app) }
             item(key = "protect") { ProtectionCard(app, canEdit, actions) }
             sdkSection(app, sdkGroups, canEdit, actions.onSdk)
             suspectSection(app, canEdit, actions.onSuspect)
@@ -96,21 +97,24 @@ internal fun UserAppScreen(
 private fun Header(app: UserAppUi) {
     val (summary, tint) = appSummary(app)
     Row(
-        modifier = Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.Small + Dimens.Tiny),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppIcon(app.packageName, HeaderIcon)
         Column {
             Text(
                 text = app.label,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.semantics { heading() },
             )
             Text(
                 text = summary,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = tint.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -118,7 +122,7 @@ private fun Header(app: UserAppUi) {
 
 @Composable
 private fun ProtectionCard(app: UserAppUi, canEdit: Boolean, actions: UserAppActions) {
-    SingleCard(Modifier.padding(top = Dimens.GroupGap)) {
+    SingleCard(Modifier.padding(top = Dimens.Small)) {
         SwitchRow(
             title = stringResource(R.string.app_protection),
             summary = stringResource(R.string.app_protection_summary),
