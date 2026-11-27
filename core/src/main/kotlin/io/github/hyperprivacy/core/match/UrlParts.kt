@@ -3,10 +3,11 @@ package io.github.hyperprivacy.core.match
 import java.io.ByteArrayOutputStream
 
 /**
- * The parts of a URL that URL rules look at: the canonical host and the percent-decoded path.
- * Query and fragment are dropped on purpose; rules never depend on them.
+ * The parts of a URL that URL rules look at: the canonical host, the percent-decoded path and,
+ * only when asked for ([parse] `keepQuery`), the raw query string (without `?`). The fragment is
+ * always dropped.
  */
-public data class UrlParts(val host: String, val path: String) {
+public data class UrlParts(val host: String, val path: String, val query: String? = null) {
     public companion object {
         private const val SCHEME_SEPARATOR = "://"
         private const val HTTP_PREFIX = "http://"
@@ -19,8 +20,10 @@ public data class UrlParts(val host: String, val path: String) {
          * Leniently parses an absolute hierarchical URL (`scheme://[user@]host[:port][/path][?q][#f]`).
          * Returns `null` for anything else (relative, opaque, missing or invalid host), which callers
          * treat as "no match". Unlike [java.net.URI] it tolerates characters apps leave unescaped.
+         * The query is extracted only with [keepQuery] (when an enabled rule has a query condition),
+         * so the common case allocates nothing for it.
          */
-        public fun parse(url: String?): UrlParts? {
+        public fun parse(url: String?, keepQuery: Boolean = false): UrlParts? {
             val text = url?.trim() ?: return null
             val schemeEnd = text.indexOf(SCHEME_SEPARATOR)
             if (schemeEnd <= 0 || !text.substring(0, schemeEnd).all(::isSchemeChar)) return null
@@ -29,7 +32,12 @@ public data class UrlParts(val host: String, val path: String) {
             val host = hostOf(text.substring(authorityStart, authorityEnd)) ?: return null
             val pathEnd = indexOfAny(text, authorityEnd, "?#")
             val rawPath = text.substring(authorityEnd, pathEnd)
-            return UrlParts(host, decodePath(rawPath.ifEmpty { ROOT }))
+            val query = if (keepQuery && pathEnd < text.length && text[pathEnd] == '?') {
+                text.substring(pathEnd + 1, indexOfAny(text, pathEnd + 1, "#"))
+            } else {
+                null
+            }
+            return UrlParts(host, decodePath(rawPath.ifEmpty { ROOT }), query)
         }
 
         /**

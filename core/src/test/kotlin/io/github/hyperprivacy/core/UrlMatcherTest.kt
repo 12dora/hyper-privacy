@@ -4,11 +4,13 @@ import io.github.hyperprivacy.core.match.HostMatcher
 import io.github.hyperprivacy.core.match.UrlMatcher
 import io.github.hyperprivacy.core.match.UrlParts
 import io.github.hyperprivacy.core.match.UrlPattern
+import io.github.hyperprivacy.core.match.UrlQuery
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -144,5 +146,54 @@ class UrlPartsTest {
     @ValueSource(strings = ["", "mailto:a@example.org", "http://", "http:///path", "http://[::1/p", "ht tp://a.com/"])
     fun `rejects urls without a usable host`(url: String) {
         assertNull(UrlParts.parse(url))
+    }
+
+    @Test
+    fun `query conditions match only the named parameter`() {
+        val queries = UrlMatcher.of(
+            listOf(
+                UrlPattern("box.example.com", "/ztbox", "action=zubc") to "ubc",
+                UrlPattern("box.example.com", "/ztbox/sub") to "sub",
+                UrlPattern("feed.example.com", "/v1", "type=log") to "feed",
+                UrlPattern("feed.example.com") to "feed-host",
+            ),
+        )
+        assertTrue(queries.matchesQueries)
+        assertEquals("ubc", queries.find("https://box.example.com/ztbox?action=zubc"))
+        assertEquals("ubc", queries.find("https://box.example.com/ztbox?a=1&action=zubc&b=2#f"))
+        assertNull(queries.find("https://box.example.com/ztbox?action=zubc2"))
+        assertNull(queries.find("https://box.example.com/ztbox?xaction=zubc"))
+        assertNull(queries.find("https://box.example.com/ztbox?action=other"))
+        assertNull(queries.find("https://box.example.com/ztbox"))
+        assertEquals("ubc", queries.find("box.example.com", "/ztbox", "action=zubc"))
+        assertNull(queries.find("box.example.com", "/ztbox", null))
+        // A failed query condition falls back to shorter patterns, here the host-only one.
+        assertEquals("feed-host", queries.find("https://feed.example.com/v1?type=other"))
+        assertEquals("feed", queries.find("https://feed.example.com/v1?type=log"))
+        assertEquals("sub", queries.find("https://box.example.com/ztbox/sub?action=other"))
+        assertFalse(UrlMatcher.of(listOf(UrlPattern("a.example.com", "/p") to "p")).matchesQueries)
+    }
+
+    @Test
+    fun `query parameters are checked by whole segments`() {
+        assertTrue(UrlQuery.hasParam("action=zubc", "action=zubc"))
+        assertTrue(UrlQuery.hasParam("x=&action=zubc", "action=zubc"))
+        assertFalse(UrlQuery.hasParam("", "action=zubc"))
+        assertFalse(UrlQuery.hasParam(null, "action=zubc"))
+        assertFalse(UrlQuery.hasParam("action=zub", "action=zubc"))
+        assertFalse(UrlQuery.hasParam("&&", "a=b"))
+        assertTrue(UrlQuery.isParam("action=zubc"))
+        assertFalse(UrlQuery.isParam("=zubc"))
+        assertFalse(UrlQuery.isParam("action"))
+        assertFailsWith<IllegalArgumentException> { UrlPattern("a.example.com", null, "a=b") }
+        assertFailsWith<IllegalArgumentException> { UrlPattern("a.example.com", "/p", "a=b&c=d") }
+    }
+
+    @Test
+    fun `parse keeps the raw query only when asked`() {
+        assertNull(UrlParts.parse("https://a.example.com/p?x=%41#f")?.query)
+        assertEquals("x=%41", UrlParts.parse("https://a.example.com/p?x=%41#f", keepQuery = true)?.query)
+        assertEquals("", UrlParts.parse("https://a.example.com/p?", keepQuery = true)?.query)
+        assertNull(UrlParts.parse("https://a.example.com/p#q?x", keepQuery = true)?.query)
     }
 }

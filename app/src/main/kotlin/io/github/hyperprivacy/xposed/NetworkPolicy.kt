@@ -40,8 +40,12 @@ internal class NetworkPolicy(
     /** Id of the enabled DOMAIN rule blocking [host], or `null` if allowed. */
     fun blockingHost(host: String?): String? = matchers.get().findHost(host)
 
-    /** Id of the enabled DOMAIN or URL rule blocking [host] + decoded [path], or `null`. */
-    fun blockingUrl(host: String?, path: String?): String? = matchers.get().findUrl(host, path)
+    /** Id of the enabled DOMAIN or URL rule blocking [host] + decoded [path] (+ raw [query]), or `null`. */
+    fun blockingUrl(host: String?, path: String?, query: String? = null): String? =
+        matchers.get().findUrl(host, path, query)
+
+    /** Whether an enabled URL rule has a query condition; only then do sinks extract the query. */
+    val matchesQueries: Boolean get() = matchers.get().matchesQueries
 
     /** Id of the enabled DOMAIN rule blocking a connection to [address]:[port]; see [NetworkMatchers.findConnect]. */
     fun blockingConnect(address: InetAddress, port: Int, book: AddressBook): String? =

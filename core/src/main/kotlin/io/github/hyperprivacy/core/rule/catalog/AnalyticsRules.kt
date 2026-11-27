@@ -579,17 +579,16 @@ internal val analyticsRules: List<Rule> = listOf(
         summary = Text("阻止行为日志上报", "Block behavior-log uploads"),
         payload = RulePayload.Urls(
             listOf(
-                UrlPrefix("tcbox.baidu.com", "/ztbox"),
-                UrlPrefix("h2tcbox.baidu.com", "/ztbox"),
-                UrlPrefix("mbd.baidu.com", "/ztbox"),
+                UrlPrefix("tcbox.baidu.com", "/ztbox", UBC_ACTION),
+                UrlPrefix("h2tcbox.baidu.com", "/ztbox", UBC_ACTION),
+                UrlPrefix("mbd.baidu.com", "/ztbox", UBC_ACTION),
             ),
         ),
         category = Category.ANALYTICS,
         evidence = "jadx baidu.input_mi com.baidu.ubc Constants UPLOAD_URL_PATH \"/ztbox?action=zubc\", UBCHelper -> " +
-            "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325); traffic cap3 typing: mbd.baidu.com x3 " +
-            "(L321). /ztbox multiplexes other action= services and the matcher ignores query strings",
-        impact = Text("可能影响输入法部分云端功能", "May affect other IME cloud services"),
-        highRisk = true,
+            "{h2,}tcbox.baidu.com/ztbox?action=zubc (evidence.md L325; dex strings re-checked 2026-11-27); traffic " +
+            "cap3 typing: mbd.baidu.com x3 (L321). /ztbox multiplexes other action= services, so only requests " +
+            "carrying action=zubc are blocked and the other services on the path stay allowed",
     ),
     Rule(
         id = "milink.cast-report",
@@ -651,3 +650,6 @@ internal val analyticsRules: List<Rule> = listOf(
             "health cg.play-analytics.com",
     ),
 )
+
+/** Query parameter of the behavior-log upload on the multiplexed `/ztbox` endpoint. */
+private const val UBC_ACTION = "action=zubc"
