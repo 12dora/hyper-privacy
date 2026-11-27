@@ -19,20 +19,28 @@ import io.github.hyperprivacy.core.id.DerivedIds
  * the per-app gain and offset make the residual calibration differ between apps instead of linking
  * them. Gain and offset are stable per app, so a still phone reads stable values.
  *
- * Magnitudes, chosen to stay inside the errors real, calibrated sensors already have:
- * - gain within +-[MAX_GAIN_DELTA] (0.5 %): MEMS sensitivity tolerance is +-1..3 % before and
- *   about 0.5 % after factory calibration; a 360 degree turn reads 358.2..361.8 degrees.
- * - accelerometer offset within +-[ACCEL_OFFSET] m/s² (about 3 mg): a tilt error of at most 0.18
- *   degrees, below the zero-g offset tolerance of phone accelerometers (tens of mg).
- * - gyroscope offset within +-[GYRO_OFFSET] rad/s (0.03 degrees/s): below the residual zero-rate
- *   offset of calibrated phone gyroscopes; fused rotation vectors are not offset at all.
- * - magnetometer offset within +-[MAG_OFFSET] µT: a compass error of at most about 1 degree at the
- *   weakest horizontal field (about 20 µT), within the magnetometer's own noise (0.3..0.6 µT).
+ * Magnitudes. Averaging removes the dither, so what an app can still measure is
+ * `gain * real calibration + offset`; for two apps on one phone to look no more alike than two
+ * phones, the per-app change must be about as large as the residual calibration spread between
+ * calibrated phones, while staying inside what apps already tolerate from real sensors:
+ * - gain within +-[MAX_GAIN_DELTA] (1 %), the sensitivity tolerance of calibrated MEMS parts; a
+ *   360 degree turn reads 356.4..363.6 degrees, |g| reads 9.71..9.91 m/s².
+ * - accelerometer offset within +-[ACCEL_OFFSET] m/s² per axis (about 10 mg), the order of the
+ *   residual zero-g offset of calibrated phones; a tilt error of at most about 0.6 degrees.
+ * - gyroscope offset within +-[GYRO_OFFSET] rad/s (0.11 degrees/s), the order of the residual
+ *   zero-rate offset; an app integrating raw rates drifts by up to about 7 degrees a minute, as
+ *   on many real phones (fused rotation vectors, which apps use for orientation, are not offset).
+ * - magnetometer offset within +-[MAG_OFFSET] µT, the order of residual hard-iron error after
+ *   calibration; a compass error of at most about 3 degrees at a weak (20 µT) horizontal field.
+ *
+ * Gravity gets the accelerometer's gain and offset and linear acceleration its gain, so
+ * `accelerometer = gravity + linear acceleration` still holds. Without the module secret
+ * ([NEUTRAL]) gain and offset are identity and only the secret-free parts apply.
  */
 public class SensorBlur private constructor(
     private val gains: FloatArray,
     private val offsets: FloatArray,
-    /** Seed of the dither noise; each [SensorStream] mixes in its sensor handle. */
+    /** Seed of the dither noise; mixed with the sensor handle, the event timestamp and the value index. */
     public val seed: Long,
 ) {
     /** The gain of [axis] (0..2) of physical [group] ([ACCEL], [GYRO], [MAG]). */
@@ -46,10 +54,10 @@ public class SensorBlur private constructor(
         public const val GYRO: Int = 1
         public const val MAG: Int = 2
 
-        public const val MAX_GAIN_DELTA: Float = 0.005f
-        public const val ACCEL_OFFSET: Float = 0.03f
-        public const val GYRO_OFFSET: Float = 0.0005f
-        public const val MAG_OFFSET: Float = 0.3f
+        public const val MAX_GAIN_DELTA: Float = 0.01f
+        public const val ACCEL_OFFSET: Float = 0.1f
+        public const val GYRO_OFFSET: Float = 0.002f
+        public const val MAG_OFFSET: Float = 1f
 
         private const val AXES = 3
         private const val GROUPS = 3
@@ -62,6 +70,10 @@ public class SensorBlur private constructor(
         private const val BITS_PER_BYTE = 8
         private const val SHORT_MAX = 65_535f
         private val OFFSETS = floatArrayOf(ACCEL_OFFSET, GYRO_OFFSET, MAG_OFFSET)
+        private const val NEUTRAL_SEED = 0x5DEECE66DL
+
+        /** Identity gain and offset, for use while the module secret is missing. */
+        public val NEUTRAL: SensorBlur = SensorBlur(FloatArray(VALUES) { 1f }, FloatArray(VALUES), NEUTRAL_SEED)
 
         /**
          * The constants of [packageName] under the module [secret]: the same for one app on one
