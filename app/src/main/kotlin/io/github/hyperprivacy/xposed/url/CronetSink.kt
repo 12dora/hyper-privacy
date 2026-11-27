@@ -7,6 +7,7 @@ import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface.Chain
 import java.lang.reflect.Executable
+import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
@@ -58,28 +59,18 @@ internal class CronetSink(private val sinks: SinkContext) {
             }
     }
 
-    private fun hookDeclared(cls: Class<*>): Int {
-        val methods = cls.declaredMethods.filter {
-            it.name in REQUEST_METHODS && !Modifier.isAbstract(it.modifiers) && !it.isBridge
+    private fun hookDeclared(cls: Class<*>): Int = CronetEntries.requestEntries(cls).count { executable ->
+        val indices = CronetEntries.urlArgumentIndices(executable)
+        if (indices.isNotEmpty()) {
+            val hooker = FailOpenHooker(sinks.log, Sinks.CRONET_REWRITE) { rewrite(it, indices) }
+            sinks.xposed.hook(executable).intercept(hooker)
         }
-        val isBuilder = cls.simpleName.endsWith(BUILDER_SUFFIX) || cls.simpleName.endsWith(BUILDER_IMPL_SUFFIX)
-        val constructors = if (isBuilder) cls.declaredConstructors.toList() else emptyList()
-        return (methods + constructors).count { executable ->
-            val indices = urlArgumentIndices(executable)
-            if (indices.isNotEmpty()) {
-                val hooker = FailOpenHooker(sinks.log, Sinks.CRONET_REWRITE) { rewrite(it, indices) }
-                sinks.xposed.hook(executable).intercept(hooker)
-            }
-            indices.isNotEmpty()
-        }
+        indices.isNotEmpty()
     }
 
     /** Observes `build()` of an engine builder and inspects the class of each engine it returns. */
     private fun observeBuilds(family: Family, builder: Class<*>, hooks: AtomicInteger) {
-        val builds = builder.declaredMethods.filter {
-            it.name == BUILD && it.parameterCount == 0 && !it.returnType.isPrimitive &&
-                !Modifier.isAbstract(it.modifiers) && !it.isBridge
-        }
+        val builds = CronetEntries.buildMethods(builder)
         builds.forEach { method ->
             sinks.xposed.hook(method).intercept { chain ->
                 val engine = chain.proceed()
@@ -98,35 +89,17 @@ internal class CronetSink(private val sinks: SinkContext) {
     /** Rewrites the first URL-typed argument that matches a rule; usually the first one. */
     private fun rewrite(chain: Chain, indices: IntArray): Verdict {
         val index = indices.firstOrNull { isBlocked(chain.getArg(it)) } ?: return Verdict.Proceed
-        val args = chain.args.toTypedArray()
-        args[index] = if (args[index] is URL) URL(BLACK_HOLE) else BLACK_HOLE
-        return Verdict.ProceedWith(args)
+        return CronetEntries.blackHoled(chain, index)
     }
 
     private fun isBlocked(arg: Any?): Boolean = when (arg) {
-        BLACK_HOLE -> false
+        CronetEntries.BLACK_HOLE -> false
         is String -> sinks.checkUrl(arg) != null
         is URL -> sinks.checkUrl(arg.toString()) != null
         else -> false
     }
 
     private companion object {
-        /** Unroutable local endpoint: the connection is refused immediately, no traffic leaves. */
-        const val BLACK_HOLE = "https://127.0.0.1:1/"
-
-        const val BUILD = "build"
-        const val BUILDER_SUFFIX = "Builder"
-        const val BUILDER_IMPL_SUFFIX = "BuilderImpl"
-
-        /** Concrete request entry points of Cronet-derived engines (URL usually the first argument). */
-        val REQUEST_METHODS = setOf("newUrlRequestBuilder", "createRequest", "openConnection")
-
-        /** Indices of the `String` / [URL] parameters that may carry the request URL. */
-        fun urlArgumentIndices(executable: Executable): IntArray = executable.parameterTypes.withIndex()
-            .filter { (_, type) -> type == String::class.java || type == URL::class.java }
-            .map { it.index }
-            .toIntArray()
-
         val FAMILIES = listOf(
             Family(
                 sink = Sinks.URL_CRONET,
@@ -138,10 +111,7 @@ internal class CronetSink(private val sinks: SinkContext) {
                     // Pre-2017 Cronet: UrlRequest.Builder was concrete with a (String url, …) constructor.
                     "org.chromium.net.UrlRequest\$Builder",
                 ),
-                engineBuilders = listOf(
-                    "org.chromium.net.CronetEngine\$Builder",
-                    "org.chromium.net.ExperimentalCronetEngine\$Builder",
-                ),
+                engineBuilders = CronetEntries.CRONET_BUILDERS,
             ),
             Family(
                 sink = Sinks.URL_TURBONET,
@@ -162,8 +132,62 @@ internal class CronetSink(private val sinks: SinkContext) {
             Family(
                 sink = Sinks.URL_HTTP_ENGINE,
                 entryClasses = emptyList(),
-                engineBuilders = listOf("android.net.http.HttpEngine\$Builder"),
+                engineBuilders = CronetEntries.HTTP_ENGINE_BUILDERS,
             ),
         )
+    }
+}
+
+/**
+ * Cronet-style entry points shared by [CronetSink] and the origin guard
+ * ([io.github.hyperprivacy.xposed.origin.OriginCronetGuard]): engine builders whose `build()` is
+ * observed, the request entries of an engine or builder class, and the black-hole rewrite.
+ */
+internal object CronetEntries {
+    /** Unroutable local endpoint: the connection is refused immediately, no traffic leaves. */
+    const val BLACK_HOLE = "https://127.0.0.1:1/"
+
+    private const val BUILD = "build"
+    private const val BUILDER_SUFFIX = "Builder"
+    private const val BUILDER_IMPL_SUFFIX = "BuilderImpl"
+
+    /** Concrete request entry points of Cronet-derived engines (URL usually the first argument). */
+    private val REQUEST_METHODS = setOf("newUrlRequestBuilder", "createRequest", "openConnection")
+
+    /** Cronet engine builders (the API classes the app bundles; the engine may come from Play Services). */
+    val CRONET_BUILDERS = listOf(
+        "org.chromium.net.CronetEngine\$Builder",
+        "org.chromium.net.ExperimentalCronetEngine\$Builder",
+    )
+
+    /** The platform engine builder (API 34+). */
+    val HTTP_ENGINE_BUILDERS = listOf("android.net.http.HttpEngine\$Builder")
+
+    /** The concrete no-arg `build()` methods of engine builder [builder]. */
+    fun buildMethods(builder: Class<*>): List<Method> = builder.declaredMethods.filter {
+        it.name == BUILD && it.parameterCount == 0 && !it.returnType.isPrimitive &&
+            !Modifier.isAbstract(it.modifiers) && !it.isBridge
+    }
+
+    /** Request entries declared by [cls]: [REQUEST_METHODS], plus constructors of a builder class. */
+    fun requestEntries(cls: Class<*>): List<Executable> {
+        val methods = cls.declaredMethods.filter {
+            it.name in REQUEST_METHODS && !Modifier.isAbstract(it.modifiers) && !it.isBridge
+        }
+        val isBuilder = cls.simpleName.endsWith(BUILDER_SUFFIX) || cls.simpleName.endsWith(BUILDER_IMPL_SUFFIX)
+        return if (isBuilder) methods + cls.declaredConstructors else methods
+    }
+
+    /** Indices of the `String` / [URL] parameters that may carry the request URL. */
+    fun urlArgumentIndices(executable: Executable): IntArray = executable.parameterTypes.withIndex()
+        .filter { (_, type) -> type == String::class.java || type == URL::class.java }
+        .map { it.index }
+        .toIntArray()
+
+    /** Proceeds with argument [index] replaced by [BLACK_HOLE] (as a [URL] when it is one). */
+    fun blackHoled(chain: Chain, index: Int): Verdict {
+        val args = chain.args.toTypedArray()
+        args[index] = if (args[index] is URL) URL(BLACK_HOLE) else BLACK_HOLE
+        return Verdict.ProceedWith(args)
     }
 }
