@@ -2,6 +2,7 @@ package io.github.hyperprivacy.xposed.url
 
 import io.github.hyperprivacy.core.match.UrlParts
 import io.github.hyperprivacy.core.net.IpLiterals
+import io.github.hyperprivacy.core.net.OkHttpEntries
 import io.github.hyperprivacy.xposed.FailOpenHooker
 import io.github.hyperprivacy.xposed.Reflection
 import io.github.hyperprivacy.xposed.SinkContext
@@ -21,18 +22,14 @@ import java.util.WeakHashMap
  * ([SinkContext.urlFailure]): `execute()` rethrows it and `enqueue()` delivers it to
  * `Callback.onFailure`, exactly like a network error.
  *
- * The entry is found by name (OkHttp 4 mangles internal names to
- * `getResponseWithInterceptorChain$okhttp`); when R8 renamed it, by shape: the declared no-arg
- * methods returning the call's `Response` type that declare `IOException` (or a supertype), minus
- * `execute()` when another one remains (it only forwards to the entry, so hooking both would check
- * every request twice). A method that does not declare it may belong to a fork whose callers never
- * expect a checked exception there, so it is not hooked, unless the class is OkHttp's own call
- * ([OkHttpCalls.isOkHttpCall]: R8 drops `throws` clauses, while OkHttp's callers handle
- * `IOException` from the entry whatever the bytecode declares). The request URL
+ * The entry is found by name, else by shape ([OkHttpEntries]: the no-arg methods returning the
+ * call's `Response`, never only `execute()` while another one remains, since `enqueue()` bypasses
+ * it). Only OkHttp's own call classes are inspected (public names, or what `newCall` returned).
+ * The request URL
  * is read by [OkHttpUrlReader]. When the URL host is an IP literal, an explicit `Host` header (manual
  * HTTPDNS) is checked as the host too.
  *
- * When R8 renamed the call class (or no entry of the named one could be hooked), the class is
+ * When R8 renamed the call class (none is present under a public name), the class is
  * found at runtime as the origin guard finds it: `OkHttpClient.newCall` is observed and the class
  * of the call it returns is inspected once, on first sight ([OkHttpCalls.CallClasses]). That costs
  * one class-value lookup per call creation and allocates nothing after the first call.
@@ -47,13 +44,22 @@ internal class OkHttpSink(private val sinks: SinkContext) {
 
     /** Call classes met through `newCall`: entries hooked on first sight, the count kept per class. */
     private val renamed = OkHttpCalls.CallClasses { type, first ->
-        if (first) sinks.log.guard("OkHttp ${type.name}") { hook(type) } ?: 0 else 0
+        if (!first) return@CallClasses 0
+        val count = sinks.log.guard("OkHttp ${type.name}") { hook(type) } ?: 0
+        // Found at runtime but unusable: the observer reported the sink active, correct that.
+        if (count == 0) sinks.reportSink(Sinks.URL_OKHTTP, false)
+        count
     }
 
     fun install(): Boolean {
-        // Through the same per-class state, so a call of a named class met via newCall is not inspected again.
-        val byName = OkHttpCalls.callClasses(sinks.classLoader).sumOf { renamed.get(it) }
-        val hooked = byName + if (byName == 0) observeNewCall() else 0
+        val named = OkHttpCalls.callClasses(sinks.classLoader)
+        val hooked = if (named.isNotEmpty()) {
+            named.sumOf { type -> sinks.log.guard("OkHttp ${type.name}") { hook(type) } ?: 0 }
+        } else {
+            // Renamed call class: active as soon as newCall is observed; a class that turns out
+            // unusable is reported missed when first seen.
+            observeNewCall()
+        }
         sinks.reportSink(Sinks.URL_OKHTTP, hooked > 0)
         presentButMissed = hooked == 0 && OkHttpCalls.isPresent(sinks.classLoader)
         return hooked > 0
@@ -123,8 +129,6 @@ internal object OkHttpCalls {
 
     /** Public OkHttp names that usually survive R8 (consumer rules, reflection by other libraries). */
     private val MARKER_CLASSES = listOf(CLIENT_CLASS, CALL_INTERFACE)
-    private const val ENTRY = "getResponseWithInterceptorChain"
-    private const val EXECUTE = "execute"
     private const val NEW_CALL = "newCall"
 
     /**
@@ -151,10 +155,6 @@ internal object OkHttpCalls {
         return client.declaredMethods.filter { it.name == NEW_CALL && it.parameterCount == 1 && !it.isBridge }
     }
 
-    /** Whether [type] is OkHttp's own call class: a known name, or an implementation of `okhttp3.Call`. */
-    fun isOkHttpCall(type: Class<*>): Boolean = type.name in CALL_CLASSES ||
-        generateSequence(type) { it.superclass }.any { cls -> cls.interfaces.any { it.name == CALL_INTERFACE } }
-
     /** The call classes present in [loader] under their public names. */
     fun callClasses(loader: ClassLoader): List<Class<*>> = CALL_CLASSES.mapNotNull { Reflection.loadClass(it, loader) }
 
@@ -171,13 +171,25 @@ internal object OkHttpCalls {
             it.parameterCount == 0 && !Modifier.isStatic(it.modifiers) && !Modifier.isAbstract(it.modifiers) &&
                 !it.isBridge && !it.isSynthetic
         }
-        val named = candidates.filter { it.name == ENTRY || it.name.startsWith("$ENTRY$") }
-        if (named.isNotEmpty() || reader == null) return named
+        // Without the Request type only named entries are found.
         val shapes = ShapeCache()
-        val shaped = candidates.filter { shapes.isResponse(it.returnType, reader.requestType) }
-        val structural = shaped.filter { it.throwsIo() }.ifEmpty { if (isOkHttpCall(type)) shaped else emptyList() }
-        return structural.filter { it.name != EXECUTE }.ifEmpty { structural }
+        val isResponse = { method: Method ->
+            reader != null && shapes.isResponse(method.returnType, reader.requestType)
+        }
+        val contract = interfaceMethods(type).any { it.parameterCount == 0 && isResponse(it) && it.throwsIo() }
+        return OkHttpEntries.select(
+            candidates,
+            name = Method::getName,
+            isResponse = isResponse,
+            throwsIo = { it.throwsIo() },
+            contractThrowsIo = contract,
+        )
     }
+
+    /** Methods of every interface [type] and its superclasses implement (the `Call` contract). */
+    private fun interfaceMethods(type: Class<*>): Sequence<Method> = generateSequence(type) { it.superclass }
+        .flatMap { it.interfaces.asSequence() }
+        .flatMap { it.declaredMethods.asSequence() }
 
     private fun Method.throwsIo(): Boolean = exceptionTypes.any { it.isAssignableFrom(IOException::class.java) }
 }

@@ -6,6 +6,7 @@ import android.os.Build
 import android.provider.Settings
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppIndex
+import io.github.hyperprivacy.core.system.SettingCopyMasker
 import io.github.hyperprivacy.core.system.SettingsDenyList
 import io.github.hyperprivacy.core.system.SettingsMaskList
 import io.github.hyperprivacy.core.system.SettingsObservation
@@ -33,10 +34,12 @@ import java.lang.reflect.Field
  * "no such key", exactly as on a device that never wrote it.
  *
  * [SettingsMaskList] keys (user-set device names) are never hidden: apps and services read them
- * without a fallback. The original runs and its result, a fresh copy of the stored setting
- * (`return new Setting(setting)` in AOSP 16 / main), gets the neutral name in its `value` and
- * `defaultValue` fields; the stored setting is untouched. The fields are resolved once at install;
- * when the shape differs the keys are left alone (real value) rather than hidden.
+ * without a fallback. The original runs once ([Verdict.Transform]) and the caller gets a new copy of
+ * its result (`Setting(Setting)` copy constructor, AOSP 16 / main) with the neutral name in `value`
+ * and `defaultValue`. The returned object itself is never written, so even a build that returned
+ * the stored setting keeps it intact; the null setting (key absent) is returned as is and counts no
+ * hit. Constructor and fields are resolved once at install; when the shape differs the keys are
+ * left alone (real value) rather than hidden, and any failure returns the original result.
  *
  * The method runs for every Settings read on the device, under SettingsProvider's lock: the
  * common path is one hash lookup, a few prefix checks and a volatile read; caller classification
@@ -76,7 +79,7 @@ internal class SettingsKeyGuard(
             return false
         }
         val stateKey = runCatching { type.getDeclaredField(STATE_KEY).apply { isAccessible = true } }.getOrNull()
-        val hook = Hook(stateKey, readAospKeys(classLoader), masker(method.returnType, via))
+        val hook = Hook(stateKey, readAospKeys(classLoader), masker(type, method.returnType, via))
         // PROTECTIVE: we only ever proceed (possibly with another argument), never throw on purpose.
         xposed.hook(method)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
@@ -107,35 +110,19 @@ internal class SettingsKeyGuard(
         return loader
     }
 
-    /** The device-name substitution for [settingClass], or `null` (logged: names stay real) when its fields differ. */
-    private fun masker(settingClass: Class<*>, via: String): Masker? {
-        val fields = runCatching {
-            MASKED_FIELDS.map { name ->
-                val field = settingClass.getDeclaredField(name)
-                field.takeIf { it.type == String::class.java }?.apply { isAccessible = true }
-            }
-        }.getOrNull()
-        if (fields == null || fields.any { it == null }) {
-            log.warn("settings: $SETTING_CLASS fields $MASKED_FIELDS not found via $via; device names not masked")
-            return null
-        }
+    /** The device-name substitution for [settingClass], or `null` (logged: names stay real) when its shape differs. */
+    private fun masker(stateClass: Class<*>, settingClass: Class<*>, via: String): SettingCopyMasker? {
         val marketName = log.guard("read market name") { systemProperty(MARKET_NAME_PROPERTY) }
-        return Masker(settingClass, fields.filterNotNull(), SettingsMaskList.neutralName(marketName, Build.MODEL))
+        val neutral = SettingsMaskList.neutralName(marketName, Build.MODEL)
+        return SettingCopyMasker.of(stateClass, settingClass, MASKED_FIELDS, neutral) ?: run {
+            log.warn("settings: $SETTING_CLASS copy constructor or $MASKED_FIELDS not found via $via; names not masked")
+            null
+        }
     }
 
     private fun systemProperty(name: String): String? {
         val type = Reflection.loadClass(SYSTEM_PROPERTIES_CLASS, null) ?: return null
         return type.getMethod("get", String::class.java).invoke(null, name) as? String
-    }
-
-    /** Writes [neutral] into a returned copy of a masked setting; [settingClass] excludes the null setting. */
-    private class Masker(private val settingClass: Class<*>, private val fields: List<Field>, val neutral: String) {
-        fun mask(setting: Any?): Any? {
-            // The null setting is an anonymous subclass shared by every reader: never written.
-            if (setting == null || setting.javaClass !== settingClass) return setting
-            for (field in fields) field.set(setting, neutral)
-            return setting
-        }
     }
 
     /** SettingsProvider's static `sAll{Global,System,Secure}Settings`: every AOSP-declared key. */
@@ -156,7 +143,7 @@ internal class SettingsKeyGuard(
     private inner class Hook(
         private val stateKey: Field?,
         private val aospKeys: Array<Set<*>?>,
-        private val masker: Masker?,
+        private val masker: SettingCopyMasker?,
     ) {
         fun decide(chain: Chain): Verdict {
             val key = chain.getArg(0) as? String ?: return Verdict.Proceed
@@ -171,8 +158,9 @@ internal class SettingsKeyGuard(
             val hide = denied && switches.isEnabled(RULE_ID)
             if (observe) observe(chain.thisObject, index, appId, key, hide)
             if (!hide) return Verdict.Proceed
-            state.reporter?.hit(Catalog.SYSTEM_SCOPE, RULE_ID, "${index.packageOf(appId)} reading $key")
-            if (masked) return masked(chain)
+            val detail = "${index.packageOf(appId)} reading $key"
+            if (masked) return masked(chain, detail)
+            state.reporter?.hit(Catalog.SYSTEM_SCOPE, RULE_ID, detail)
             // An empty name makes the original return this state's null setting (TextUtils.isEmpty check).
             return Verdict.ProceedWith(arrayOf(""))
         }
@@ -187,10 +175,14 @@ internal class SettingsKeyGuard(
             return if (index.isThirdParty(appId)) appId else -1
         }
 
-        /** The original's result with the neutral name; it is a fresh copy, the stored setting is untouched. */
-        private fun masked(chain: Chain): Verdict {
+        /** The original runs once; its result is replaced by a masked copy (a hit) when the key is set. */
+        private fun masked(chain: Chain, detail: String): Verdict {
             val masker = masker ?: return Verdict.Proceed
-            return Verdict.Return(masker.mask(chain.proceed()))
+            val settingsState = chain.thisObject
+            return Verdict.Transform { setting ->
+                masker.mask(settingsState, setting)?.also { state.reporter?.hit(Catalog.SYSTEM_SCOPE, RULE_ID, detail) }
+                    ?: setting
+            }
         }
 
         private fun observe(settingsState: Any?, index: AppIndex, appId: Int, key: String, hidden: Boolean) {
