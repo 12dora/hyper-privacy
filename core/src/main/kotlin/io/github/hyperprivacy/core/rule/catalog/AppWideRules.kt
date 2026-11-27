@@ -61,27 +61,63 @@ internal fun hardwareFingerprintRule(): Rule = Rule(
     preventive = true,
 )
 
-/** Third-party HTTPDNS / DoH resolvers in vendor packages; listed with the personal-data rules. */
-internal fun httpDnsRule(targets: Set<String>): Rule = httpDnsRule("httpdns.resolvers", targets)
+/**
+ * Third-party HTTPDNS / DoH resolvers in vendor packages; listed with the personal-data rules.
+ * [HTTPDNS_BROWSER_APPS] are left out: they get [browserHttpDnsRule].
+ */
+internal fun httpDnsRule(targets: Set<String>): Rule = httpDnsRule("httpdns.resolvers", targets - HTTPDNS_BROWSER_APPS)
+
+/**
+ * SDK HTTPDNS only, for the vendor browsers among [targets]: a browser's secure DNS setting is the
+ * user's own choice of a public DoH resolver ([HttpDnsResolvers.publicDohHosts]), which keeps
+ * working; the resolvers embedded SDKs use behind the user's back stay blocked as everywhere else.
+ */
+internal fun browserHttpDnsRule(targets: Set<String>): Rule = httpDnsRule(
+    id = "httpdns.browsers",
+    targets = targets intersect HTTPDNS_BROWSER_APPS,
+    title = Text("拦截 SDK 私有解析", "Block SDK HTTPDNS"),
+    summary = Text("自选的加密 DNS 照常可用", "Your chosen secure DNS keeps working"),
+    suffixes = HttpDnsResolvers.sdkHosts + HttpDnsResolvers.sdkAddresses,
+)
 
 /**
  * The same resolver block for protected third-party apps ([Catalog.protectedAppRules]); a separate
- * id so its switch and health never mix with the vendor rule's.
+ * id so its switch and health never mix with the vendor rule's. In an app that resolves names for
+ * the user ([sdkOnly]: a browser, a VPN or DNS tool, as the module app's scan found) only SDK
+ * HTTPDNS is blocked, so the user's own DoH choice keeps working.
  */
-internal fun protectedHttpDnsRule(): Rule = httpDnsRule("httpdns.protected-apps", setOf(Catalog.PROTECTED_APPS))
+internal fun protectedHttpDnsRule(sdkOnly: Boolean = false): Rule = if (sdkOnly) {
+    httpDnsRule(
+        id = PROTECTED_HTTPDNS_ID,
+        targets = setOf(Catalog.PROTECTED_APPS),
+        suffixes = HttpDnsResolvers.sdkHosts + HttpDnsResolvers.sdkAddresses,
+    )
+} else {
+    httpDnsRule(PROTECTED_HTTPDNS_ID, setOf(Catalog.PROTECTED_APPS))
+}
 
-private fun httpDnsRule(id: String, targets: Set<String>): Rule = Rule(
+internal const val PROTECTED_HTTPDNS_ID: String = "httpdns.protected-apps"
+
+private fun httpDnsRule(
+    id: String,
+    targets: Set<String>,
+    title: Text = Text("强制系统 DNS", "Force system DNS"),
+    summary: Text = Text("阻止应用绕过系统 DNS 解析", "Stop apps bypassing system DNS"),
+    suffixes: List<String> = HttpDnsResolvers.hosts + HttpDnsResolvers.addresses,
+): Rule = Rule(
     id = id,
     packages = targets,
-    title = Text("强制系统 DNS", "Force system DNS"),
-    summary = Text("阻止应用绕过系统 DNS 解析", "Stop apps bypassing system DNS"),
-    payload = RulePayload.Domains(HttpDnsResolvers.hosts + HttpDnsResolvers.addresses),
+    title = title,
+    summary = summary,
+    payload = RulePayload.Domains(suffixes),
     category = Category.PERSONAL_DATA,
     evidence = "docs/collection-techniques.md 7.2 (HTTPDNS endpoint list): dex aliyun httpdns SDK in the app store " +
         "and Xiaomi shop (bootstrap IPs, resolvers-cn.httpdns.aliyuncs.com), iflytek IME HttpDnsConstants " +
         "203.107.1.2/108507/d, Xiaomi httpdns SDK dispatch.mgslb.com + DoH fallbacks dns.alidns.com/dns.google/" +
         "120.53.53.53, Xiaomi shop mishop.httpdns.Config (Wangsu, Kingsoft, dns-hl.mi.com), Baidu IME HttpDnsCache " +
-        "httpsdns.baidu.com, Amap httpdns.apilocate.amap.com; traffic 203.119.204.226/v2/d?dn=. Every SDK falls " +
+        "httpsdns.baidu.com, Amap httpdns.apilocate.amap.com; traffic 203.119.204.226/v2/d?dn=; data/trackers.json " +
+        "umeng-analytics notes (resolve.umeng.com is Umeng HTTPDNS); Aliyun HTTPDNS startup endpoints " +
+        "(help.aliyun.com/zh/document_detail/2868011.html) list the IPv6 bootstrap addresses. Every SDK falls " +
         "back to system DNS (Tencent documents it as mandatory), where the DNS sink sees the real host names",
     preventive = true,
 )
@@ -90,20 +126,18 @@ private fun httpDnsRule(id: String, targets: Set<String>): Rule = Rule(
  * HTTPDNS and DoH resolver endpoints (docs/collection-techniques.md 7.2). Only hosts and IPs that
  * do nothing but answer DNS queries: no CDN, no vendor apex, nothing that also serves content.
  * Speculative entries (Volcengine, Huawei) are left out until verified.
+ *
+ * Two kinds: SDK HTTPDNS services ([sdkHosts], [sdkAddresses]), which only SDKs embedded in an
+ * app use, and public DoH resolvers ([publicDohHosts], [publicDohAddresses]), which SDKs use as a
+ * fallback but users also pick as their browser's or VPN app's secure DNS.
  */
 internal object HttpDnsResolvers {
     /** MiPush's own resolver: blocking it would break push, so no rule may ever match it. */
     const val ALWAYS_ALLOWED: String = "resolver.msg.xiaomi.net"
 
-    val hosts: List<String> = listOf(
+    val sdkHosts: List<String> = listOf(
         // Aliyun EMAS HTTPDNS dispatch (resolvers-cn / -hk / -sg / -us / -de) and account resolvers.
         "httpdns.aliyuncs.com",
-        // Aliyun public DNS over HTTPS.
-        "dns.alidns.com",
-        // Google public DNS over HTTPS.
-        "dns.google",
-        // DNSPod public DNS over HTTPS.
-        "doh.pub",
         // Baidu HTTPDNS.
         "httpsdns.baidu.com",
         // Amap location SDK HTTPDNS.
@@ -115,10 +149,21 @@ internal object HttpDnsResolvers {
         // Xiaomi httpdns SDK (app store) and Xiaomi shop resolver.
         "dispatch.mgslb.com",
         "dns-hl.mi.com",
+        // Umeng HTTPDNS (data/trackers.json umeng-analytics notes).
+        "resolve.umeng.com",
     )
 
-    /** Hard-coded resolver IPs, blocked at the connect sink on every port except 53. */
-    val addresses: List<String> = listOf(
+    val publicDohHosts: List<String> = listOf(
+        // Aliyun public DNS over HTTPS.
+        "dns.alidns.com",
+        // Google public DNS over HTTPS.
+        "dns.google",
+        // DNSPod public DNS over HTTPS.
+        "doh.pub",
+    )
+
+    /** Hard-coded SDK resolver IPs (IPv4 and IPv6), blocked at the connect sink on every port except 53. */
+    val sdkAddresses: List<String> = listOf(
         // Aliyun EMAS HTTPDNS bootstrap and account endpoints.
         "203.107.1.1",
         "203.107.1.2",
@@ -130,17 +175,23 @@ internal object HttpDnsResolvers {
         "203.119.238.240",
         "106.11.25.239",
         "59.82.99.47",
-        // Aliyun public DNS (DoH / HTTP JSON API).
-        "223.5.5.5",
-        "223.6.6.6",
-        // Tencent Cloud HTTPDNS (CN HTTP / HTTPS, international).
+        // Aliyun EMAS HTTPDNS IPv6 startup endpoints (CN, HK / SG, Americas, Europe):
+        // help.aliyun.com/zh/document_detail/2868011.html.
+        "2401:b180:7001::31d",
+        "2408:4003:1f40::30a",
+        "2401:b180:2000:20::10",
+        "2401:b180:2000:30::1c",
+        "240b:4000:f10::178",
+        "240b:4000:f10::188",
+        "2404:2280:4000::2bb",
+        "2404:2280:4000::23e",
+        "2404:2280:3000::176",
+        "2404:2280:3000::188",
+        // Tencent Cloud HTTPDNS (CN HTTP / HTTPS, international); no IPv6 entry is documented.
         "119.29.29.98",
         "119.29.29.99",
         "43.132.55.55",
         "43.132.43.43",
-        // DNSPod public DoH.
-        "120.53.53.53",
-        "1.12.12.12",
         // Baidu map SDK HTTPDNS.
         "180.76.76.200",
         // Wangsu HTTPDNS fallback.
@@ -148,7 +199,27 @@ internal object HttpDnsResolvers {
         // Xiaomi shop resolver (dns-hl.mi.com) fallbacks.
         "58.83.160.209",
         "58.83.160.210",
-        // Google public DNS (DoH JSON API).
-        "8.8.8.8",
     )
+
+    /** Public DoH resolver IPs, blocked like [sdkAddresses] where public DoH is. */
+    val publicDohAddresses: List<String> = listOf(
+        // Aliyun public DNS (DoH / HTTP JSON API); IPv6 per alidns.com.
+        "223.5.5.5",
+        "223.6.6.6",
+        "2400:3200::1",
+        "2400:3200:baba::1",
+        // DNSPod public DoH; IPv6 per dnspod.cn public DNS.
+        "120.53.53.53",
+        "1.12.12.12",
+        "2402:4e00::",
+        // Google public DNS (DoH JSON API); IPv6 per developers.google.com/speed/public-dns.
+        "8.8.8.8",
+        "2001:4860:4860::8888",
+    )
+
+    /** Every resolver host. */
+    val hosts: List<String> = sdkHosts + publicDohHosts
+
+    /** Every hard-coded resolver IP. */
+    val addresses: List<String> = sdkAddresses + publicDohAddresses
 }

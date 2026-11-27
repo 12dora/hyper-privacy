@@ -3,10 +3,14 @@ package io.github.hyperprivacy.core
 import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.rule.IdentifierSource
+import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RuleKind
 import io.github.hyperprivacy.core.rule.RulePayload
+import io.github.hyperprivacy.core.rule.catalog.HTTPDNS_BROWSER_APPS
 import io.github.hyperprivacy.core.rule.catalog.HTTPDNS_EXCLUDED_APPS
+import io.github.hyperprivacy.core.rule.catalog.HttpDnsResolvers
 import io.github.hyperprivacy.core.scope.PackageRules
+import io.github.hyperprivacy.core.tracker.TrackerRules
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -22,10 +26,50 @@ class AppWideRulesTest {
     @Test
     fun `httpdns rule targets injected packages minus the sensitive set`() {
         val rule = assertNotNull(Catalog.byId(HTTPDNS))
-        assertEquals(injected - HTTPDNS_EXCLUDED_APPS, rule.packages)
+        assertEquals(injected - HTTPDNS_EXCLUDED_APPS - HTTPDNS_BROWSER_APPS, rule.packages)
         assertTrue(rule.defaultOn && rule.impact == null && rule.preventive)
         assertTrue(Catalog.SYSTEM_SCOPE !in rule.packages, "never system_server")
-        assertEquals(listOf(HTTPDNS), Catalog.rules.filter { it.preventive }.map { it.id }, "only app-wide rule")
+        assertEquals(listOf(HTTPDNS, BROWSER_HTTPDNS), Catalog.rules.filter { it.preventive }.map { it.id })
+    }
+
+    @Test
+    fun `vendor browsers block sdk httpdns but keep public doh`() {
+        val rule = assertNotNull(Catalog.byId(BROWSER_HTTPDNS))
+        assertEquals(HTTPDNS_BROWSER_APPS, rule.packages)
+        assertEquals(emptySet(), HTTPDNS_BROWSER_APPS - injected, "every browser is injected anyway")
+        assertTrue(rule.defaultOn && rule.impact == null && rule.preventive)
+        assertEquals(HttpDnsResolvers.sdkHosts + HttpDnsResolvers.sdkAddresses, rule.domains)
+        val vendor = assertNotNull(Catalog.byId(HTTPDNS))
+        assertEquals(HttpDnsResolvers.hosts + HttpDnsResolvers.addresses, vendor.domains)
+        assertTrue(HTTPDNS_BROWSER_APPS.none { it in vendor.packages })
+        assertTrue("resolve.umeng.com" in rule.domains)
+    }
+
+    @Test
+    fun `sdk httpdns and public doh lists are disjoint and complete`() {
+        val sdk = HttpDnsResolvers.sdkHosts + HttpDnsResolvers.sdkAddresses
+        val doh = HttpDnsResolvers.publicDohHosts + HttpDnsResolvers.publicDohAddresses
+        assertEquals(emptySet(), sdk.toSet() intersect doh.toSet())
+        assertEquals((HttpDnsResolvers.hosts + HttpDnsResolvers.addresses).toSet(), (sdk + doh).toSet())
+        listOf("dns.google", "dns.alidns.com", "doh.pub", "8.8.8.8", "223.5.5.5", "2400:3200::1").forEach {
+            assertTrue(it in doh, it)
+        }
+    }
+
+    @Test
+    fun `protected browsers and vpn apps keep public doh under the same rule id`() {
+        val plain = TrackerRules.appRules(PKG).single { it.id == PROTECTED_HTTPDNS }
+        val userDns = TrackerRules.appRules(PKG, userDns = true)
+        val dns = userDns.single { it.id == PROTECTED_HTTPDNS }
+        assertEquals(HttpDnsResolvers.hosts + HttpDnsResolvers.addresses, plain.domains)
+        assertEquals(HttpDnsResolvers.sdkHosts + HttpDnsResolvers.sdkAddresses, dns.domains)
+        assertEquals(setOf(PKG), dns.packages)
+        assertEquals(plain.copy(payload = dns.payload), dns, "only the resolver list differs")
+        assertEquals(TrackerRules.appRules(PKG).map { it.id }, userDns.map { it.id })
+        assertEquals(
+            TrackerRules.appRules(PKG).filter { it.id != PROTECTED_HTTPDNS },
+            userDns.filter { it.id != PROTECTED_HTTPDNS },
+        )
     }
 
     @Test
@@ -118,5 +162,9 @@ class AppWideRulesTest {
         const val MEDIA_DRM = "mediadrm.device-id"
         const val PROTECTED_HTTPDNS = "httpdns.protected-apps"
         const val HARDWARE = "fingerprint.hardware"
+        const val BROWSER_HTTPDNS = "httpdns.browsers"
+        const val PKG = "com.example.browser"
+
+        val Rule.domains: List<String> get() = (payload as RulePayload.Domains).suffixes
     }
 }

@@ -120,11 +120,62 @@ class AddressSinkTest {
     }
 
     @Test
+    fun `ipv6 literals parse without a resolver`() {
+        fun v6(text: String) = requireNotNull(IpLiterals.parseIpv6(text)) { text }.address.toList()
+        fun bytes(vararg values: Int) = values.map { it.toByte() }
+        assertEquals(bytes(0x24, 0x00, 0x32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1), v6("2400:3200::1"))
+        assertEquals(bytes(0x24, 0x02, 0x4e, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), v6("2402:4e00::"))
+        assertEquals(bytes(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1), v6("::1"))
+        assertEquals(List(16) { 0.toByte() }, v6("::"))
+        assertEquals(v6("2001:4860:4860::8888"), v6("2001:4860:4860:0:0:0:0:8888"))
+        assertEquals(v6("2001:4860:4860::8888"), v6("[2001:4860:4860::8888]"))
+        assertEquals(v6("2001:db8::a:b"), v6("2001:DB8:0::A:b"))
+        assertEquals(v6("64:ff9b::c0a8:101"), v6("64:ff9b::192.168.1.1"))
+        val aliyun = "2401:b180:2000:20::10"
+        assertEquals(InetAddress.getByName(aliyun), IpLiterals.parseIpv6(aliyun))
+        // IPv4-mapped: the IPv4 address, as connect sinks see such peers.
+        assertEquals(ip("1.2.3.4"), IpLiterals.parseIpv6("::ffff:1.2.3.4"))
+        assertEquals(ip("8.8.8.8"), IpLiterals.parse("8.8.8.8"))
+        assertNull(IpLiterals.parse("dns.google"))
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "", ":", ":::", "1::2::3", "1:2:3:4:5:6:7:8:9", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7::8",
+            "12345::",
+            "1:", ":1", "g::1", "1::2:", "::1.2.3", "1.2.3.4::", "::1.2.3.4:5", "1:2:3:4:5:6:7:1.2.3.4",
+            "[::1", "fe80::1%wlan0", "dns.google",
+        ],
+    )
+    fun `malformed ipv6 literals are rejected`(text: String) {
+        assertNull(IpLiterals.parseIpv6(text), text)
+    }
+
+    @Test
+    fun `connects to listed ipv6 resolvers are blocked`() {
+        val rule = assertNotNull(Catalog.byId("httpdns.resolvers"))
+        val matchers = NetworkMatchers.of(listOf(rule)) { true }
+        val book = AddressBook()
+        val aliyun = InetAddress.getByName("2401:b180:7001::31d")
+        assertEquals(rule.id, matchers.findConnect(aliyun, 443, book))
+        assertNull(matchers.findConnect(aliyun, 53, book), "DNS port stays open")
+        assertEquals(rule.id, matchers.findConnect(InetAddress.getByName("2400:3200:0:0:0:0:0:1"), 443, book))
+        assertNull(matchers.findConnect(InetAddress.getByName("2400:3200::2"), 443, book))
+        val browsers = NetworkMatchers.of(listOf(assertNotNull(Catalog.byId("httpdns.browsers")))) { true }
+        assertEquals("httpdns.browsers", browsers.findConnect(aliyun, 443, book))
+        assertNull(browsers.findConnect(InetAddress.getByName("2400:3200::1"), 443, book), "public DoH kept")
+        assertNull(browsers.findConnect(ip("8.8.8.8"), 443, book), "public DoH kept")
+        assertNull(browsers.findHost("dns.google"))
+        assertEquals("httpdns.browsers", browsers.findHost("resolvers-cn.httpdns.aliyuncs.com"))
+    }
+
+    @Test
     fun `httpdns rule lists valid resolvers and every ip`() {
         val rule = assertNotNull(Catalog.byId("httpdns.resolvers"))
         val suffixes = (rule.payload as RulePayload.Domains).suffixes
         HostMatcher.of(suffixes.map { it to Unit })
-        HttpDnsResolvers.addresses.forEach { assertNotNull(IpLiterals.parseIpv4(it), it) }
+        HttpDnsResolvers.addresses.forEach { assertNotNull(IpLiterals.parse(it), it) }
         val matchers = NetworkMatchers.of(listOf(rule)) { true }
         assertEquals(HttpDnsResolvers.addresses.size, matchers.addresses.size)
         listOf(
