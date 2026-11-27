@@ -145,7 +145,7 @@ class AddressSinkTest {
             "", ":", ":::", "1::2::3", "1:2:3:4:5:6:7:8:9", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7::8",
             "12345::",
             "1:", ":1", "g::1", "1::2:", "::1.2.3", "1.2.3.4::", "::1.2.3.4:5", "1:2:3:4:5:6:7:1.2.3.4",
-            "[::1", "fe80::1%wlan0", "dns.google",
+            "[::1", "fe80::1%wlan0", "dns.google", "\uFF12001:db8::1", "2001:db8::\u0661",
         ],
     )
     fun `malformed ipv6 literals are rejected`(text: String) {
@@ -168,6 +168,25 @@ class AddressSinkTest {
         assertNull(browsers.findConnect(ip("8.8.8.8"), 443, book), "public DoH kept")
         assertNull(browsers.findHost("dns.google"))
         assertEquals("httpdns.browsers", browsers.findHost("resolvers-cn.httpdns.aliyuncs.com"))
+    }
+
+    @Test
+    fun `url sinks match listed ipv6 resolvers in bracketed, bare and uncompressed form`() {
+        val rule = assertNotNull(Catalog.byId("httpdns.resolvers"))
+        val matchers = NetworkMatchers.of(listOf(rule)) { true }
+        listOf(
+            "https://[2401:b180:7001::31d]/123/d?host=a.example",
+            "https://[2401:B180:7001::31D]:443/",
+            "http://[2401:b180:7001:0:0:0:0:31d]/",
+            "https://[2400:3200::1]/resolve",
+        ).forEach { url ->
+            val parts = assertNotNull(UrlParts.parse(url), url)
+            assertEquals(rule.id, matchers.findUrl(parts.host, parts.path), url)
+        }
+        assertEquals(rule.id, matchers.findUrl("2401:b180:7001::31d", "/"), "OkHttp host form")
+        assertEquals(rule.id, matchers.findUrl("[2401:b180:7001::31d]", "/"), "java.net.URL host form")
+        assertNull(matchers.findUrl("[2401:b180:7001::31e]", "/"))
+        assertNull(matchers.findUrl("[2400:3200::2]", "/"))
     }
 
     @Test

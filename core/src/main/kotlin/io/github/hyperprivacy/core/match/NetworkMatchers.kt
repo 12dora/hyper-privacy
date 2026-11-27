@@ -4,6 +4,7 @@ import io.github.hyperprivacy.core.net.AddressBook
 import io.github.hyperprivacy.core.net.IpLiterals
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
+import java.net.Inet6Address
 import java.net.InetAddress
 
 /**
@@ -55,6 +56,31 @@ public class NetworkMatchers private constructor(
     public companion object {
         public const val DNS_PORT: Int = 53
 
+        /** Registers [suffix] when it is an IP literal: the connect table, plus IPv6 URL host forms. */
+        private fun addLiteral(
+            suffix: String,
+            ruleId: String,
+            addresses: MutableMap<InetAddress, String>,
+            urlEntries: MutableList<Pair<UrlPattern, String>>,
+        ) {
+            val address = IpLiterals.parse(suffix) ?: return
+            addresses.putIfAbsent(address, ruleId)
+            ipv6UrlHosts(suffix, address).forEach { urlEntries += UrlPattern(it) to ruleId }
+        }
+
+        /**
+         * Extra URL-sink host forms of IPv6 literal [text] (parsed as [address]): URL hosts keep the
+         * brackets (`java.net.URL#getHost`, [UrlParts]) and Java writes an address uncompressed
+         * ([InetAddress.getHostAddress]), so the bracketed and uncompressed forms are added when
+         * the rules are built; lookups stay one table probe. Empty for an IPv4 literal.
+         */
+        internal fun ipv6UrlHosts(text: String, address: InetAddress): Set<String> {
+            if (text.indexOf(':') < 0 || address !is Inet6Address) return emptySet()
+            val bare = text.removeSurrounding("[", "]")
+            val full = address.hostAddress?.substringBefore('%') ?: bare
+            return linkedSetOf(bare, "[$bare]", full, "[$full]") - text
+        }
+
         public val EMPTY: NetworkMatchers = NetworkMatchers(HostMatcher.empty(), UrlMatcher.empty(), emptyMap())
 
         /** Marker value of a keep host; never a rule id (rule ids cannot contain NUL). */
@@ -89,7 +115,7 @@ public class NetworkMatchers private constructor(
                     is RulePayload.Domains -> payload.suffixes.forEach { suffix ->
                         hostEntries += suffix to rule.id
                         urlEntries += UrlPattern(suffix) to rule.id
-                        IpLiterals.parse(suffix)?.let { addresses.putIfAbsent(it, rule.id) }
+                        addLiteral(suffix, rule.id, addresses, urlEntries)
                     }
 
                     is RulePayload.Urls -> payload.prefixes.forEach { prefix ->

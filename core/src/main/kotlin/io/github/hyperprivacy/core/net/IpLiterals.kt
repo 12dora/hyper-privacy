@@ -64,7 +64,7 @@ public object IpLiterals {
             var end = i
             var value = 0
             while (end < text.length && end - i < MAX_HEX_DIGITS) {
-                val digit = Character.digit(text[end], HEX)
+                val digit = hexDigit(text[end])
                 if (digit < 0) break
                 value = value * HEX + digit
                 end++
@@ -104,6 +104,14 @@ public object IpLiterals {
         out.copyInto(out, IPV6_BYTES - moved, from, from + moved)
         out.fill(0, from, IPV6_BYTES - moved)
         return true
+    }
+
+    /** ASCII hex digit value, or -1 ([Character.digit] would accept fullwidth and other scripts' digits). */
+    private fun hexDigit(char: Char): Int = when (char) {
+        in '0'..'9' -> char - '0'
+        in 'a'..'f' -> char - 'a' + DECIMAL
+        in 'A'..'F' -> char - 'A' + DECIMAL
+        else -> -1
     }
 
     private fun parseIpv4Into(text: String, out: ByteArray?): Boolean {
