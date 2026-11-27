@@ -38,8 +38,10 @@ internal class FirewallEnforcer(
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val pkg = intent.data?.schemeSpecificPart
-            if (pkg == null || pkg in targets) applySafely()
+            log.guard("firewall broadcast") {
+                val pkg = intent.data?.schemeSpecificPart
+                if (pkg == null || pkg in targets) apply()
+            }
         }
     }
 

@@ -43,8 +43,14 @@ internal class AppListGuard(
     private val log: HookLog,
     private val state: SystemState,
 ) {
+    // Written once in install() before the hook exists; volatile so binder threads never see a stale null.
+    @Volatile
     private var getAppId: Method? = null
+
+    @Volatile
     private var implicitlyQueryable: Method? = null
+
+    @Volatile
     private var retainedImplicitlyQueryable: Method? = null
 
     @Volatile

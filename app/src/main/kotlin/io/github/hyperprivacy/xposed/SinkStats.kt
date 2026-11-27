@@ -88,6 +88,14 @@ internal object SinkStats {
     fun setEnabled(on: Boolean) {
         val wasOn = enabled
         enabled = on
-        if (wasOn && !on) disabledListeners.forEach { it() }
+        if (wasOn && !on) {
+            disabledListeners.forEach { listener ->
+                try {
+                    listener()
+                } catch (_: Throwable) {
+                    // A listener only schedules a delivery; the others must still run.
+                }
+            }
+        }
     }
 }

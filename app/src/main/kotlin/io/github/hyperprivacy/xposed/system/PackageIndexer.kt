@@ -59,16 +59,18 @@ internal class PackageIndexer(
             if (intent.action == ACTION_PREFERRED_ACTIVITY_CHANGED) {
                 log.guard("refresh home app") { refreshHome() }
             } else {
-                scheduleRebuild()
+                log.guard("schedule app index") { scheduleRebuild() }
             }
         }
     }
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (AppListConfig.affects(key)) handler.post { log.guard("rebuild app-list policy") { rebuildPolicy() } }
-        // The status relay only accepts protected apps.
-        if (TrackerProtection.affects(key)) handler.post { log.guard("read protected apps") { readProtected() } }
+        log.guard("app-list preference change") {
+            if (AppListConfig.affects(key)) handler.post { log.guard("rebuild app-list policy") { rebuildPolicy() } }
+            // The status relay only accepts protected apps.
+            if (TrackerProtection.affects(key)) handler.post { log.guard("read protected apps") { readProtected() } }
+        }
     }
 
     fun start() {
@@ -84,9 +86,9 @@ internal class PackageIndexer(
         registerForAllUsers(IntentFilter(ACTION_PREFERRED_ACTIVITY_CHANGED))
         prefs?.registerOnSharedPreferenceChangeListener(prefsListener)
         // Pausing (and resuming) all protection also pauses hiding; the switches own the deadline.
-        state.switches?.addListener { handler.post(::rebuildForPause) }
+        state.switches?.addListener { handler.post { log.guard("pause change") { rebuildForPause() } } }
         readProtected()
-        state.onUnknownApp = { handler.post(::scheduleRebuild) }
+        state.onUnknownApp = { handler.post { log.guard("schedule app index") { scheduleRebuild() } } }
         rebuildIndex()
     }
 

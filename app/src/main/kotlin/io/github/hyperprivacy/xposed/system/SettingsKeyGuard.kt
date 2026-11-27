@@ -20,6 +20,7 @@ import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Field
+import java.lang.reflect.Modifier
 
 /**
  * The `settings.identifiers` rule: hides [SettingsDenyList] keys from third-party apps, i.e. apps
@@ -29,9 +30,10 @@ import java.lang.reflect.Field
  * Hooks `com.android.providers.settings.SettingsState#getSettingLocked(String)` in system_server
  * (SettingsProvider runs in the `system` process, from its own APK class loader). Single reads
  * (`call` GET_*, `query` by name) and table listings (`getAll*Settings`, `call` LIST_*) all go
- * through it, and listings skip a setting whose `isNull()` is true. For a hidden key the original
- * runs with an empty name instead, which returns the state's own null setting: the caller sees
- * "no such key", exactly as on a device that never wrote it.
+ * through it, and listings skip a setting whose `isNull()` is true. For a hidden key the hook returns
+ * the state's own null setting (`mNullSetting`, what the original returns for an absent key)
+ * without running the original: the caller sees "no such key", exactly as on a device that never
+ * wrote it. The field is resolved and type-checked at install; without it nothing is hidden.
  *
  * [SettingsMaskList] keys (user-set device names) are never hidden: apps and services read them
  * without a fallback. The original runs once ([Verdict.Transform]) and the caller gets a new copy of
@@ -79,8 +81,14 @@ internal class SettingsKeyGuard(
             return false
         }
         val stateKey = runCatching { type.getDeclaredField(STATE_KEY).apply { isAccessible = true } }.getOrNull()
-        val hook = Hook(stateKey, readAospKeys(classLoader), masker(type, method.returnType, via))
-        // PROTECTIVE: we only ever proceed (possibly with another argument), never throw on purpose.
+        val nullSetting = runCatching {
+            type.getDeclaredField(NULL_SETTING)
+                .takeIf { !Modifier.isStatic(it.modifiers) && it.type == method.returnType }
+                ?.apply { isAccessible = true }
+        }.getOrNull()
+        if (nullSetting == null) log.warn("settings: $STATE_CLASS#$NULL_SETTING not found via $via; keys not hidden")
+        val hook = Hook(stateKey, nullSetting, readAospKeys(classLoader), masker(type, method.returnType, via))
+        // PROTECTIVE: we only ever proceed or return a value of the method's type, never throw on purpose.
         xposed.hook(method)
             .setExceptionMode(ExceptionMode.PROTECTIVE)
             .intercept(FailOpenHooker(log, Sinks.SETTINGS_KEYS, hook::decide))
@@ -142,13 +150,14 @@ internal class SettingsKeyGuard(
     /** One hooked `getSettingLocked`, with the reflection handles of its own class loader. */
     private inner class Hook(
         private val stateKey: Field?,
+        private val nullSetting: Field?,
         private val aospKeys: Array<Set<*>?>,
         private val masker: SettingCopyMasker?,
     ) {
         fun decide(chain: Chain): Verdict {
             val key = chain.getArg(0) as? String ?: return Verdict.Proceed
             val masked = SettingsMaskList.matches(key) && masker != null
-            val denied = masked || SettingsDenyList.matcher.matches(key)
+            val denied = masked || (nullSetting != null && SettingsDenyList.matcher.matches(key))
             val switches = state.switches ?: return Verdict.Proceed
             val observe = switches.observe
             if (!denied && !observe) return Verdict.Proceed
@@ -160,9 +169,10 @@ internal class SettingsKeyGuard(
             if (!hide) return Verdict.Proceed
             val detail = "${index.packageOf(appId)} reading $key"
             if (masked) return masked(chain, detail)
+            // The state's own "absent" answer, of the method's declared type; unreadable: the real value.
+            val absent = nullSetting?.get(chain.thisObject) ?: return Verdict.Proceed
             state.reporter?.hit(Catalog.SYSTEM_SCOPE, RULE_ID, detail)
-            // An empty name makes the original return this state's null setting (TextUtils.isEmpty check).
-            return Verdict.ProceedWith(arrayOf(""))
+            return Verdict.Return(absent)
         }
 
         /** The calling app id when it is a third-party app (SDK sandboxes included), else -1. */
@@ -205,6 +215,7 @@ internal class SettingsKeyGuard(
         private const val PROVIDER_CLASS = "com.android.providers.settings.SettingsProvider"
         private const val GET_SETTING = "getSettingLocked"
         private const val STATE_KEY = "mKey"
+        private const val NULL_SETTING = "mNullSetting"
         private val MASKED_FIELDS = listOf("value", "defaultValue")
         private const val SYSTEM_PROPERTIES_CLASS = "android.os.SystemProperties"
         private const val MARKET_NAME_PROPERTY = "ro.product.marketname"

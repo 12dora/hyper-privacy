@@ -171,11 +171,26 @@ internal class StatusReporter(
         } else {
             backoff.delayAfter(failures)
         }
-        log.guard("schedule status flush") { executor.schedule(::flush, delay, TimeUnit.MILLISECONDS) }
+        log.guard("schedule status flush") { executor.schedule(flush, delay, TimeUnit.MILLISECONDS) }
             ?: scheduled.set(false)
     }
 
-    private fun flush() {
+    /** Runs on the reporter's thread; whatever fails, the next flush can still be scheduled. */
+    private val flush = Runnable {
+        val again = try {
+            flushOnce()
+        } catch (t: Throwable) {
+            log.error("status flush failed", t)
+            failures++
+            true
+        } finally {
+            scheduled.set(false)
+        }
+        if (again) schedule()
+    }
+
+    /** One delivery attempt; returns whether another flush is due. */
+    private fun flushOnce(): Boolean {
         lastFlushAt = SystemClock.elapsedRealtime()
         dirty.set(false)
         val deltas = hits.mapValues { (_, count) -> count.getAndSet(0) }.filterValues { it > 0 }
@@ -196,8 +211,7 @@ internal class StatusReporter(
         }
         val leftCounts = left.reports.any { it.hits > 0 } || left.observed.isNotEmpty() || left.perf.isNotEmpty()
         if (leftCounts || (relaying && !relayed.isEmpty)) dirty.set(true)
-        scheduled.set(false)
-        if (!delivered || dirty.get()) schedule()
+        return !delivered || dirty.get()
     }
 
     private fun deliver(own: StatusBatch, forwarded: StatusBatch): ReportDelivery.Outcome {
