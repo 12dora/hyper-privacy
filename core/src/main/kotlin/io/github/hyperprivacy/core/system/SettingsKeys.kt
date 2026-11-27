@@ -39,7 +39,8 @@ public class SettingsKeyMatcher(patterns: Collection<String>) {
  * keys whose value is a package list (they bypass package visibility).
  *
  * Never add `android_id` (already per-signer and handled specially by SettingsProvider) or an
- * AOSP-public key: apps read those for legitimate functionality.
+ * AOSP-public key: apps read those for legitimate functionality and may not expect them to be
+ * missing. AOSP keys whose value is personal are masked instead ([SettingsMaskList]).
  */
 public object SettingsDenyList {
     public val PATTERNS: List<String> = listOf(
@@ -50,12 +51,6 @@ public object SettingsDenyList {
         "pref_mipub_random_device_id",
         "com.miui.yellowpage_preferences.pref_uuid",
         "green_kid_device_id",
-        // User-set device names: free text that often carries the owner's name. Reads fall back to
-        // the model name in apps (Settings shows it until renamed); the key is only hidden, since
-        // SettingsState#getSettingLocked can only return the null setting, not a substitute value.
-        // Global device_name is a public constant, Secure bluetooth_name its Bluetooth twin.
-        "device_name",
-        "bluetooth_name",
         // Xiaomi account id and account-derived state; virtualsim keys embed the account id in the name.
         "last_synced_account",
         "virtualsim_account_rule_*",
@@ -72,6 +67,32 @@ public object SettingsDenyList {
     )
 
     public val matcher: SettingsKeyMatcher = SettingsKeyMatcher(PATTERNS)
+}
+
+/**
+ * AOSP Settings keys whose value third-party apps read as a neutral one instead of the real one
+ * (`settings.identifiers` rule). Unlike [SettingsDenyList] keys these are public constants apps use
+ * for real features (LAN sharing, casting, mesh VPN peers name the device after them) and
+ * `Settings.Global.getString` has no fallback, so they are never hidden, only replaced.
+ *
+ * - `device_name` (`Settings.Global.DEVICE_NAME`) and `bluetooth_name` (Secure): user-set names
+ *   that often carry the owner's name. The platform initialises them to the model name.
+ */
+public object SettingsMaskList {
+    public val KEYS: Set<String> = setOf("device_name", "bluetooth_name")
+
+    private const val FALLBACK = "Android"
+
+    /** Whether reads of [key] are masked; one hash lookup, no allocation. */
+    public fun matches(key: String?): Boolean = key != null && key in KEYS
+
+    /**
+     * The neutral device name: what an unrenamed device shows, i.e. the vendor marketing name
+     * ([marketName], `ro.product.marketname`) when set, else [model] (`Build.MODEL`, the AOSP
+     * `def_device_name_simple` default), else a generic name. Never empty, never the user's text.
+     */
+    public fun neutralName(marketName: String?, model: String?): String =
+        marketName?.trim()?.takeIf { it.isNotEmpty() } ?: model?.trim()?.takeIf { it.isNotEmpty() } ?: FALLBACK
 }
 
 /** The Settings tables, numbered as in `SettingsState.getTypeFromKey`. */
