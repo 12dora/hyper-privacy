@@ -95,9 +95,11 @@ internal fun AppDefaultsPage(state: UiState, trackers: AppsModel, nav: Navigator
             onBack = nav::pop,
         )
     }
+    // Until the first state arrives the stored defaults are unknown, and built-in values would flash.
+    if (!apps.loaded) return
     AppDefaultsScreen(
         defaults = apps.defaults,
-        canEdit = state.module.canEdit && apps.loaded,
+        canEdit = state.module.canEdit,
         actions = actions,
         modifier = modifier,
     )

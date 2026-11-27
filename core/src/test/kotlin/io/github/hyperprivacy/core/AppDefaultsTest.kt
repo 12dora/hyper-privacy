@@ -108,6 +108,29 @@ class AppDefaultsTest {
     }
 
     @Test
+    fun `strict mode without hiding is not a setting`() {
+        assertTrue(AppDefaults(strict = true).entries().isEmpty())
+        val both = AppDefaults(hide = true, strict = true).entries().keys
+        assertEquals(setOf(AppDefaults.HIDE_KEY, AppDefaults.STRICT_KEY), both)
+    }
+
+    @Test
+    fun `categories without a switch are not settings`() {
+        val odd = TrackerCategory.entries.firstOrNull { it !in AppDefaults.categories } ?: return
+        assertEquals(AppDefaults.BUILT_IN, AppDefaults.read(mapOf(AppDefaults.sdkKey(odd) to false)))
+        assertTrue(AppDefaults.isKey(AppDefaults.sdkKey(odd)), "still cleaned up by reset and import")
+    }
+
+    @Test
+    fun `the page shows a legacy global rule switch until the default is set`() {
+        val legacy = mapOf(ConfigCodec.key(onRule.id) to false)
+        assertFalse(AppDefaults.shownRule(legacy, onRule.id))
+        assertTrue(AppDefaults.shownRule(legacy + (AppDefaults.ruleKey(onRule.id) to true), onRule.id))
+        assertEquals(offRule.defaultOn, AppDefaults.shownRule(emptyMap<String, Any>(), offRule.id))
+        assertTrue(AppDefaults.allKeys.containsAll(AppDefaults(hide = true, strict = true).entries().keys))
+    }
+
+    @Test
     fun `defaults keys never collide with keys the hooks read`() {
         val keys = AppDefaults(
             sdk = AppDefaults.categories.associateWith { false },

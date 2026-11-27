@@ -97,9 +97,12 @@ internal data class AppsSearch(val active: Boolean = false, val query: String = 
     val filtering: Boolean = active && needle.isNotEmpty()
 
     /** True when [app]'s label or package name contains the typed text (case-insensitive). */
-    fun matches(app: UserAppUi): Boolean = !filtering ||
-        app.label.contains(needle, ignoreCase = true) ||
-        app.packageName.contains(needle, ignoreCase = true)
+    fun matches(app: UserAppUi): Boolean = matches(app.packageName, app.label)
+
+    /** True when [label] or [packageName] contains the typed text (case-insensitive). */
+    fun matches(packageName: String, label: String): Boolean = !filtering ||
+        label.contains(needle, ignoreCase = true) ||
+        packageName.contains(needle, ignoreCase = true)
 }
 
 /** Callbacks of the Apps page. */

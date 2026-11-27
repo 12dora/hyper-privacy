@@ -36,7 +36,10 @@ private fun OverlapArea.labelRes(): Int = when (this) {
     OverlapArea.PRIVACY -> R.string.conflict_area_privacy
 }
 
-/** One line per area: "广告拦截：A、B、C 等 5 个". Labels are the modules' own, so lines may wrap. */
+/**
+ * One line per area: "广告拦截：A、B、C 及另外 2 个" (the count is of the modules not named). Labels
+ * are the modules' own, so lines may wrap.
+ */
 @Composable
 private fun groupLine(group: ConflictGroup): String {
     val shown = group.labels.take(MAX_NAMES).joinToString(stringResource(R.string.list_separator))

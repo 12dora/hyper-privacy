@@ -51,7 +51,9 @@ class HomeHintsCopyTest {
         // Placeholders read as "0": the area label, then the module names (or the first few and a count).
         assertEquals("0：0", zh["conflict_line"])
         assertEquals("0: 0", en["conflict_line"])
-        assertTrue(zh.getValue("conflict_names_more").startsWith("0 等"))
+        // The count is of the modules not named, so the copy says "and N more", never "etc., N".
+        assertEquals("0 及另外 0 个", zh["conflict_names_more"])
+        assertEquals("0 and 0 more", en["conflict_names_more"])
         listOf("conflict_area_applist", "conflict_area_ads", "conflict_area_privacy").forEach { key ->
             assertTrue(CopyWidth.zh(zh.getValue(key)) <= ZH_AREA_MAX, key)
         }

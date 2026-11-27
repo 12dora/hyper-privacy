@@ -168,18 +168,19 @@ internal class MainViewModel(application: Application) :
             val prefs = remotePrefs.get() ?: return@launch
             pause.resume()
             val rules = backend?.view?.rules ?: Catalog.rules
-            // Everything an import can write: rule switches, per-app options, app-list settings.
+            // Everything an import can write: rule switches, per-app options, default and app-list
+            // settings, including switch writes not visible yet (they would otherwise survive the reset).
             val stored = runCatching { prefs.all }.getOrNull().orEmpty()
-            val keys = ConfigBackup.resetKeys(stored) + rules.map { ConfigCodec.key(it.id) } + ConfigCodec.OBSERVE_KEY
-            rules.forEach { pendingWrites.put(ConfigCodec.key(it.id), it.defaultOn) }
-            pendingWrites.put(ConfigCodec.OBSERVE_KEY, ConfigCodec.OBSERVE_DEFAULT)
-            pendingWrites.put(AppListConfig.SELF_HIDE_KEY, AppListConfig.EMPTY.hideSelf)
-            trackers.onPreferencesChanged(overwritten = true)
-            rebuildRequests.trySend(Unit)
-            runCatching { prefs.edit { keys.forEach(::remove) } }.onFailure {
+            val unseen = trackers.pendingKeys.associateWith { true }
+            val keys = ConfigBackup.resetKeys(stored) + ConfigBackup.resetKeys(unseen) + pendingWrites.keys() +
+                rules.map { ConfigCodec.key(it.id) } + ConfigCodec.OBSERVE_KEY
+            // Committed before the pending values are dropped, so nothing stale shows in between.
+            val removed = runCatching { prefs.edit(commit = true) { keys.forEach(::remove) } }.isSuccess
+            if (removed) {
                 pendingWrites.clear()
-                rebuildRequests.trySend(Unit)
+                trackers.onPreferencesChanged(overwritten = true)
             }
+            rebuildRequests.trySend(Unit)
         }
     }
 
