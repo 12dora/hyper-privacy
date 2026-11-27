@@ -103,4 +103,25 @@ internal val appListRules: List<Rule> = listOf(
         impact = Text("云端应用风险识别不可用", "Cloud app risk check unavailable"),
         highRisk = true,
     ),
+    Rule(
+        id = "joyose.game-list",
+        packages = setOf("com.xiaomi.joyose"),
+        title = Text("游戏应用识别", "Game app lookup"),
+        summary = Text("阻止上传新装应用包名", "Block uploading new app package names"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("adv.sec.miui.com", "/game/pkg"),
+                UrlPrefix("adv.sec.miui.com", "/game/popGames"),
+                UrlPrefix("gtglobal.intl.miui.com", "/game/pkg"),
+            ),
+        ),
+        category = Category.APP_LIST,
+        evidence = "jadx joyose y.j (GameRecognizer): r(int[]) joins f4829u fragments into https://adv.sec.miui.com/" +
+            "game/pkg (f4826r), https://gtglobal.intl.miui.com/game/pkg (f4827s, international builds) and " +
+            "https://adv.sec.miui.com/game/popGames (f4828t); E() POSTs pkgs=<newly installed third-party " +
+            "packages>&r=<region>&from=joyose after PACKAGE_ADDED, F() is HttpURLConnection POST; games listed in " +
+            "odm/etc/game_recognize_list.json and cloud config are recognised locally (t())",
+        impact = Text("游戏加速可能识别不到新装游戏", "Game Turbo may miss new games"),
+        highRisk = true,
+    ),
 )
