@@ -1,6 +1,8 @@
 package io.github.hyperprivacy.core.config
 
 import io.github.hyperprivacy.core.rule.Catalog
+import io.github.hyperprivacy.core.tracker.AppDefaults
+import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.Trackers
 
 /** The JSON form of a [ConfigBackup]: writing it, and reading a file the user picked. */
@@ -27,6 +29,7 @@ internal object BackupJson {
             backup.appList.hideSelf?.let { put("hideSelf", it) }
             backup.appList.allow?.let { put("allow", it) }
         }
+        backup.defaults?.let { doc["defaults"] = defaultsJson(it) }
         doc["appearance"] = LinkedHashMap<String, Any?>().apply {
             backup.appearance.mode?.let { put("mode", it) }
             backup.appearance.palette?.let { put("palette", it) }
@@ -41,6 +44,17 @@ internal object BackupJson {
         if (app.strict) put("strict", true)
         if (app.sdk.isNotEmpty()) put("sdk", app.sdk.toSortedMap())
         if (app.rules.isNotEmpty()) put("rules", app.rules.toSortedMap())
+    }
+
+    /** The values that differ from the built-in ones; an empty section still resets them on import. */
+    private fun defaultsJson(defaults: AppDefaults): Map<String, Any?> {
+        val stored = AppDefaults.read(defaults.entries())
+        return linkedMapOf(
+            "sdk" to stored.sdk.mapKeys { it.key.name }.toSortedMap(),
+            "rules" to stored.rules.toSortedMap(),
+            "hide" to stored.hide,
+            "strict" to stored.strict,
+        )
     }
 
     fun parse(text: String): ParsedBackup {
@@ -76,6 +90,7 @@ internal object BackupJson {
                 apps = apps,
                 appList = readAppList(root["appList"] as? Map<*, *>),
                 appearance = readAppearance(root["appearance"] as? Map<*, *>),
+                defaults = (root["defaults"] as? Map<*, *>)?.let(::readDefaults),
                 ignored = ignored,
             )
         }
@@ -87,6 +102,16 @@ internal object BackupJson {
             hide = app["hide"] == true,
             strict = app["strict"] == true,
         )
+
+        private fun readDefaults(section: Map<*, *>): AppDefaults {
+            val sdk = booleans(section["sdk"]) { name -> TrackerCategory.entries.any { it.name == name } }
+            return AppDefaults(
+                sdk = sdk.mapKeys { (name, _) -> TrackerCategory.valueOf(name) },
+                rules = booleans(section["rules"]) { it in Catalog.protectedAppRuleIds },
+                hide = section["hide"] == true,
+                strict = section["strict"] == true,
+            )
+        }
 
         private fun readAppList(section: Map<*, *>?): AppListBackup {
             val allow = (section?.get("allow") as? List<*>)?.let { list ->

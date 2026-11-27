@@ -179,6 +179,10 @@ private fun Page(route: Route, state: UiState, shell: Shell, modifier: Modifier)
             AppScreen(route.packageName, state, toggleRule, openRule, nav::pop, modifier)
         }
 
+        Route.AppDefaults -> AppDefaultsPage(state, model.trackers, nav, modifier)
+
+        Route.Allowlist -> AllowlistPage(state, model.trackers, nav, modifier)
+
         is Route.UserApp -> UserAppPage(route.packageName, state, model.trackers, nav, shell.apps, modifier)
 
         is Route.RuleDetail -> if (state.loaded) {
@@ -213,6 +217,7 @@ private fun SettingsPage(state: UiState, shell: Shell, modifier: Modifier) {
         onSelfHideChange = { model.setSwitch(ModuleSwitch.SELF_HIDE, it) },
         onResetDefaults = model::resetDefaults,
         onOpenEndpoints = { nav.push(Route.Endpoints) },
+        onOpenAllowlist = { nav.push(Route.Allowlist) },
         onRefreshObserved = model::refreshObserved,
         modifier = modifier,
     )

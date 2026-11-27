@@ -210,7 +210,7 @@
     <string name="settings_reset">恢复默认</string>
     <string name="settings_reset_summary">恢复规则、应用选项与应用列表设置</string>
     <string name="settings_reset_title">恢复默认设置？</string>
-    <string name="settings_reset_body">规则、各应用选项和应用列表设置将恢复默认，并关闭诊断模式。已开启防护的应用保持开启。</string>
+    <string name="settings_reset_body">规则、各应用选项、默认设置和应用列表设置将恢复默认，并关闭诊断模式。已开启防护的应用保持开启。</string>
     <string name="settings_reset_confirm">恢复</string>
     <string name="settings_about">关于</string>
     <string name="about_framework">框架</string>
@@ -236,6 +236,15 @@
     <!-- 应用（第三方应用追踪防护） -->
     <string name="apps_title">已安装应用</string>
     <string name="apps_intro">识别应用内置的追踪 SDK 并拦截其上报</string>
+    <string name="apps_defaults">默认设置</string>
+    <string name="apps_allow_title">保持可见的应用</string>
+    <string name="apps_allow_summary">分享、登录与支付应用不被隐藏</string>
+    <string name="apps_allow_note">勾选的应用不会被隐藏，严格模式除外</string>
+    <string name="apps_allow_default">默认</string>
+    <string name="apps_allow_reset">恢复默认</string>
+    <string name="apps_defaults_summary">开启防护时自动应用</string>
+    <string name="apps_defaults_note">对之后开启防护的应用生效，可逐个调整</string>
+    <string name="apps_defaults_sdk_note">影响登录或支付的 SDK 需在应用内开启</string>
     <string name="apps_filter_trackers">含追踪 SDK</string>
     <string name="apps_scanning">正在检查 %1$d/%2$d</string>
     <plurals name="apps_sdk_count">
@@ -297,11 +306,12 @@
     <string name="pause_1h">1 小时</string>
     <string name="pause_manual">直到手动恢复</string>
     <string name="conflict_title">发现功能重叠的模块</string>
-    <string name="conflict_summary_applist">%1$s也在隐藏应用列表</string>
-    <string name="conflict_summary_ads">%1$s也在拦截广告</string>
-    <string name="conflict_summary_privacy">%1$s也在拦截隐私上报</string>
-    <plurals name="conflict_more">
-        <item quantity="other">另有 %1$d 个模块</item>
+    <string name="conflict_area_applist">应用列表隐藏</string>
+    <string name="conflict_area_ads">广告拦截</string>
+    <string name="conflict_area_privacy">隐私上报拦截</string>
+    <string name="conflict_line">%1$s：%2$s</string>
+    <plurals name="conflict_names_more">
+        <item quantity="other">%1$s 等 %2$d 个</item>
     </plurals>
     <string name="conflict_hint">同时启用可能重复拦截或相互干扰</string>
     <string name="conflict_disable_applist">关闭应用列表隐藏</string>
@@ -316,7 +326,7 @@
     <string name="backup_import">导入配置</string>
     <string name="backup_import_summary">从导出的文件恢复设置</string>
     <string name="backup_import_title">导入此配置？</string>
-    <string name="backup_import_body">将覆盖当前的规则开关、应用选项、应用列表设置和外观。已开启防护的应用保持开启，其选项按文件更新；文件中新开启防护的应用需在“应用”页确认。仅对本机已安装的第三方应用生效。</string>
+    <string name="backup_import_body">将覆盖当前的规则开关、应用选项与默认设置、应用列表设置和外观。已开启防护的应用保持开启，其选项按文件更新；文件中新开启防护的应用需在“应用”页确认。仅对本机已安装的第三方应用生效。</string>
     <string name="backup_import_confirm">导入</string>
     <plurals name="backup_summary_rules">
         <item quantity="other">%1$d 项规则开关</item>
@@ -326,6 +336,7 @@
     </plurals>
     <string name="backup_summary_applist">应用列表设置</string>
     <string name="backup_summary_appearance">外观</string>
+    <string name="backup_summary_defaults">应用默认设置</string>
     <string name="backup_summary_empty">不含任何设置</string>
     <plurals name="backup_summary_ignored">
         <item quantity="other">已跳过 %1$d 项无法识别的内容</item>
