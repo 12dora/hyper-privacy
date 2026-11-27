@@ -4,6 +4,7 @@ import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Chain
 import io.github.libxposed.api.XposedInterface.ExceptionMode
 import io.github.libxposed.api.XposedInterface.HookBuilder
+import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import java.lang.reflect.Executable
 import java.lang.reflect.Proxy
@@ -24,11 +25,26 @@ internal class FakeXposed {
         self = proxy(HookBuilder::class.java) { name, args ->
             when (name) {
                 "setExceptionMode" -> self.also { mode = args?.get(0) as ExceptionMode }
-                "intercept" -> null.also { installed += Installed(executable, mode, args?.get(0) as Hooker) }
+
+                "intercept" -> handle(executable).also {
+                    installed += Installed(executable, mode, args?.get(0) as Hooker)
+                }
+
                 else -> self
             }
         }
         return self
+    }
+
+    /** Removed hooks, by executable. */
+    val unhooked = mutableListOf<Executable>()
+
+    private fun handle(executable: Executable): HookHandle = proxy(HookHandle::class.java) { name, _ ->
+        when (name) {
+            "getExecutable" -> executable
+            "unhook" -> null.also { unhooked += executable }
+            else -> null
+        }
     }
 
     private fun <T> proxy(type: Class<T>, answer: (String, Array<out Any?>?) -> Any?): T {
@@ -67,4 +83,28 @@ internal class FakeChain(
     override fun proceedWith(thisObject: Any): Any? = proceed()
 
     override fun proceedWith(thisObject: Any, args: Array<Any?>): Any? = proceed(args)
+}
+
+private typealias Listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener
+
+/** Preferences whose [all] answers [values] (or throws when [failing]); records the registered listener. */
+internal class FakePrefs(var values: Map<String, *>) {
+    var failing = false
+    var listener: Listener? = null
+
+    val prefs: android.content.SharedPreferences = Proxy.newProxyInstance(
+        javaClass.classLoader,
+        arrayOf(android.content.SharedPreferences::class.java),
+    ) { _, method, args ->
+        when (method.name) {
+            "getAll" -> if (failing) error("binder died") else values
+            "registerOnSharedPreferenceChangeListener" -> null.also { listener = args?.get(0) as Listener }
+            else -> null
+        }
+    } as android.content.SharedPreferences
+
+    /** Simulates a change of [key]. */
+    fun change(key: String) {
+        listener?.onSharedPreferenceChanged(prefs, key)
+    }
 }
