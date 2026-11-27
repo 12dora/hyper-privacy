@@ -6,7 +6,6 @@ import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.hyperprivacy.xposed.url.CronetEntries
 import io.github.libxposed.api.XposedInterface.Chain
-import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Executable
 import java.net.URL
 import java.util.WeakHashMap
@@ -52,7 +51,7 @@ internal class OriginCronetGuard(private val hooks: OriginHooks) {
             type.declaredConstructors.forEach { constructor ->
                 val index = urlIndex(constructor)
                 if (index >= 0) {
-                    hooks.sink(constructor, Sinks.ORIGIN_URL) { chain -> rewrite(chain, index) }
+                    hooks.rewriteSink(constructor, Sinks.ORIGIN_URL) { chain -> rewrite(chain, index) }
                     named++
                 }
             }
@@ -66,7 +65,7 @@ internal class OriginCronetGuard(private val hooks: OriginHooks) {
             .mapNotNull { Reflection.loadClass(it, loader) }
         var count = 0
         builders.flatMap(CronetEntries::buildMethods).forEach { build ->
-            hooks.hook(build, ExceptionMode.PROTECTIVE) { chain ->
+            hooks.hook(build) { chain ->
                 val engine = chain.proceed()
                 if (engine != null) hooks.safely("cronet engine") { engines.get(engine.javaClass) }
                 engine
@@ -93,7 +92,7 @@ internal class OriginCronetGuard(private val hooks: OriginHooks) {
         CronetEntries.requestEntries(cls).forEach { executable ->
             val index = urlIndex(executable)
             if (index >= 0) {
-                hooks.sink(executable, Sinks.ORIGIN_URL) { chain -> rewrite(chain, index) }
+                hooks.rewriteSink(executable, Sinks.ORIGIN_URL) { chain -> rewrite(chain, index) }
                 hooks.log.info("origin: hooked ${executable.name} of ${cls.name}")
             }
         }

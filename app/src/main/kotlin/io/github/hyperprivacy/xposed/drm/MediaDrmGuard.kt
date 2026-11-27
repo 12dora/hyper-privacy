@@ -9,6 +9,7 @@ import io.github.hyperprivacy.core.system.VendorTrust
 import io.github.hyperprivacy.xposed.GuardEnv
 import io.github.hyperprivacy.xposed.Sinks
 import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.ExceptionMode
 import io.github.libxposed.api.XposedInterface.Hooker
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
@@ -45,8 +46,11 @@ internal class MediaDrmGuard(private val env: GuardEnv) {
             return 0
         }
         val methods = METHODS.mapNotNull(::find)
-        methods.forEach { env.xposed.hook(it).intercept(DerivingHooker(rule.id)) }
-        val hooked = methods.size
+        val hooked = methods.count { method ->
+            env.log.guard("${rule.id}: hook ${method.name}") {
+                env.xposed.hook(method).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(DerivingHooker(rule.id))
+            } != null
+        }
         env.reporter.sink(env.packageName, Sinks.MEDIA_DRM, if (hooked > 0) HookState.ACTIVE else HookState.MISSED)
         if (hooked > 0 && env.switches.secret == null) {
             // Not yet written by the module app: stays MISSED until it appears (calls pass through until then).
@@ -63,7 +67,8 @@ internal class MediaDrmGuard(private val env: GuardEnv) {
         override fun intercept(chain: Chain): Any? {
             val applies = try {
                 chain.getArg(0) == MediaDrm.PROPERTY_DEVICE_UNIQUE_ID && env.switches.isEnabled(ruleId)
-            } catch (_: RuntimeException) {
+            } catch (_: Throwable) {
+                // Undecidable: the real value.
                 false
             }
             if (!applies) return chain.proceed()

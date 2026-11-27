@@ -39,6 +39,7 @@ internal class OkHttpUrlReader private constructor(private val request: Getter, 
     private val hostHeader: MethodHandle? = runCatching {
         val method = request.type.getMethod(HEADER, String::class.java).takeIf { it.returnType == String::class.java }
         method?.let {
+            it.isAccessible = true
             MethodHandles.insertArguments(MethodHandles.lookup().unreflect(it), 1, HOST).asType(GENERIC_GETTER)
         }
     }.getOrNull()

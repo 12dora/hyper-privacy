@@ -60,14 +60,19 @@ internal class BatteryReadingHooks(private val env: GuardEnv, private val state:
     private inner class PropertyHook : Hooker {
         override fun intercept(chain: Chain): Any? {
             val real = chain.proceed()
-            if (!state.enabled) return real
-            val id = chain.getArg(0) as? Int ?: return real
+            return state.safely { rounded(chain, real) } ?: real
+        }
+
+        /** The rounded property, of the same box type as [real], or `null` to keep it. */
+        private fun rounded(chain: Chain, real: Any?): Any? {
+            if (!state.enabled) return null
+            val id = chain.getArg(0) as? Int ?: return null
             val out: Any = when (real) {
                 is Int -> BatteryReadings.intProperty(id, real)
                 is Long -> BatteryReadings.property(id, real)
-                else -> return real
+                else -> return null
             }
-            if (out == real) return real
+            if (out == real) return null
             state.hit(GROUP)
             return out
         }

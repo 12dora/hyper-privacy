@@ -3,6 +3,7 @@ package io.github.hyperprivacy.xposed.id
 import android.content.ContentProvider
 import android.database.Cursor
 import android.database.MatrixCursor
+import android.net.Uri
 import android.os.Binder
 import io.github.hyperprivacy.core.rule.IdentifierSource
 import io.github.hyperprivacy.core.rule.Rule
@@ -12,6 +13,7 @@ import io.github.hyperprivacy.xposed.GuardEnv
 import io.github.hyperprivacy.xposed.Reflection
 import io.github.hyperprivacy.xposed.Sinks
 import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.ExceptionMode
 import io.github.libxposed.api.XposedInterface.Hooker
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -71,26 +73,30 @@ internal class IdentifierGuard(private val env: GuardEnv) {
             .map { cls -> cls.declaredMethods.filter { it.isQuery() } }
             .firstOrNull { it.isNotEmpty() }
             .orEmpty()
-        queries.forEach { env.xposed.hook(it).intercept(MaskingHooker(ruleId)) }
-        env.log.info("$ruleId: hooked ${queries.size} query method(s) of $ID_PROVIDER_CLASS in ${env.packageName}")
-        return queries.size
+        val hooked = queries.count { method ->
+            env.log.guard("$ruleId: hook ${method.name}") {
+                env.xposed.hook(method).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(MaskingHooker(ruleId))
+            } != null
+        }
+        env.log.info("$ruleId: hooked $hooked query method(s) of $ID_PROVIDER_CLASS in ${env.packageName}")
+        return hooked
     }
 
     private inner class MaskingHooker(private val ruleId: String) : Hooker {
         override fun intercept(chain: Chain): Any? {
-            val uid = Binder.getCallingUid()
+            val uid = guarded { Binder.getCallingUid() } ?: return chain.proceed()
             if (!shouldMask(chain, uid)) return chain.proceed()
-            inside.set(true)
+            guarded { inside.set(true) }
             val real = try {
                 chain.proceed()
             } finally {
-                inside.set(false)
+                guarded { inside.remove() }
             }
             val masked = guarded { mask(real as? Cursor) } ?: run {
                 guarded { (real as? Cursor)?.moveToPosition(BEFORE_FIRST) }
                 return real
             }
-            env.reporter.hit(env.packageName, ruleId, "uid $uid")
+            guarded { env.reporter.hit(env.packageName, ruleId, "uid $uid") }
             return masked
         }
 
@@ -133,8 +139,15 @@ internal class IdentifierGuard(private val env: GuardEnv) {
         else -> null
     }
 
-    private fun Method.isQuery(): Boolean = name == QUERY && Cursor::class.java.isAssignableFrom(returnType) &&
-        !Modifier.isAbstract(modifiers) && !isBridge
+    /**
+     * A `ContentProvider#query` override whose declared return type can hold the [MatrixCursor] the
+     * hook substitutes (`Cursor` itself, or a supertype): a covariant `SQLiteCursor query(…)` or a
+     * private helper overload would turn the substitution into a `ClassCastException`, so it is
+     * left alone. The first parameter must be the `Uri`, as in every framework overload.
+     */
+    private fun Method.isQuery(): Boolean = name == QUERY && returnType.isAssignableFrom(MatrixCursor::class.java) &&
+        Cursor::class.java.isAssignableFrom(returnType) && parameterTypes.firstOrNull() == Uri::class.java &&
+        Modifier.isPublic(modifiers) && !Modifier.isAbstract(modifiers) && !Modifier.isStatic(modifiers) && !isBridge
 
     private companion object {
         const val ID_PROVIDER_CLASS = "com.miui.idprovider.IdProvider"

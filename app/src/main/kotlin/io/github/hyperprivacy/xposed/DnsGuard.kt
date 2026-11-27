@@ -25,7 +25,15 @@ internal class DnsGuard(private val sinks: SinkContext) {
             val blocker = FailOpenHooker(sinks.log, Sinks.DNS, ::decide)
             sinks.xposed.hook(sink)
                 .setExceptionMode(ExceptionMode.PASSTHROUGH)
-                .intercept { chain -> blocker.intercept(chain).also { learn(chain, it) } }
+                .intercept { chain ->
+                    val result = blocker.intercept(chain)
+                    try {
+                        learn(chain, result)
+                    } catch (_: Throwable) {
+                        // Learning is best effort; the answer is returned as it is.
+                    }
+                    result
+                }
         } else {
             sinks.log.warn("DNS sink $SINK_CLASS#$SINK_METHOD not found")
         }
@@ -40,14 +48,10 @@ internal class DnsGuard(private val sinks: SinkContext) {
         return Verdict.Throw(NetErrors.unresolvedHost(host))
     }
 
-    /** Feeds a successful answer to the address book (IP sink, error messages); never throws. */
+    /** Feeds a successful answer to the address book (IP sink, error messages); the caller catches. */
     private fun learn(chain: Chain, result: Any?) {
-        try {
-            val host = chain.getArg(0) as? String ?: return
-            (result as? Array<*>)?.let { sinks.recordAnswers(host, it) }
-        } catch (_: RuntimeException) {
-            // Learning is best effort.
-        }
+        val host = chain.getArg(0) as? String ?: return
+        (result as? Array<*>)?.let { sinks.recordAnswers(host, it) }
     }
 
     // Hidden API: reachable from module code only where the framework exempts it. The lookup is
