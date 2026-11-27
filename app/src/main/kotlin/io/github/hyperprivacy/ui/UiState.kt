@@ -77,9 +77,14 @@ internal data class RuleEntry(val item: RuleItem, val meta: RowMeta, val health:
 /** All rules of one category. */
 @Immutable
 internal data class CategoryGroup(val category: Category, val entries: List<RuleEntry>) {
-    val key: String get() = "c:${category.name}"
+    val key: String get() = keyOf(category)
     val enabledCount: Int = entries.count { it.item.enabled }
     val attentionCount: Int = entries.count { it.attention != null }
+
+    companion object {
+        /** The unfolding key of [category]'s group on the System tab. */
+        fun keyOf(category: Category): String = "c:${category.name}"
+    }
 }
 
 /** An installed app with rules, for the by-app list. */
@@ -103,15 +108,50 @@ internal data class Attention(val broken: Int = 0, val review: Int = 0, val idle
 @Immutable
 internal data class ConflictGroup(val area: OverlapArea, val labels: List<String>)
 
+/** One overlapping module as found on this device: its own label, its package and what it overlaps in. */
+@Immutable
+internal data class ConflictModule(val packageName: String, val label: String, val areas: List<OverlapArea>)
+
 /**
- * Other installed modules that overlap with this one, for the Home hint: one [groups] entry per
- * overlapping area (in [OverlapArea] order), naming every module in it; a module doing several
- * things is named under each. [canDisableAppList] says one of them hides the app list and this
- * module's own app-list hiding is on (so the one-tap "turn it off" action makes sense).
+ * Other installed modules that overlap with this one, for the Home hint and its detail page:
+ * [modules] one by one, and one [groups] entry per overlapping area (in [OverlapArea] order),
+ * naming every module in it; a module doing several things is named under each.
+ * [canDisableAppList] says one of them hides the app list and this module's own app-list hiding is
+ * on (so the one-tap "turn it off" action makes sense).
  */
 @Immutable
-internal data class ConflictUi(val groups: List<ConflictGroup>, val canDisableAppList: Boolean) {
+internal data class ConflictUi(
+    val groups: List<ConflictGroup>,
+    val canDisableAppList: Boolean,
+    val modules: List<ConflictModule> = emptyList(),
+) {
     val appListOverlap: Boolean get() = groups.any { it.area == OverlapArea.APP_LIST }
+
+    companion object {
+        /**
+         * The hint for [found] modules, or `null` when none overlaps in anything. A blank label
+         * falls back to the package; areas are deduplicated and kept in [OverlapArea] order.
+         */
+        fun of(found: List<ConflictModule>, appListHidingOn: Boolean): ConflictUi? {
+            val modules = found
+                .map { module ->
+                    module.copy(
+                        label = module.label.ifBlank { module.packageName },
+                        areas = OverlapArea.entries.filter(module.areas::contains),
+                    )
+                }
+                .filter { it.areas.isNotEmpty() && it.packageName.isNotBlank() }
+                .distinctBy { it.packageName }
+                .sortedWith(compareBy({ it.label.lowercase() }, { it.packageName }))
+            val groups = OverlapArea.entries.mapNotNull { area ->
+                modules.filter { area in it.areas }.map { it.label }.distinct().takeIf { it.isNotEmpty() }
+                    ?.let { ConflictGroup(area, it) }
+            }
+            if (groups.isEmpty()) return null
+            val appList = groups.any { it.area == OverlapArea.APP_LIST }
+            return ConflictUi(groups, canDisableAppList = appList && appListHidingOn, modules = modules)
+        }
+    }
 }
 
 @Immutable

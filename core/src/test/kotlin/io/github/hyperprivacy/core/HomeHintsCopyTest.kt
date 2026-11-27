@@ -55,7 +55,7 @@ class HomeHintsCopyTest {
         // Runs on from the names (the gap after a Latin label is added in code); the count keeps its unit.
         assertEquals("0及另外 0\u00A0个", zh["conflict_names_more"])
         assertEquals("0 and 0 more", en["conflict_names_more"])
-        listOf("conflict_area_applist", "conflict_area_ads", "conflict_area_privacy").forEach { key ->
+        listOf("applist", "ads", "privacy", "device").map { "conflict_area_$it" }.forEach { key ->
             assertTrue(CopyWidth.zh(zh.getValue(key)) <= ZH_AREA_MAX, key)
         }
     }
@@ -65,6 +65,17 @@ class HomeHintsCopyTest {
         val offenders = (zh + en.mapKeys { "en:${it.key}" }).filterKeys { it.removePrefix("en:").let(::isHintKey) }
             .filter { (_, text) -> (PRODUCTS + FRAUD).any { text.contains(it, ignoreCase = true) } }
         assertTrue(offenders.isEmpty(), "Neutral copy only: ${offenders.keys}")
+    }
+
+    @Test
+    fun `every overlap area explains itself and how to resolve it`() {
+        listOf("applist", "ads", "privacy", "device").forEach { area ->
+            assertTrue(zh["conflict_${area}_body"].orEmpty().startsWith("两边都"), area)
+            assertTrue(en["conflict_${area}_body"].orEmpty().startsWith("Both "), area)
+        }
+        listOf("conflict_fix_applist_body", "conflict_fix_rules_body").forEach { key ->
+            assertTrue(zh.getValue(key).startsWith("建议："), key)
+        }
     }
 
     private fun isHintKey(key: String) = PREFIXES.any { key.startsWith(it) } || key in EXTRA
@@ -104,6 +115,9 @@ class HomeHintsCopyTest {
             "conflict_title",
             "conflict_disable_applist",
             "conflict_dismiss",
+            "conflict_details",
+            "conflict_detail_title",
+            "conflict_open_rules",
             "action_undo",
             "settings_backup",
             "backup_export",
