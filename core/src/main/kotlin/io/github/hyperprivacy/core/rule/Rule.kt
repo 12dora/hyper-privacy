@@ -50,7 +50,8 @@ public enum class IdentifierSource {
     /**
      * Identifier- and app-list-bearing vendor keys in `Settings.Global` / `Secure` / `System`,
      * served by SettingsProvider inside system_server (target: [Catalog.SYSTEM_SCOPE]). Third-party
-     * callers see them as absent; see `core.system.SettingsDenyList`.
+     * callers see them as absent (`core.system.SettingsDenyList`), and the user-set device names as
+     * the unrenamed model name (`core.system.SettingsMaskList`).
      */
     SETTINGS_KEYS,
 
