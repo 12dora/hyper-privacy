@@ -328,12 +328,13 @@
     <string name="pause_1h">1 hour</string>
     <string name="pause_manual">Until I resume</string>
     <string name="conflict_title">Overlapping module found</string>
-    <string name="conflict_summary_applist">%1$s also hides the app list</string>
-    <string name="conflict_summary_ads">%1$s also blocks ads</string>
-    <string name="conflict_summary_privacy">%1$s also blocks privacy reporting</string>
-    <plurals name="conflict_more">
-        <item quantity="one">%1$d more module</item>
-        <item quantity="other">%1$d more modules</item>
+    <string name="conflict_area_applist">App-list hiding</string>
+    <string name="conflict_area_ads">Ad blocking</string>
+    <string name="conflict_area_privacy">Privacy reporting</string>
+    <string name="conflict_line">%1$s: %2$s</string>
+    <plurals name="conflict_names_more">
+        <item quantity="one">%1$s and %2$d more</item>
+        <item quantity="other">%1$s and %2$d more</item>
     </plurals>
     <string name="conflict_hint">Running both may double-block or conflict</string>
     <string name="conflict_disable_applist">Turn off app-list hiding</string>

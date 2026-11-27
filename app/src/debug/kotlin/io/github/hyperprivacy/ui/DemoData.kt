@@ -52,7 +52,7 @@ private class DemoUserApp(
  * The sample data of demo mode, built from the real rule catalog and tracker database so every
  * screen shows realistic content: about a hundred rules for a set of installed system apps, a few
  * hits, one rule to review, three protected user apps with detected SDKs and suspected ad
- * components, and one overlapping module.
+ * components, and three overlapping modules.
  */
 internal class DemoData(private val language: String) {
     private val labels: List<AppLabel> = SYSTEM_APPS.map { (pkg, label) -> AppLabel(pkg, label.resolve(language)) }
@@ -86,9 +86,7 @@ internal class DemoData(private val language: String) {
             otherProtectionOn = true,
             protectedApps = users.apps.count { it.protected },
             conflict = ConflictUi(
-                label = CONFLICT_LABEL.resolve(language),
-                others = 0,
-                area = OverlapArea.APP_LIST,
+                groups = CONFLICTS.map { (area, names) -> ConflictGroup(area, names.map { it.resolve(language) }) },
                 canDisableAppList = switches.selfHidden,
             ).takeUnless { switches.conflictDismissed },
         )
@@ -180,7 +178,12 @@ internal class DemoData(private val language: String) {
         const val SDK_HITS = 64L
         const val SUSPECT_HITS = 6L
 
-        val CONFLICT_LABEL = Text("示例模块", "Sample module")
+        /** Overlapping modules by area; one does two things and is named under both. */
+        val CONFLICTS: List<Pair<OverlapArea, List<Text>>> = listOf(
+            OverlapArea.APP_LIST to listOf(Text("示例模块", "Sample module")),
+            OverlapArea.ADS to listOf(Text("Example AdKit", "Example AdKit"), Text("净化助手", "Cleaner")),
+            OverlapArea.PRIVACY to listOf(Text("净化助手", "Cleaner")),
+        )
 
         /** Installed system apps of the demo device, with neutral display names. */
         val SYSTEM_APPS: List<Pair<String, Text>> = listOf(
