@@ -45,6 +45,7 @@ public object DefaultReturn {
     public fun isValidFor(returnType: Class<*>, value: Any?): Boolean = when {
         returnType == java.lang.Void.TYPE -> value == null
         returnType.isPrimitive -> value != null && value.javaClass == PRIMITIVE_DEFAULTS[returnType]?.javaClass
+        returnType.name == KOTLIN_UNIT -> value != null && returnType.isInstance(value)
         else -> value == null || returnType.isInstance(value)
     }
 }
