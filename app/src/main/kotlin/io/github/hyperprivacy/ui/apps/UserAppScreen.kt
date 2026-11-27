@@ -24,11 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.tracker.TrackerCategory
@@ -67,6 +69,7 @@ internal fun UserAppScreen(
             TopAppBar(
                 // The app itself is the title: no empty bar above a separate header.
                 title = { if (app != null) Header(app) },
+                expandedHeight = headerBarHeight(),
                 navigationIcon = { BackButton(actions.onBack) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -92,6 +95,16 @@ internal fun UserAppScreen(
             appListSection(app, canEdit, actions)
         }
     }
+}
+
+/** The bar holds two text lines; at large font scales it grows instead of clipping them. */
+@Composable
+private fun headerBarHeight(): Dp {
+    val typography = MaterialTheme.typography
+    val lines = with(LocalDensity.current) {
+        typography.titleMedium.lineHeight.toDp() + typography.bodySmall.lineHeight.toDp()
+    }
+    return maxOf(TopAppBarDefaults.TopAppBarExpandedHeight, lines + Dimens.Gutter)
 }
 
 @Composable

@@ -268,7 +268,7 @@ private fun UserAppRow(app: UserAppUi, canEdit: Boolean, onToggle: (Boolean) -> 
 }
 
 @Composable
-private fun Loading() {
+internal fun Loading() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
