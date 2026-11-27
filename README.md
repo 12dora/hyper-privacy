@@ -1,4 +1,4 @@
-# HyperPrivacy
+# HyperPrivacy 隐私卫士
 
 面向小米 HyperOS 的 LSPosed 隐私与广告拦截模块，覆盖系统应用与用户安装应用，不影响厂商核心服务。
 
