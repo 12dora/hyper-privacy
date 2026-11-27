@@ -30,6 +30,7 @@ import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.tracker.Trackers
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.LocalLanguageTag
+import io.github.hyperprivacy.ui.SUSPECT_PREFIX
 import io.github.hyperprivacy.ui.components.MonoText
 
 /** Apps listed before "show all"; a declared scope can name many. */
@@ -86,20 +87,30 @@ private fun Target(target: OverlapTarget, label: String?, actions: ConflictActio
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (label != null) MonoText(target.packageName)
+        // system_server has no package of its own to show.
+        if (label != null && target.packageName != Catalog.SYSTEM_SCOPE) MonoText(target.packageName)
         target.rules.forEach { rule ->
             ItemRow(rule.title.resolve(language)) { actions.onOpenRule(rule.id) }
         }
+        // Options in system_server are switched in Settings (self-hiding) or on each app's page.
+        val system = target.packageName == Catalog.SYSTEM_SCOPE
         target.options.forEach { option ->
-            ItemRow(optionName(option, language)) { actions.onOpenApp(target.packageName, true) }
+            ItemRow(optionName(option, language)) {
+                if (system) actions.onOpenSettings() else actions.onOpenApp(target.packageName, true)
+            }
         }
     }
 }
 
-/** A protected app's option by id: an SDK, a protected-app rule, or app-list hiding. */
+/** An option by id: an SDK, a protected-app rule, a suspected component, app-list or self hiding. */
 @Composable
-private fun optionName(id: String, language: String): String = when (id) {
-    OverlapTarget.HIDE_APPS -> stringResource(R.string.app_hide_apps)
+private fun optionName(id: String, language: String): String = when {
+    id == OverlapTarget.HIDE_APPS -> stringResource(R.string.app_hide_apps)
+
+    id == OverlapTarget.HIDE_SELF -> stringResource(R.string.settings_self_hide)
+
+    id.startsWith(SUSPECT_PREFIX) ->
+        stringResource(R.string.sdk_suspect_title) + " " + id.removePrefix(SUSPECT_PREFIX).trimEnd('.')
 
     else -> Trackers.byId(id)?.displayName?.resolve(language)
         ?: Catalog.protectedAppRules.firstOrNull { it.id == id }?.title?.resolve(language)

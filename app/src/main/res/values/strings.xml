@@ -357,6 +357,7 @@
     <string name="conflict_fix_rules_body">Suggestion: turn off the related rules in this module, or the matching feature in that module.</string>
     <string name="conflict_open_rules">Related rules</string>
     <string name="conflict_restore_hint">Show on Overview</string>
+    <string name="conflict_system_label">System framework</string>
     <string name="conflict_targets_title">Apps both act on</string>
     <string name="conflict_targets_all">All apps; your protected apps</string>
     <string name="conflict_targets_none_body">None of this module\'s related rules are on in the apps it declares.</string>

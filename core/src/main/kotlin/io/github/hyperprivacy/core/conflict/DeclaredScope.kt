@@ -33,7 +33,8 @@ public sealed interface DeclaredScope {
 
         /** Entries as read (the legacy string-array); invalid entries are skipped. */
         public fun of(entries: List<String?>?): DeclaredScope {
-            if (entries == null) return Unknown
+            if (entries == null || entries.size > MAX_ENTRIES * 2) return Unknown
+            if (entries.sumOf { it?.length ?: 0 } > MAX_CHARS) return Unknown
             val names = entries.mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
             if (names.any { it.lowercase() in WILDCARDS }) return AllApps
             val valid = names.filter { it.length <= MAX_PACKAGE && PACKAGE.matches(it) }.distinct()

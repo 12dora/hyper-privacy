@@ -70,6 +70,8 @@ internal class ConflictDetails(
     val labels: Map<String, String> = emptyMap(),
     /** Some overlap was dismissed from Overview; the page offers to show it there again. */
     val dismissed: Boolean = false,
+    /** The installed apps are listed; until then app-level targets are not shown (they would read "none"). */
+    val appsLoaded: Boolean = true,
 )
 
 /**
@@ -136,7 +138,7 @@ private fun LazyListScope.moduleSection(
             hasRules = area.category in details.ruleCategories,
             actions = actions,
         ) {
-            if (targets != null) {
+            if (targets != null && details.appsLoaded) {
                 TargetList(
                     key = "${module.packageName}/$area",
                     targets = targets,

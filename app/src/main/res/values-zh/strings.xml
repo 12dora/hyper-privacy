@@ -329,6 +329,7 @@
     <string name="conflict_fix_rules_body">建议：在本模块中关闭相关规则，或在该模块中关闭对应功能。</string>
     <string name="conflict_open_rules">查看相关规则</string>
     <string name="conflict_restore_hint">恢复首页提示</string>
+    <string name="conflict_system_label">系统框架</string>
     <string name="conflict_targets_title">两边同时作用的应用</string>
     <string name="conflict_targets_all">作用于全部应用，涉及已防护的应用</string>
     <string name="conflict_targets_none_body">在其声明的应用中，本模块未开启相关规则。</string>

@@ -209,7 +209,7 @@ internal class DemoData(private val language: String) {
                 setOf("com.miui.player", "com.android.browser", "com.xiaomi.market", "com.miui.securitycenter", "com.example.reader"),
             ),
             "com.example.cleaner" to DeclaredScope.AllApps,
-            "com.example.hideapps" to DeclaredScope.Apps(setOf("com.example.reader", "com.example.shop")),
+            "com.example.hideapps" to DeclaredScope.Apps(setOf("android", "com.example.reader", "com.example.shop")),
         )
 
         /** Installed system apps of the demo device, with neutral display names. */
