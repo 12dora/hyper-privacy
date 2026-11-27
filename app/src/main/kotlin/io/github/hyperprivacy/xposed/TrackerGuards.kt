@@ -1,6 +1,7 @@
 package io.github.hyperprivacy.xposed
 
 import io.github.hyperprivacy.core.status.RelayKeys
+import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.TrackerRules
 import io.github.hyperprivacy.xposed.origin.AdOrigin
@@ -35,7 +36,7 @@ internal object TrackerGuards {
         val prefs = RuleSwitches.openPrefs(xposed, log) ?: return
         val raw = log.guard("read tracker config") { prefs.all }.orEmpty()
         val detected = TrackerProtection.detected(raw, packageName) ?: return
-        val rules = TrackerRules.rulesFor(packageName, detected)
+        val rules = TrackerRules.rulesFor(packageName, detected, TrackerOrigin.origin(raw, packageName).userDns)
         val switches = RuleSwitches.open(
             prefs = prefs,
             log = log,

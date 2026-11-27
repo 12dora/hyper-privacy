@@ -12,7 +12,7 @@ import java.net.InetAddress
  * @property hosts DOMAIN rules, for host-only sinks (DNS, TLS SNI).
  * @property urls DOMAIN rules as host-only patterns plus URL rules, for HTTP-client sinks; DOMAIN
  *   rules are included so stacks with native DNS/TLS (Cronet and forks) are still covered.
- * @property addresses IPv4 literals listed by DOMAIN rules (hard-coded HTTPDNS / reporting IPs),
+ * @property addresses IPv4 and IPv6 literals listed by DOMAIN rules (hard-coded HTTPDNS / reporting IPs),
  *   for the IP connect sink.
  *
  * Sinks look up through [findHost] and [findUrl], which honour keep hosts (see [of]); [hosts] and
@@ -89,7 +89,7 @@ public class NetworkMatchers private constructor(
                     is RulePayload.Domains -> payload.suffixes.forEach { suffix ->
                         hostEntries += suffix to rule.id
                         urlEntries += UrlPattern(suffix) to rule.id
-                        IpLiterals.parseIpv4(suffix)?.let { addresses.putIfAbsent(it, rule.id) }
+                        IpLiterals.parse(suffix)?.let { addresses.putIfAbsent(it, rule.id) }
                     }
 
                     is RulePayload.Urls -> payload.prefixes.forEach { prefix ->

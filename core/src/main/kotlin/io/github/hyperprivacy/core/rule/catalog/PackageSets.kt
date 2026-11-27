@@ -416,3 +416,13 @@ internal val HTTPDNS_EXCLUDED_APPS: Set<String> = setOf(
     "com.xiaomi.simactivate.service", // SIM activation
     "com.xiaomi.xmsf", // MiPush
 )
+
+/**
+ * Vendor browsers: the app-wide `httpdns.resolvers` rule leaves them to `httpdns.browsers`, which
+ * blocks SDK HTTPDNS only, so the public DoH resolver a user picks as the browser's secure DNS
+ * keeps working.
+ */
+internal val HTTPDNS_BROWSER_APPS: Set<String> = setOf(
+    "com.android.browser",
+    "com.mi.globalbrowser",
+)

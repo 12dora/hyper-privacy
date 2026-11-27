@@ -7,6 +7,8 @@ import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.rule.catalog.KNOWN_TRACKERS_RULE_ID
+import io.github.hyperprivacy.core.rule.catalog.PROTECTED_HTTPDNS_ID
+import io.github.hyperprivacy.core.rule.catalog.protectedHttpDnsRule
 
 /**
  * The rules enforced inside an app with tracker protection on ([TrackerProtection]): each
@@ -19,9 +21,16 @@ public object TrackerRules {
     /** Ids of [appRules]. */
     public val appRuleIds: Set<String> get() = Catalog.protectedAppRuleIds
 
-    /** [Catalog.protectedAppRules] bound to the protected [packageName]. */
-    public fun appRules(packageName: String): List<Rule> =
-        Catalog.protectedAppRules.map { it.copy(packages = setOf(packageName)) }
+    /**
+     * [Catalog.protectedAppRules] bound to the protected [packageName]. In an app that resolves
+     * names for the user ([userDns], [OriginHints.userDns]) the resolver rule blocks SDK HTTPDNS
+     * only, under the same id and switch.
+     */
+    public fun appRules(packageName: String, userDns: Boolean = false): List<Rule> =
+        Catalog.protectedAppRules.map { rule ->
+            val bound = if (userDns && rule.id == PROTECTED_HTTPDNS_ID) protectedHttpDnsRule(sdkOnly = true) else rule
+            bound.copy(packages = setOf(packageName))
+        }
 
     /**
      * The per-app switch key of app-level rule [ruleId] in [packageName]. Absent: the global
@@ -38,14 +47,14 @@ public object TrackerRules {
     /**
      * The in-process rules for a protected [packageName] whose scan found [detectedIds]: one or
      * two synthetic rules per blockable SDK, then [appRules]. Unknown and detection-only ids are
-     * skipped. A [RulePayload.KnownTrackers] app rule becomes its DOMAIN and URL rules here
-     * ([knownTrackerPayloads]), leaving out the detected SDKs, whose own switches decide.
+     * skipped. [userDns] as in [appRules]. A [RulePayload.KnownTrackers] app rule becomes its DOMAIN
+     * and URL rules here ([knownTrackerPayloads]), leaving out the detected SDKs, whose own switches decide.
      */
-    public fun rulesFor(packageName: String, detectedIds: Collection<String>): List<Rule> {
+    public fun rulesFor(packageName: String, detectedIds: Collection<String>, userDns: Boolean = false): List<Rule> {
         val detected = detectedIds.distinct().sorted().mapNotNull(Trackers::byId)
         val sdkRules = detected.filter { it.blockable }.flatMap { sdk -> rulesOf(packageName, sdk) }
         val skip = detected.mapTo(HashSet()) { it.id }
-        val app = appRules(packageName).flatMap { rule ->
+        val app = appRules(packageName, userDns).flatMap { rule ->
             if (rule.payload == RulePayload.KnownTrackers) {
                 knownTrackerPayloads(skip).map { rule.copy(payload = it) }
             } else {
