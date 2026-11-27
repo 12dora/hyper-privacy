@@ -57,36 +57,82 @@ class TrackerProtectionTest {
     }
 
     @Test
-    fun `known-trackers rule blocks default sdks outside the scan, domain and url only`() {
+    fun `known-trackers rule stays unexpanded and costs nothing while off`() {
         val id = "known-trackers.all"
         val rule = Catalog.protectedAppRules.single { it.id == id }
         assertEquals(RulePayload.KnownTrackers, rule.payload)
         assertFalse(rule.defaultOn)
+        val rules = TrackerRules.rulesFor(pkg, emptyList())
+        assertEquals(1, rules.count { it.id == id })
+        val raw = mapOf<String, Any>(TrackerProtection.protectKey(pkg) to "")
+        val off = TrackerRules.resolve(raw, pkg, rules)
+        assertEquals(false, off[id])
+        // No per-SDK switches while off, and the expansion just drops the rule.
+        assertEquals(rules.map { it.id }.toSet(), off.keys)
+        val expanded = TrackerRules.expandKnown(rules) { off[it] == true }
+        assertTrue(expanded.none { it.id == id })
+        val withoutKnown = rules.filter { it.id != id }
+        assertTrue(TrackerRules.expandKnown(withoutKnown) { true } === withoutKnown)
+    }
+
+    @Test
+    fun `known-trackers rule blocks default sdks outside the scan, domain and url only`() {
+        val id = "known-trackers.all"
         val covered = TrackerRules.knownTrackers
         assertTrue(covered.isNotEmpty())
         assertTrue(covered.all { it.defaultBlock && it.blockable })
         val excluded = setOf(TrackerCategory.IDENTIFICATION, TrackerCategory.PUSH)
         assertTrue(covered.none { sdk -> sdk.categories.any { it in excluded } })
-        // Expanded where enforced into one DOMAIN and one URL rule sharing the id, minus detected SDKs.
-        val expanded = TrackerRules.rulesFor(pkg, listOf(blocking.id)).filter { it.id == id }
+        val rules = TrackerRules.rulesFor(pkg, listOf(blocking.id))
+        val raw = mapOf<String, Any>(
+            TrackerProtection.protectKey(pkg) to blocking.id,
+            TrackerRules.appRuleKey(pkg, id) to true,
+        )
+        val on = TrackerRules.resolve(raw, pkg, rules)
+        assertEquals(true, on[id])
+        val expanded = TrackerRules.expandKnown(rules) { on[it] == true }.filter { it.id == id }
         assertEquals(setOf(RuleKind.DOMAIN, RuleKind.URL), expanded.map { it.kind }.toSet())
         val hosts = expanded.flatMap { (it.payload as? RulePayload.Domains)?.suffixes.orEmpty() }.toSet()
-        val others = covered.filter { it.id != blocking.id }.flatMap { it.blockHosts }.toSet()
-        assertEquals(others, hosts)
+        // Detected SDKs are left to their own rules.
+        assertEquals(covered.filter { it.id != blocking.id }.flatMap { it.blockHosts }.toSet(), hosts)
         val optOut = Trackers.all.filter { !it.defaultBlock || TrackerCategory.IDENTIFICATION in it.categories }
-            .flatMap { it.blockHosts }.toSet() - others
+            .flatMap { it.blockHosts }.toSet() - hosts
         assertTrue(hosts.none { it in optOut })
         assertTrue(TrackerRules.honorsKeepHosts(id) && !TrackerRules.honorsKeepHosts("httpdns.protected-apps"))
-        // Off by default, on per app; SDK keep hosts stay reachable.
-        val raw = mapOf<String, Any>(TrackerProtection.protectKey(pkg) to "")
-        val all = TrackerRules.rulesFor(pkg, emptyList())
-        assertEquals(false, TrackerRules.resolve(raw, pkg, all)[id])
-        val on = TrackerRules.resolve(raw + (TrackerRules.appRuleKey(pkg, id) to true), pkg, all)
-        assertEquals(true, on[id])
+        val all = TrackerRules.expandKnown(rules) { on[it] == true }
         val matchers = NetworkMatchers.of(all, Trackers.keepHosts, TrackerRules::honorsKeepHosts) { on[it] == true }
-        val host = others.first()
-        assertEquals(id, matchers.findHost(host))
+        assertEquals(id, matchers.findHost(hosts.first()))
         Trackers.keepHosts.forEach { keep -> assertTrue(matchers.findHost(keep) != id, keep) }
+    }
+
+    @Test
+    fun `known-trackers rule never blocks an sdk switched off for the app`() {
+        val id = "known-trackers.all"
+        // Two covered SDKs that share a block host.
+        val known = TrackerRules.knownTrackers
+        val (first, second) = known.flatMap { a ->
+            known.filter { b -> b.id > a.id && b.blockHosts.any { it in a.blockHosts } }.map { a to it }
+        }.first()
+        val shared = first.blockHosts.first { it in second.blockHosts }
+        val base = mapOf<String, Any>(TrackerRules.appRuleKey(pkg, id) to true)
+
+        fun hostsUnder(raw: Map<String, Any>, detected: List<String>): Set<String> {
+            val rules = TrackerRules.rulesFor(pkg, detected)
+            val withScan = raw + (TrackerProtection.protectKey(pkg) to TrackerProtection.encodeDetected(detected))
+            val on = TrackerRules.resolve(withScan, pkg, rules)
+            return TrackerRules.expandKnown(rules) { on[it] == true }.filter { it.id == id }
+                .flatMap { (it.payload as? RulePayload.Domains)?.suffixes.orEmpty() }.toSet()
+        }
+        assertTrue(shared in hostsUnder(base, emptyList()))
+        // Undetected but switched off for the app (e.g. found by an older scan): neither it nor shared hosts.
+        val offFirst = base + (TrackerProtection.blockKey(pkg, first.id) to false)
+        val undetectedOff = hostsUnder(offFirst, emptyList())
+        assertTrue(shared !in undetectedOff && undetectedOff.none { it in first.blockHosts })
+        // Detected and switched off: its own rule is off, and the sibling's copy of the shared host is dropped.
+        val detectedOff = hostsUnder(offFirst, listOf(first.id))
+        assertTrue(shared !in detectedOff && detectedOff.none { it in first.blockHosts })
+        // The sibling's other hosts stay blocked.
+        assertTrue(second.blockHosts.filter { it !in first.blockHosts }.all { it in detectedOff })
     }
 
     @Test
