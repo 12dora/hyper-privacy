@@ -45,6 +45,8 @@ internal class AppGuards(
         rules.forEach { rule ->
             val payload = rule.payload as? RulePayload.Method ?: return@forEach
             val count = log.guard(rule.id) { guard.install(rule, payload) } ?: 0
+            // Off at start with only native targets: nothing was installed and nothing failed.
+            if (count == MethodGuard.DEFERRED) return@forEach
             env.reporter.state(packageName, rule.id, if (count > 0) HookState.ACTIVE else HookState.MISSED)
         }
     }

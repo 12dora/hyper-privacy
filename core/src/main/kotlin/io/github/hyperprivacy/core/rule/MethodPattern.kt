@@ -7,6 +7,9 @@ package io.github.hyperprivacy.core.rule
 public class MethodPattern private constructor(private val stem: String, public val isPrefix: Boolean) {
     public fun matches(methodName: String): Boolean = if (isPrefix) methodName.startsWith(stem) else methodName == stem
 
+    /** An R8-style short name (`a`, `b2`): stable only within one build of the target. */
+    public val isObfuscated: Boolean get() = !isPrefix && stem.length <= OBFUSCATED_MAX_LENGTH
+
     override fun equals(other: Any?): Boolean =
         other is MethodPattern && other.stem == stem && other.isPrefix == isPrefix
 
@@ -17,6 +20,7 @@ public class MethodPattern private constructor(private val stem: String, public 
     public companion object {
         private const val WILDCARD = '*'
         private const val HASH_MULTIPLIER = 31
+        private const val OBFUSCATED_MAX_LENGTH = 2
         private val IDENTIFIER = Regex("[A-Za-z_$][A-Za-z0-9_$]*")
 
         /** Parses [text]; throws [IllegalArgumentException] if it is not a valid pattern. */

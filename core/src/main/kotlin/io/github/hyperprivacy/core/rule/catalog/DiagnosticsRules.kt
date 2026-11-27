@@ -57,6 +57,8 @@ internal val diagnosticsRules: List<Rule> = listOf(
         payload = RulePayload.Method(
             className = "com.miui.misight.mievent.MiSight",
             method = MethodPattern.parse("nativeSendEvent"),
+            params = listOf("[B"),
+            returns = "int",
         ),
         category = Category.DIAGNOSTICS,
         evidence = "dex: Lcom/miui/misight/mievent/MiSight; private static native int nativeSendEvent(byte[]) in " +
@@ -64,7 +66,9 @@ internal val diagnosticsRules: List<Rule> = listOf(
             "trustservice (libmievent.so; securitycore ships the lib without the Java class, so is not targeted). " +
             "jadx MiSight.sendEvent builds \"EventId <id> -t <ts> -paraList <params>\" and discards the return " +
             "value; native side forwards to the root misight daemon (libmisight_jni: sendEventMisight), which " +
-            "uploads fault logs. Returning 0 is benign because no caller reads it",
+            "uploads fault logs. Returning 0 is benign because no caller reads it. Native method: hooked only when " +
+            "the rule is on as the app starts, and the hook never calls through; a change applies after the app " +
+            "restarts",
     ),
     Rule(
         id = "xmsf.remote-log",

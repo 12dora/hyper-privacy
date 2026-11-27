@@ -22,9 +22,8 @@ internal object Reflection {
     /** Loads [name] through [loader] without initialising it, or `null` if absent. */
     fun loadClass(name: String, loader: ClassLoader?): Class<*>? = try {
         Class.forName(name, false, loader)
-    } catch (_: ClassNotFoundException) {
-        null
-    } catch (_: LinkageError) {
+    } catch (_: Throwable) {
+        // Absent, unlinkable or refused by an app class loader: the target is simply not there.
         null
     }
 

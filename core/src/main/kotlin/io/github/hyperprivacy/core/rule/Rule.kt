@@ -132,13 +132,33 @@ public sealed interface RulePayload {
      *
      * Methods returning a reference type are skipped unless [allowNullReturn] is set, because
      * callers frequently dereference such results without a null check.
+     *
+     * [params] and [returns], when set, pin the exact signature (binary names as `Class.getName`
+     * spells them, e.g. `int`, `[B`, `android.content.Context`): a method of another shape is left
+     * alone, so an app update that renames or reshapes the target only turns the rule off. Both are
+     * required for a null return and for an obfuscated name ([MethodPattern.isObfuscated]), since
+     * R8 hands such names to unrelated methods from one release to the next; see [MethodShape].
      */
-    public data class Method(val className: String, val method: MethodPattern, val allowNullReturn: Boolean = false) :
-        RulePayload {
+    public data class Method(
+        val className: String,
+        val method: MethodPattern,
+        val allowNullReturn: Boolean = false,
+        val params: List<String>? = null,
+        val returns: String? = null,
+    ) : RulePayload {
         override val kind: RuleKind get() = RuleKind.METHOD
+
+        /** The signature the install-time check enforces. */
+        val shape: MethodShape get() = MethodShape(params, returns)
 
         init {
             require(className.isNotBlank()) { "className must not be blank" }
+            require(!(allowNullReturn || method.isObfuscated) || (params != null && returns != null)) {
+                "Method $className#$method returns null or has an obfuscated name, so it must pin params and returns"
+            }
+            require(!allowNullReturn || returns == null || returns !in MethodShape.PRIMITIVE_NAMES) {
+                "Method $className#$method cannot return null from primitive $returns"
+            }
         }
     }
 
