@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.conflict.LabelGap
 import io.github.hyperprivacy.core.conflict.OverlapArea
@@ -32,10 +33,11 @@ import io.github.hyperprivacy.ui.components.IconBadge
 /** Modules named per area; more are counted, so many modules never make the hint grow without bound. */
 private const val MAX_NAMES = 3
 
-private fun OverlapArea.labelRes(): Int = when (this) {
+internal fun OverlapArea.labelRes(): Int = when (this) {
     OverlapArea.APP_LIST -> R.string.conflict_area_applist
     OverlapArea.ADS -> R.string.conflict_area_ads
     OverlapArea.PRIVACY -> R.string.conflict_area_privacy
+    OverlapArea.DEVICE_ID -> R.string.conflict_area_device
 }
 
 /**
@@ -54,20 +56,22 @@ private fun groupLine(group: ConflictGroup): String {
 
 /**
  * Other installed modules also do what this one does: every one of them is named, grouped by what
- * they overlap in. The action only changes this module's settings, never the other modules. Without
- * it, "dismiss" sits at the end of the title row, so the card has no empty button band.
+ * they overlap in. The card opens the detail page ([onOpen]: what each module overlaps in, the
+ * likely symptom and how to resolve it); "dismiss" hides it for these modules.
  */
 @Composable
 internal fun ConflictRow(
     conflict: ConflictUi,
-    onDisableAppList: () -> Unit,
+    onOpen: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val details = stringResource(R.string.conflict_details)
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .clickable(role = Role.Button, onClickLabel = details, onClick = onOpen)
             .padding(start = Dimens.Gutter, end = Dimens.Small, top = Dimens.RowVertical, bottom = Dimens.Tiny),
     ) {
         Row(
@@ -83,7 +87,7 @@ internal fun ConflictRow(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(bottom = if (conflict.canDisableAppList) 0.dp else Dimens.Small)
+                    .padding(end = Dimens.Small)
                     .semantics(mergeDescendants = true) {},
                 verticalArrangement = Arrangement.spacedBy(Dimens.RowGap),
             ) {
@@ -97,20 +101,13 @@ internal fun ConflictRow(
                     color = colors.onSurfaceVariant,
                 )
             }
-            if (!conflict.canDisableAppList) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
-            }
         }
-        if (conflict.canDisableAppList) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.Small, Alignment.End),
-            ) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
-                FilledTonalButton(onClick = onDisableAppList) {
-                    Text(stringResource(R.string.conflict_disable_applist))
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.Small, Alignment.End),
+        ) {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
+            FilledTonalButton(onClick = onOpen) { Text(details) }
         }
     }
 }
@@ -126,9 +123,6 @@ private fun ConflictRowPreview() {
             ),
             canDisableAppList = true,
         )
-        Column {
-            ConflictRow(conflict, onDisableAppList = {}, onDismiss = {})
-            ConflictRow(conflict.copy(canDisableAppList = false), onDisableAppList = {}, onDismiss = {})
-        }
+        ConflictRow(conflict, onOpen = {}, onDismiss = {})
     }
 }

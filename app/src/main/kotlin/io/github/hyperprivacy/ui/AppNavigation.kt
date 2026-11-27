@@ -68,6 +68,11 @@ internal class Navigator(private val holder: MutableState<List<Route>>) {
     fun pop() {
         if (stack.size > 1) holder.value = stack.dropLast(1)
     }
+
+    /** Back to the tabs, dropping every page pushed over them. */
+    fun popToRoot() {
+        if (stack.size > 1) holder.value = stack.take(1)
+    }
 }
 
 /** Everything the pages share: the model, the back stack, the selected tab and each tab's state. */
@@ -182,6 +187,8 @@ private fun Page(route: Route, state: UiState, shell: Shell, modifier: Modifier)
         Route.AppDefaults -> AppDefaultsPage(state, model.trackers, nav, modifier)
 
         Route.Allowlist -> AllowlistPage(state, model.trackers, nav, modifier)
+
+        Route.Conflicts -> ConflictsPage(state, shell, modifier)
 
         is Route.UserApp -> UserAppPage(route.packageName, state, model.trackers, nav, shell.apps, modifier)
 
