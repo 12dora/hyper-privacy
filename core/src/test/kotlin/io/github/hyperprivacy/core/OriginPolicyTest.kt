@@ -57,6 +57,33 @@ class OriginPolicyTest {
     }
 
     @Test
+    fun `consent packages are never attributed to their ad sdk`() {
+        val expected = mapOf(
+            "huawei-ads" to "com.huawei.hms.ads.consent.",
+            "ogury" to "com.ogury.cm.",
+            "applovin" to "com.applovin.impl.privacy.",
+        )
+        expected.forEach { (id, consent) ->
+            val sdk = requireNotNull(Trackers.byId(id))
+            assertTrue(consent in sdk.excludePrefixes, id)
+            assertTrue(sdk.codePrefixes.none { it.startsWith(consent) }, id)
+            // As AdOrigin builds it: the exempt packages join the app's own roots.
+            val matcher = OriginMatcher(sdk.codePrefixes.map { it to id }, listOf("$PKG.") + sdk.excludePrefixes)
+            assertEquals(OriginMatcher.OWN, matcher.classify("${consent}ConsentActivity"), id)
+            // A consent form shown through an unclaimed library (UMP) from the consent code is the app's.
+            val frames = listOf("android.webkit.WebView", "com.google.android.ump.Form", "${consent}a", "$PKG.Main")
+            assertEquals(OriginMatcher.OWN, matcher.attribute(frames.iterator(), { it }), id)
+        }
+        val oguryPrefixes = requireNotNull(Trackers.byId("ogury")).codePrefixes
+        val ogury = OriginMatcher(oguryPrefixes.map { it to "ogury" }, emptyList())
+        // The shared runtime is unclaimed, so a consent request through it is decided further out.
+        assertEquals(OriginMatcher.UNKNOWN, ogury.classify("com.ogury.core.internal.network.Client"))
+        assertEquals("ogury", ogury.sdkId(ogury.classify("com.ogury.ad.internal.Loader")))
+        // Only advertising entries may exempt packages (enforced by the generator).
+        assertTrue(Trackers.all.filter { it.excludePrefixes.isNotEmpty() }.all { it.originBlockable })
+    }
+
+    @Test
     fun `suspect switches stay on the device across an import`() {
         val suspect = TrackerOrigin.suspectKey(PKG, "x.y.ads.")
         assertTrue(TrackerOrigin.isSuspectKey(suspect))
