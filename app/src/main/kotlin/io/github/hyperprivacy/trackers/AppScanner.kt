@@ -5,8 +5,8 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.net.VpnService
+import androidx.core.net.toUri
 import io.github.hyperprivacy.BuildConfig
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.InstalledApp
@@ -123,7 +123,7 @@ internal class AppScanner(
     private fun resolvesForUser(packageName: String): Boolean = try {
         val none = PackageManager.ResolveInfoFlags.of(0)
         val browser = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_BROWSER).setPackage(packageName)
-        val link = Intent(Intent.ACTION_VIEW, Uri.parse(ANY_LINK)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val link = Intent(Intent.ACTION_VIEW, ANY_LINK.toUri()).addCategory(Intent.CATEGORY_BROWSABLE)
             .setPackage(packageName)
         val vpn = Intent(VpnService.SERVICE_INTERFACE).setPackage(packageName)
         pm.queryIntentActivities(browser, none).isNotEmpty() || pm.queryIntentActivities(link, none).isNotEmpty() ||

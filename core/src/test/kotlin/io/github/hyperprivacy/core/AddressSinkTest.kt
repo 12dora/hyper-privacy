@@ -130,7 +130,7 @@ class AddressSinkTest {
         assertEquals(v6("2001:4860:4860::8888"), v6("2001:4860:4860:0:0:0:0:8888"))
         assertEquals(v6("2001:4860:4860::8888"), v6("[2001:4860:4860::8888]"))
         assertEquals(v6("2001:db8::a:b"), v6("2001:DB8:0::A:b"))
-        assertEquals(v6("64:ff9b::c0a8:101"), v6("64:ff9b::192.168.1.1"))
+        assertEquals(v6("64:ff9b::cb6b:101"), v6("64:ff9b::203.107.1.1"))
         val aliyun = "2401:b180:2000:20::10"
         assertEquals(InetAddress.getByName(aliyun), IpLiterals.parseIpv6(aliyun))
         // IPv4-mapped: the IPv4 address, as connect sinks see such peers.
