@@ -17,7 +17,7 @@ import java.io.FileDescriptor
  * One small object is allocated per call (the result struct has final fields); the system call it
  * follows is far heavier.
  */
-internal class FsIdHooks(private val env: GuardEnv, private val state: FingerprintState) {
+internal class FsIdHooks(private val env: GuardEnv, private val state: FingerprintState<HardwareTraits>) {
     /** Returns the number of methods hooked. */
     fun install(): Int {
         val methods = listOfNotNull(
