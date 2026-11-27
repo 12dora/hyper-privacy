@@ -23,10 +23,12 @@ class ModuleMain : XposedModule() {
     private var systemGuards: SystemServerGuards? = null
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        // Not in other apps' processes: their logcat is read by their own SDKs (see HookLog).
-        val ownPackage = param.processName.substringBefore(':')
-        if (param.isSystemServer || ownPackage in Catalog.scope) {
-            log.info("loaded in ${param.processName} (API $apiVersion, $frameworkName $frameworkVersion)")
+        log.guard("module load") {
+            // Not in other apps' processes: their logcat is read by their own SDKs (see HookLog).
+            val ownPackage = param.processName.substringBefore(':')
+            if (param.isSystemServer || ownPackage in Catalog.scope) {
+                log.info("loaded in ${param.processName} (API $apiVersion, $frameworkName $frameworkVersion)")
+            }
         }
     }
 
@@ -49,7 +51,7 @@ class ModuleMain : XposedModule() {
         if (!param.isFirstPackage) return
         val pkg = param.packageName
         // Indexed lookup; catalog targets never read the tracker config.
-        val rules = PackageRules.catalog.inProcess(pkg)
+        val rules = log.guard("rules for $pkg") { PackageRules.catalog.inProcess(pkg) } ?: return
         if (rules.isNotEmpty()) {
             log.guard("guards for $pkg") { AppGuards(this, log, pkg, param.classLoader, rules).install() }
             return

@@ -53,13 +53,14 @@ internal class RuleSwitches private constructor(
     private var snapshot = Snapshot(emptyMap(), observe = false, secret = null, paused = false, version = 0)
 
     // Held in a field: listener registries are commonly weak, and losing it would freeze the config.
+    // Runs on the framework's callback thread (in system_server too): nothing may escape it.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key in ALWAYS_WATCHED || affects(key)) refresh()
+        log.guard("switch change") { if (key == null || key in ALWAYS_WATCHED || affects(key)) refresh() }
     }
 
     init {
-        publish()
-        prefs?.registerOnSharedPreferenceChangeListener(prefsListener)
+        log.guard("publish switches") { publish() }
+        log.guard("watch switches") { prefs?.registerOnSharedPreferenceChangeListener(prefsListener) }
     }
 
     fun isEnabled(ruleId: String): Boolean = snapshot.enabled[ruleId] ?: false
@@ -79,7 +80,8 @@ internal class RuleSwitches private constructor(
     }
 
     private fun refresh() {
-        publish()
+        // A failed read keeps the previous snapshot: the last good switches stay in force.
+        log.guard("publish switches") { publish() }
         listeners.forEach { listener -> log.guard("switch listener") { listener() } }
     }
 
@@ -88,12 +90,15 @@ internal class RuleSwitches private constructor(
     private fun publish() {
         val raw = log.guard("read switches") { prefs?.all }.orEmpty()
         // The only clock read: once per preference change, never per check and never from a timer.
-        val paused = ProtectionPause.isPaused(ProtectionPause.untilOf(raw), System.currentTimeMillis())
+        // Corrupt values read as the safe defaults: not paused, diagnostics off, no secret.
+        val paused = log.guard("read pause") {
+            ProtectionPause.isPaused(ProtectionPause.untilOf(raw), System.currentTimeMillis())
+        } == true
         val next = Snapshot(
             // A rule set that fails to resolve (e.g. after an app or system change) means no rule, never a crash.
             enabled = if (paused) emptyMap() else log.guard("decode switches") { decode(raw) }.orEmpty(),
-            observe = ConfigCodec.isObserveEnabled(raw),
-            secret = ModuleSecret.parse(raw[ModuleSecret.KEY]),
+            observe = log.guard("read observe") { ConfigCodec.isObserveEnabled(raw) } == true,
+            secret = log.guard("read secret") { ModuleSecret.parse(raw[ModuleSecret.KEY]) },
             paused = paused,
             version = snapshot.version + 1,
         )
