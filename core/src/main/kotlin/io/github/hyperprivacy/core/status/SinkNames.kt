@@ -43,6 +43,10 @@ public object SinkNames {
     public const val FP_FSID: String = "fp.fsid"
     public const val FP_BATTERY: String = "fp.battery"
 
+    /** Sensor-data hook groups (`xposed.fp.SensorDataGuard`): sensor events and direct channels, battery readings. */
+    public const val SENSOR_EVENTS: String = "sensor.events"
+    public const val SENSOR_BATTERY: String = "sensor.battery"
+
     /** Cost only: the origin execution sinks of protected apps (`xposed.origin.OriginNetGuard`). */
     public const val ORIGIN_OKHTTP: String = "origin okhttp exec"
     public const val ORIGIN_URL: String = "origin url"
@@ -57,8 +61,8 @@ public object SinkNames {
     public val ALL: Set<String> = setOf(
         DNS, TLS, CONNECT, URL_JAVA_HOST, URL_JAVA, URL_OKHTTP, URL_CRONET, URL_TURBONET, URL_HTTP_ENGINE,
         URL_WEBVIEW, MIUI_ID_PROVIDER, CRONET_REWRITE, METHOD, SETTINGS_KEYS, APP_LIST_FILTER, STATUS_RELAY,
-        MEDIA_DRM, FP_SENSOR, FP_FSID, FP_BATTERY, ORIGIN_OKHTTP, ORIGIN_URL, ORIGIN_SOCKET, ORIGIN_CHANNEL,
-        ORIGIN_VOLLEY, ORIGIN_WEBVIEW,
+        MEDIA_DRM, FP_SENSOR, FP_FSID, FP_BATTERY, SENSOR_EVENTS, SENSOR_BATTERY, ORIGIN_OKHTTP, ORIGIN_URL,
+        ORIGIN_SOCKET, ORIGIN_CHANNEL, ORIGIN_VOLLEY, ORIGIN_WEBVIEW,
     )
 
     public fun isKnown(sink: String): Boolean = sink in ALL

@@ -69,6 +69,14 @@ public enum class IdentifierSource {
      * ([Catalog.protectedAppRules]), never for vendor packages, and off unless the user enables it.
      */
     HARDWARE_TRAITS,
+
+    /**
+     * Permission-free sensor and battery readings that leak more than an app needs (motion and
+     * magnetic calibration, fine pressure and light changes, battery current and voltage), made
+     * coarser per app; see `core.sensor`. Only for protected third-party apps
+     * ([Catalog.protectedAppRules]), never for vendor packages, and off unless the user enables it.
+     */
+    SENSOR_DATA,
 }
 
 /**
