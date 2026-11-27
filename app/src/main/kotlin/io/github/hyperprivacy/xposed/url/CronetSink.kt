@@ -6,11 +6,12 @@ import io.github.hyperprivacy.xposed.SinkContext
 import io.github.hyperprivacy.xposed.Sinks
 import io.github.hyperprivacy.xposed.Verdict
 import io.github.libxposed.api.XposedInterface.Chain
+import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.net.URL
-import java.util.concurrent.ConcurrentHashMap
+import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -33,7 +34,12 @@ import java.util.concurrent.atomic.AtomicInteger
 internal class CronetSink(private val sinks: SinkContext) {
     private class Family(val sink: String, val entryClasses: List<String>, val engineBuilders: List<String>)
 
-    private val inspected: MutableSet<Class<*>> = ConcurrentHashMap.newKeySet()
+    /**
+     * Classes whose entries are hooked; weak keys (an engine class never keeps its loader alive),
+     * guarded by itself so a class is hooked before any other thread can see it as inspected.
+     * Only reached at install and from `build()`, never per request.
+     */
+    private val inspected = WeakHashMap<Class<*>, Boolean>()
 
     fun install(): Boolean = FAMILIES.map { family ->
         val hooks = AtomicInteger()
@@ -47,9 +53,9 @@ internal class CronetSink(private val sinks: SinkContext) {
     private fun load(name: String): Class<*>? = Reflection.loadClass(name, sinks.classLoader)
 
     /** Hooks request entries declared on [type] and its superclasses, each class at most once. */
-    private fun hookEntries(family: Family, type: Class<*>, hooks: AtomicInteger) {
+    private fun hookEntries(family: Family, type: Class<*>, hooks: AtomicInteger) = synchronized(inspected) {
         generateSequence(type) { it.superclass }
-            .takeWhile { it != Any::class.java && inspected.add(it) }
+            .takeWhile { it != Any::class.java && inspected.put(it, true) == null }
             .forEach { cls ->
                 val count = sinks.log.guard("${family.sink} entries of ${cls.name}") { hookDeclared(cls) } ?: 0
                 if (count > 0) {
@@ -63,7 +69,7 @@ internal class CronetSink(private val sinks: SinkContext) {
         val indices = CronetEntries.urlArgumentIndices(executable)
         if (indices.isNotEmpty()) {
             val hooker = FailOpenHooker(sinks.log, Sinks.CRONET_REWRITE) { rewrite(it, indices) }
-            sinks.xposed.hook(executable).intercept(hooker)
+            sinks.xposed.hook(executable).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(hooker)
         }
         indices.isNotEmpty()
     }
@@ -72,7 +78,7 @@ internal class CronetSink(private val sinks: SinkContext) {
     private fun observeBuilds(family: Family, builder: Class<*>, hooks: AtomicInteger) {
         val builds = CronetEntries.buildMethods(builder)
         builds.forEach { method ->
-            sinks.xposed.hook(method).intercept { chain ->
+            sinks.xposed.hook(method).setExceptionMode(ExceptionMode.PROTECTIVE).intercept { chain ->
                 val engine = chain.proceed()
                 if (engine != null) {
                     sinks.log.guard("${family.sink} engine discovery") { hookEntries(family, engine.javaClass, hooks) }

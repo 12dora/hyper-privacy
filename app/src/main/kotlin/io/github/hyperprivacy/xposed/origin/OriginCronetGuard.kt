@@ -22,7 +22,9 @@ import java.util.WeakHashMap
  * [io.github.hyperprivacy.xposed.url.CronetSink] finds them: the engine builders' `build()` is
  * observed and the request entries of each returned engine's class hierarchy are hooked once, on
  * first sight. An engine class of the app's own loader is skipped when its builders are already
- * hooked by name, so a request is never attributed twice. Native stacks are not seen here.
+ * hooked by name, so a request is never attributed twice: that includes `openConnection(URL)`,
+ * whose `CronetHttpURLConnection` builds its request through `newUrlRequestBuilder` (a hooked
+ * `UrlRequestBuilderImpl`) on the thread that connects. Native stacks are not seen here.
  *
  * Per-class state lives in a [ClassValue] and a weak set, so an engine class never keeps its
  * class loader alive; a class is hooked under a lock before any thread can see it as inspected.
