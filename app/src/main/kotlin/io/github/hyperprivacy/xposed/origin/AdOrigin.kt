@@ -190,7 +190,9 @@ internal class AdOrigin(
             }
         }
         if (entries.isEmpty()) return null
-        val matcher = OriginMatcher(entries, hints.own + hints.appRoots + "$packageName.")
+        // Consent packages of an enabled SDK (excludePrefixes) count as the app's own code.
+        val exempt = enabled.values.flatMap { it.excludePrefixes }
+        val matcher = OriginMatcher(entries, hints.own + hints.appRoots + "$packageName." + exempt)
         if (matcher.isEmpty) return null
         return Table(matcher, entries.mapTo(HashSet()) { ruleIdOf(it.second) })
     }

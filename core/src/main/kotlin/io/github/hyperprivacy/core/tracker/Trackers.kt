@@ -31,6 +31,9 @@ public enum class TrackerCategory {
  * @property originBlock `false` for advertising SDKs that also serve user-visible features
  *   (offerwall rewards): they are blocked by origin only once the user turns them on, never by
  *   default (the generator then also emits [defaultBlock] `false`).
+ * @property excludePrefixes packages of the SDK's vendor that serve a user-visible feature the
+ *   SDK may open (consent dialogs). Never claimed for the SDK: in origin attribution a frame of
+ *   theirs counts as the app's own, so whatever they request or show is left alone.
  */
 public data class TrackerSdk(
     val id: String,
@@ -45,6 +48,7 @@ public data class TrackerSdk(
     val shortName: ShortName = ShortName(),
     val anchors: List<String> = emptyList(),
     val originBlock: Boolean = true,
+    val excludePrefixes: List<String> = emptyList(),
 ) {
     init {
         require(categories.isNotEmpty()) { "Tracker $id has no category" }
@@ -133,6 +137,7 @@ public object Trackers {
         var displayEn: String? = null
         var vendor: String? = null
         val prefixes = ArrayList<String>()
+        val excludes = ArrayList<String>()
         val anchors = ArrayList<String>()
         val hosts = ArrayList<String>()
         val urls = ArrayList<UrlPrefix>()
@@ -147,6 +152,7 @@ public object Trackers {
                 "de" -> displayEn = rest.trim().ifEmpty { null }
                 "v" -> vendor = rest
                 "p" -> prefixes += tokens(rest)
+                "x" -> excludes += tokens(rest)
                 "a" -> anchors += tokens(rest)
                 "b" -> hosts += tokens(rest)
                 "u" -> urls += tokens(rest).mapNotNull(::urlOf)
@@ -170,6 +176,7 @@ public object Trackers {
                 shortName = TrackerSdk.ShortName(displayZh, displayEn),
                 anchors = anchors,
                 originBlock = originBlock,
+                excludePrefixes = excludes,
             )
         }.getOrNull()
 

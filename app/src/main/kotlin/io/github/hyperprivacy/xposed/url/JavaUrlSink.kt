@@ -34,7 +34,7 @@ internal class JavaUrlSink(private val sinks: SinkContext) {
     private fun decide(chain: Chain): Verdict {
         val url = chain.thisObject as? URL ?: return Verdict.Proceed
         if (url.protocol != HTTP && url.protocol != HTTPS) return Verdict.Proceed
-        sinks.checkUrl(url.host, url.path) ?: return Verdict.Proceed
+        sinks.checkUrl(url.host, url.path, url.query) ?: return Verdict.Proceed
         return Verdict.Throw(sinks.urlFailure(url.host, url.protocol, url.port))
     }
 

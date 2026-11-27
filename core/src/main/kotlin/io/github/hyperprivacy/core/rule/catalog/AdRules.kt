@@ -43,11 +43,29 @@ internal val adRules: List<Rule> = listOf(
         packages = setOf("com.baidu.input_mi", "com.miui.player", "com.sohu.inputmethod.sogou.xiaomi"),
         title = Text("应用内广告联盟", "In-app ad network"),
         summary = Text("阻止广告请求与回传", "Block ad requests and reports"),
-        payload = RulePayload.Domains(listOf("gdt.qq.com", "e.qq.com", "gdtimg.com", "pgdt.gtimg.cn", "us.l.qq.com")),
+        payload = RulePayload.Domains(
+            listOf(
+                "gdt.qq.com",
+                "sdk.e.qq.com",
+                "sdkreport.e.qq.com",
+                "tangram.e.qq.com",
+                "adsmind.gdtimg.com",
+                "qzs.gdtimg.com",
+                "xj-landing.gdtimg.com",
+                "adsmind.ugdtimg.com",
+                "pgdt.ugdtimg.com",
+                "pgdt.gtimg.cn",
+                "us.l.qq.com",
+                "sg.ylhglobal.com",
+            ),
+        ),
         category = Category.ADS,
         evidence = "traffic cap2/cap4: player -> xs.gdt.qq.com x27, pgdt.gtimg.cn x13, sdkreport.e.qq.com x9, " +
             "tangram.e.qq.com, adsmind.gdtimg.com, us.l.qq.com; dex com/qq/e/comm in player, baidu.input_mi, sogou; " +
-            "ads.privacy.qq.com (opt-out) is not matched",
+            "player com.qq.e.comm.plugin.base.ad -> us.l.qq.com/exapp; other hosts from tracker database " +
+            "tencent-gdt. " +
+            "gdt.qq.com is the ad network's own zone; the e.qq.com (advertiser portal) and gdtimg.com apexes are " +
+            "not matched, nor ads.privacy.qq.com (opt-out)",
     ),
     Rule(
         id = "music.ads",
@@ -66,19 +84,31 @@ internal val adRules: List<Rule> = listOf(
         summary = Text("阻止浏览器联盟广告请求", "Block browser ad-network requests"),
         payload = RulePayload.Domains(
             listOf(
-                "pangolin-sdk-toutiao.com",
-                "pangolin-sdk-toutiao-b.com",
-                "pglstatp-toutiao.com",
-                "pangle.io",
-                "tiktokpangle.us",
-                "tiktokpangle-cdn-us.com",
-                "i18n-pglstatp.com",
+                "api-access.pangolin-sdk-toutiao.com",
+                "api-access.pangolin-sdk-toutiao1.com",
+                "api-access.pangolin-sdk-toutiao-b.com",
+                "log-api.pangolin-sdk-toutiao.com",
+                "log-api.pangolin-sdk-toutiao-b.com",
+                "3log-api.pangolin-sdk-toutiao.com",
+                "5log-api.pangolin-sdk-toutiao-b.com",
+                "gromore.pangolin-sdk-toutiao.com",
+                "sf3-fe-tos.pglstatp-toutiao.com",
+                "api16-access-sg.pangle.io",
+                "api16-access-wf-sg.pangle.io",
+                "api16-endcard-pack-sg.pangle.io",
+                "api16-access-ttp.tiktokpangle.us",
+                "api16-access-ttp-b.tiktokpangle-b.us",
+                "lf-static.tiktokpangle-cdn-us.com",
+                "sf16-static.i18n-pglstatp.com",
             ),
         ),
         category = Category.ADS,
         evidence = "dex: com/bytedance/sdk/openadsdk in browser, globalbrowser, voiceassist; voiceassist " +
             "api-access.pangolin-sdk-toutiao.com/api/ad/union/sdk/settings; traffic cap4: globalbrowser -> " +
-            "api16-access-ttp.tiktokpangle.us x5, api16-access-wf-sg.pangle.io, sf16-static.i18n-pglstatp.com",
+            "api16-access-ttp.tiktokpangle.us x5, api16-access-wf-sg.pangle.io, sf16-static.i18n-pglstatp.com; " +
+            "other ad subdomains from tracker database bytedance-csj-pangle / bytedance-gromore. Apexes are not " +
+            "matched: www.pangle.io is the vendor site (opened in the browsers) and ssdk-*.pangle.io serves the " +
+            "device-security module",
     ),
     Rule(
         id = "google.ads",
@@ -88,13 +118,18 @@ internal val adRules: List<Rule> = listOf(
         payload = RulePayload.Domains(
             listOf(
                 "googleads.g.doubleclick.net",
+                "googleads4.g.doubleclick.net",
                 "pubads.g.doubleclick.net",
+                "securepubads.g.doubleclick.net",
                 "pagead2.googlesyndication.com",
+                "tpc.googlesyndication.com",
             ),
         ),
         category = Category.ADS,
-        evidence = "traffic cap4: globalbrowser -> googleads.g.doubleclick.net x2, pubads.g.doubleclick.net. " +
-            "fundingchoicesmessages.google.com (consent) not matched",
+        evidence = "traffic cap4: globalbrowser -> googleads.g.doubleclick.net x2, pubads.g.doubleclick.net; dex " +
+            "globalbrowser Lcom/google/android/gms/ads/MobileAds;, other SDK ad hosts from tracker database " +
+            "google-admob. fundingchoicesmessages.google.com (consent), ad.doubleclick.net and " +
+            "www.googleadservices.com (ad click-through redirects: a link the user taps in the browser) not matched",
     ),
     Rule(
         id = "securitycenter.ads",
@@ -163,9 +198,20 @@ internal val adRules: List<Rule> = listOf(
         packages = setOf("com.baidu.input_mi"),
         title = Text("输入法广告联盟", "IME ad network"),
         summary = Text("阻止输入法联盟广告投放", "Block IME ad-network ads"),
-        payload = RulePayload.Domains(listOf("union.baidu.com", "cpro.baidustatic.com")),
+        payload = RulePayload.Domains(
+            listOf(
+                "cpro.baidustatic.com",
+                "mobads.baidu.com",
+                "mobads-logs.baidu.com",
+                "mobads-pre-config.bj.bcebos.com",
+                "mobads-pre-config.cdn.bcebos.com",
+                "wn.pos.baidu.com",
+            ),
+        ),
         category = Category.ADS,
         evidence = "evidence.md L322 baidu.input_mi union.baidu.com, cpro.baidustatic.com, com.baidu.input.ad.info; " +
-            "jadx XAdEntryResponse unionUrl https://union.baidu.com/",
+            "dex com.baidu.mobads.* in baidu.input_mi -> mobads.baidu.com, mobads-logs.baidu.com, " +
+            "mobads-pre-config.bj.bcebos.com, wn.pos.baidu.com (tracker database baidu-mobads). union.baidu.com is " +
+            "the ad network's portal (jadx XAdEntryResponse unionUrl), not an ad endpoint, so it is not matched",
     ),
 )

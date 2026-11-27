@@ -6,6 +6,7 @@ import io.github.hyperprivacy.core.rule.Category
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
 import io.github.hyperprivacy.core.rule.Text
+import io.github.hyperprivacy.core.rule.catalog.KNOWN_TRACKERS_RULE_ID
 
 /**
  * The rules enforced inside an app with tracker protection on ([TrackerProtection]): each
@@ -37,13 +38,53 @@ public object TrackerRules {
     /**
      * The in-process rules for a protected [packageName] whose scan found [detectedIds]: one or
      * two synthetic rules per blockable SDK, then [appRules]. Unknown and detection-only ids are
-     * skipped.
+     * skipped. A [RulePayload.KnownTrackers] app rule becomes its DOMAIN and URL rules here
+     * ([knownTrackerPayloads]), leaving out the detected SDKs, whose own switches decide.
      */
     public fun rulesFor(packageName: String, detectedIds: Collection<String>): List<Rule> {
-        val sdkRules = detectedIds.distinct().sorted().mapNotNull(Trackers::byId).filter { it.blockable }
-            .flatMap { sdk -> rulesOf(packageName, sdk) }
-        return sdkRules + appRules(packageName)
+        val detected = detectedIds.distinct().sorted().mapNotNull(Trackers::byId)
+        val sdkRules = detected.filter { it.blockable }.flatMap { sdk -> rulesOf(packageName, sdk) }
+        val skip = detected.mapTo(HashSet()) { it.id }
+        val app = appRules(packageName).flatMap { rule ->
+            if (rule.payload == RulePayload.KnownTrackers) {
+                knownTrackerPayloads(skip).map { rule.copy(payload = it) }
+            } else {
+                listOf(rule)
+            }
+        }
+        return sdkRules + app
     }
+
+    /**
+     * The SDKs a [RulePayload.KnownTrackers] rule covers: those generic protection blocks by
+     * default ([TrackerSdk.defaultBlock]), except identification and push SDKs.
+     */
+    public val knownTrackers: List<TrackerSdk> by lazy {
+        Trackers.all.filter { sdk ->
+            sdk.defaultBlock && sdk.blockable && sdk.categories.none { it in KNOWN_TRACKER_EXCLUDED }
+        }
+    }
+
+    /**
+     * Payloads of a [RulePayload.KnownTrackers] rule: the deduplicated block hosts and URL prefixes
+     * of [knownTrackers] outside [skipIds]. Keep hosts apply to it ([honorsKeepHosts]).
+     */
+    public fun knownTrackerPayloads(skipIds: Set<String> = emptySet()): List<RulePayload> {
+        val covered = knownTrackers.filter { it.id !in skipIds }
+        val hosts = covered.flatMapTo(LinkedHashSet()) { it.blockHosts }
+        val urls = covered.flatMapTo(LinkedHashSet()) { it.blockUrls }
+        return listOfNotNull(
+            hosts.takeIf { it.isNotEmpty() }?.let { RulePayload.Domains(it.toList()) },
+            urls.takeIf { it.isNotEmpty() }?.let { RulePayload.Urls(it.toList()) },
+        )
+    }
+
+    /**
+     * Whether SDK keep hosts ([Trackers.keepHosts]) exempt a host from rule [ruleId]: the SDK rules
+     * and the known-trackers rule, never other app-level rules (HTTPDNS).
+     */
+    public fun honorsKeepHosts(ruleId: String): Boolean =
+        TrackerProtection.sdkIdOf(ruleId) != null || ruleId == KNOWN_TRACKERS_RULE_ID
 
     /**
      * Effective switch of each rule from [rulesFor] under [raw]: nothing is on unless protection
@@ -91,4 +132,6 @@ public object TrackerRules {
         TrackerCategory.LOCATION -> Category.PERSONAL_DATA
         else -> Category.ANALYTICS
     }
+
+    private val KNOWN_TRACKER_EXCLUDED = setOf(TrackerCategory.IDENTIFICATION, TrackerCategory.PUSH)
 }

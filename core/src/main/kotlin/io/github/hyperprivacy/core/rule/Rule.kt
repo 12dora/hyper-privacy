@@ -1,5 +1,7 @@
 package io.github.hyperprivacy.core.rule
 
+import io.github.hyperprivacy.core.match.UrlQuery
+
 /**
  * Which kind of privacy reporting a rule blocks. The catalog only contains reporting channels:
  * anything a vendor service needs to work (store, push, sync, security scan …) is out of scope.
@@ -82,14 +84,17 @@ public enum class IdentifierSource {
 /**
  * A URL block entry: [host] matches exactly or as a dot-suffix (same rules as DOMAIN), and the
  * request path must start with [pathPrefix]. Used where one host serves both a vendor service
- * and a reporting endpoint, so blocking the whole host would break the service.
+ * and a reporting endpoint, so blocking the whole host would break the service. [query], if set,
+ * is one `key=value` parameter the request's query string must also contain, for endpoints that
+ * multiplex services on one path by a query parameter (see `match.UrlQuery`).
  */
-public data class UrlPrefix(val host: String, val pathPrefix: String) {
+public data class UrlPrefix(val host: String, val pathPrefix: String, val query: String? = null) {
     init {
         require(host.isNotBlank()) { "host must not be blank" }
         require(pathPrefix.startsWith('/') && pathPrefix.length > 1) {
             "pathPrefix must be a non-root path: $pathPrefix"
         }
+        require(query == null || UrlQuery.isParam(query)) { "query must be one key=value parameter: $query" }
     }
 }
 
@@ -143,6 +148,17 @@ public sealed interface RulePayload {
         init {
             require(prefixes.isNotEmpty()) { "Urls payload needs at least one prefix" }
         }
+    }
+
+    /**
+     * The hosts and URL prefixes of every SDK in the tracker database that generic protection
+     * blocks by default (not identification, not push), for protected third-party apps whose scan
+     * found nothing, e.g. packed apps. Resolved only where the rule is enforced
+     * ([io.github.hyperprivacy.core.tracker.TrackerRules.rulesFor] turns it into DOMAIN and URL
+     * rules with the same id), so building the catalog never parses the tracker table.
+     */
+    public data object KnownTrackers : RulePayload {
+        override val kind: RuleKind get() = RuleKind.DOMAIN
     }
 
     /** Hide identifiers served by [source] from callers that are not system apps (zeroed or absent). */
