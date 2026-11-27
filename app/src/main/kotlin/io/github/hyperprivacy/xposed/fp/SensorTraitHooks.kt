@@ -60,9 +60,10 @@ internal class SensorTraitHooks(private val env: GuardEnv, private val state: Fi
             val v = version.getInt(sensor)
             val r = resolution.getFloat(sensor)
             val p = power.getFloat(sensor)
-            val out = text.replace("version=$v,", "version=${traits.version(v)},")
-                .replace("resolution=$r,", "resolution=${traits.resolution(r)},")
-                .replace("power=$p,", "power=${traits.power(p)},")
+            // The tokens as AOSP writes them, each after the closing quote of name / vendor or a field.
+            val out = text.replaceFirst("\", version=$v,", "\", version=${traits.version(v)},")
+                .replaceFirst(", resolution=$r,", ", resolution=${traits.resolution(r)},")
+                .replaceFirst(", power=$p,", ", power=${traits.power(p)},")
             if (out == text) return real
             state.hit(GROUP)
             return out

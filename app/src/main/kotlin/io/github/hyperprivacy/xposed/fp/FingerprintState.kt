@@ -10,6 +10,7 @@ import io.github.libxposed.api.XposedInterface.ExceptionMode
 import io.github.libxposed.api.XposedInterface.Hooker
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** One family of readings the rule replaces; also the sink name and the log-only hit target. */
 internal class TraitGroup(val name: String) {
@@ -61,11 +62,21 @@ internal class FingerprintState<T : Any>(
         if (secret == null || !current.secret.contentEquals(secret)) cached = null
     }
 
-    /** The constants of this app, derived on first use; `null` while the module secret is missing. */
+    /**
+     * The constants of this app, derived on first use; `null` while the module secret is missing.
+     * The slow path holds the same lock as [refresh], so constants derived from a secret that is
+     * replaced meanwhile are dropped by that refresh instead of outliving it.
+     */
     fun value(): T? {
         cached?.let { return it.value }
+        return derived()
+    }
+
+    @Synchronized
+    private fun derived(): T? {
+        cached?.let { return it.value }
         val secret = env.switches.secret ?: run {
-            if (warnedNoSecret.compareAndSet(false, true)) env.log.warn("$ruleId: module secret missing; untouched")
+            if (warnedNoSecret.compareAndSet(false, true)) env.log.warn("$ruleId: module secret missing")
             return null
         }
         val fresh = Cached(secret, derive(env.packageName, secret))
@@ -106,17 +117,20 @@ internal fun GuardEnv.installWhenOn(state: FingerprintState<*>, hookAll: () -> I
         return 0
     }
     val installed = AtomicBoolean()
+    val result = AtomicInteger(ARMED)
+    // The count of the one installation; a caller that lost the race sees its count once it is known.
     val once = {
-        if (installed.compareAndSet(false, true)) hookAll() else ARMED
+        if (installed.compareAndSet(false, true)) hookAll().also { result.set(it) } else result.get()
     }
-    state.refresh()
+    // Listen first, so a switch change between the first read and the registration is not missed.
     switches.addListener {
         state.refresh()
         if (state.enabled && !installed.get() && once() == 0) {
             reporter.state(packageName, state.ruleId, HookState.MISSED)
         }
     }
-    return if (state.enabled) once() else ARMED
+    state.refresh()
+    return if (state.enabled) once() else result.get()
 }
 
 /** Runs [install] (a failure counts as zero hooks) and records the group's sink state. */
@@ -179,10 +193,14 @@ internal class ArgumentHook(private val state: FingerprintState<*>, sink: String
     }
 }
 
-/** Hooks [methods] with [hooker] (fail-open) and returns how many were hooked. */
-internal fun GuardEnv.hookAll(methods: List<Method>, hooker: Hooker): Int {
-    methods.forEach { xposed.hook(it).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(hooker) }
-    return methods.size
+/**
+ * Hooks [methods] with [hooker] (fail-open) and returns how many were hooked; a method that cannot
+ * be hooked is logged and skipped, the others are still hooked.
+ */
+internal fun GuardEnv.hookAll(methods: List<Method>, hooker: Hooker): Int = methods.count { method ->
+    log.guard("hook ${method.declaringClass.simpleName}#${method.name}") {
+        xposed.hook(method).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(hooker)
+    } != null
 }
 
 /** The declared method of [type] named [name] taking [parameters], or `null` (logged) when absent. */
