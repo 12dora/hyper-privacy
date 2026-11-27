@@ -81,16 +81,15 @@ internal class ConflictController(
     /** The hint to show, or `null`; [appListHidingOn] is whether this module hides apps right now. */
     fun ui(appListHidingOn: Boolean): ConflictUi? {
         val seen = dismissed()
-        val visible = hits.filter { it.packageName !in seen }
-            .sortedBy { if (OverlapArea.APP_LIST in it.areas) 0 else 1 }
-        val first = visible.firstOrNull() ?: return null
-        val area = OverlapArea.entries.first { it in first.areas }
-        return ConflictUi(
-            label = first.label,
-            others = visible.size - 1,
-            area = area,
-            canDisableAppList = area == OverlapArea.APP_LIST && appListHidingOn,
-        )
+        val visible = hits.filter { it.packageName !in seen }.sortedWith(compareBy({ it.label }, { it.packageName }))
+        if (visible.isEmpty()) return null
+        val groups = OverlapArea.entries.mapNotNull { area ->
+            val labels = visible.filter { area in it.areas }.map { it.label }.distinct()
+            labels.takeIf { it.isNotEmpty() }?.let { ConflictGroup(area, it) }
+        }
+        if (groups.isEmpty()) return null
+        val ui = ConflictUi(groups, canDisableAppList = false)
+        return ui.copy(canDisableAppList = ui.appListOverlap && appListHidingOn)
     }
 
     /** Turns off every app-list hiding setting of this module; the result undoes it ([restoreAppListHiding]). */

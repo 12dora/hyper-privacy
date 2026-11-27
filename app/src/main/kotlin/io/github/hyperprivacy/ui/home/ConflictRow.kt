@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Warning
@@ -19,35 +18,37 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
-import io.github.hyperprivacy.core.conflict.LabelGap
 import io.github.hyperprivacy.core.conflict.OverlapArea
+import io.github.hyperprivacy.ui.ConflictGroup
 import io.github.hyperprivacy.ui.ConflictUi
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
-import io.github.hyperprivacy.ui.LocalLanguageTag
 import io.github.hyperprivacy.ui.components.IconBadge
 
-private fun OverlapArea.summaryRes(): Int = when (this) {
-    OverlapArea.APP_LIST -> R.string.conflict_summary_applist
-    OverlapArea.ADS -> R.string.conflict_summary_ads
-    OverlapArea.PRIVACY -> R.string.conflict_summary_privacy
+/** Modules named per area; more are counted, so many modules never make the hint grow without bound. */
+private const val MAX_NAMES = 3
+
+private fun OverlapArea.labelRes(): Int = when (this) {
+    OverlapArea.APP_LIST -> R.string.conflict_area_applist
+    OverlapArea.ADS -> R.string.conflict_area_ads
+    OverlapArea.PRIVACY -> R.string.conflict_area_privacy
 }
 
+/** One line per area: "广告拦截：A、B、C 等 5 个". Labels are the modules' own, so lines may wrap. */
 @Composable
-private fun conflictSummary(conflict: ConflictUi): String {
-    // Chinese text runs on from the label without a space, unless the label ends in a Latin letter or digit.
-    val label = if (LocalLanguageTag.current.startsWith("zh")) LabelGap.beforeCjk(conflict.label) else conflict.label
-    val first = stringResource(conflict.area.summaryRes(), label)
-    if (conflict.others == 0) return first
-    return first + stringResource(R.string.common_separator) +
-        pluralStringResource(R.plurals.conflict_more, conflict.others, conflict.others)
+private fun groupLine(group: ConflictGroup): String {
+    val shown = group.labels.take(MAX_NAMES).joinToString(stringResource(R.string.list_separator))
+    val rest = group.labels.size - MAX_NAMES
+    val names = if (rest > 0) pluralStringResource(R.plurals.conflict_names_more, rest, shown, rest) else shown
+    return stringResource(R.string.conflict_line, stringResource(group.area.labelRes()), names)
 }
 
 /**
- * Another installed module also does what this one does. The app's own label is shown as is (it
- * may be long, so the text wraps); the action only changes this module's settings, never the other
- * module. Without an action the hint can still be dismissed.
+ * Other installed modules also do what this one does: every one of them is named, grouped by what
+ * they overlap in. The action only changes this module's settings, never the other modules. Without
+ * it, "dismiss" sits at the end of the title row, so the card has no empty button band.
  */
 @Composable
 internal fun ConflictRow(
@@ -60,32 +61,45 @@ internal fun ConflictRow(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
-        verticalArrangement = Arrangement.spacedBy(Dimens.Small),
+            .padding(start = Dimens.Gutter, end = Dimens.Small, top = Dimens.RowVertical, bottom = Dimens.Tiny),
     ) {
         Row(
-            modifier = Modifier.heightIn(min = Dimens.ListIcon),
             horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
-            IconBadge(Icons.Outlined.Warning, colors.tertiaryContainer, colors.onTertiaryContainer)
-            Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
+            IconBadge(
+                icon = Icons.Outlined.Warning,
+                container = colors.tertiaryContainer,
+                content = colors.onTertiaryContainer,
+                modifier = Modifier.padding(top = Dimens.Tiny),
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = if (conflict.canDisableAppList) 0.dp else Dimens.Small)
+                    .semantics(mergeDescendants = true) {},
+                verticalArrangement = Arrangement.spacedBy(Dimens.RowGap),
+            ) {
                 Text(stringResource(R.string.conflict_title), style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = conflictSummary(conflict),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
+                conflict.groups.forEach { group ->
+                    Text(text = groupLine(group), style = MaterialTheme.typography.bodySmall, color = colors.onSurface)
+                }
                 Text(
                     text = stringResource(R.string.conflict_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                 )
             }
+            if (!conflict.canDisableAppList) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
+            }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
-            if (conflict.canDisableAppList) {
+        if (conflict.canDisableAppList) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Small, Alignment.End),
+            ) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.conflict_dismiss)) }
                 FilledTonalButton(onClick = onDisableAppList) {
                     Text(stringResource(R.string.conflict_disable_applist))
                 }
@@ -98,10 +112,16 @@ internal fun ConflictRow(
 @Composable
 private fun ConflictRowPreview() {
     HyperPrivacyTheme {
-        ConflictRow(
-            conflict = ConflictUi("Example Module", others = 1, area = OverlapArea.APP_LIST, canDisableAppList = true),
-            onDisableAppList = {},
-            onDismiss = {},
+        val conflict = ConflictUi(
+            groups = listOf(
+                ConflictGroup(OverlapArea.APP_LIST, listOf("Example Module")),
+                ConflictGroup(OverlapArea.ADS, listOf("Ad Module", "Another", "Third", "Fourth")),
+            ),
+            canDisableAppList = true,
         )
+        Column {
+            ConflictRow(conflict, onDisableAppList = {}, onDismiss = {})
+            ConflictRow(conflict.copy(canDisableAppList = false), onDisableAppList = {}, onDismiss = {})
+        }
     }
 }

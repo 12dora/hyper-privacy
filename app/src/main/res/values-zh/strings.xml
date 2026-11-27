@@ -301,11 +301,12 @@
     <string name="pause_1h">1 小时</string>
     <string name="pause_manual">直到手动恢复</string>
     <string name="conflict_title">发现功能重叠的模块</string>
-    <string name="conflict_summary_applist">%1$s也在隐藏应用列表</string>
-    <string name="conflict_summary_ads">%1$s也在拦截广告</string>
-    <string name="conflict_summary_privacy">%1$s也在拦截隐私上报</string>
-    <plurals name="conflict_more">
-        <item quantity="other">另有 %1$d 个模块</item>
+    <string name="conflict_area_applist">应用列表隐藏</string>
+    <string name="conflict_area_ads">广告拦截</string>
+    <string name="conflict_area_privacy">隐私上报拦截</string>
+    <string name="conflict_line">%1$s：%2$s</string>
+    <plurals name="conflict_names_more">
+        <item quantity="other">%1$s 等 %2$d 个</item>
     </plurals>
     <string name="conflict_hint">同时启用可能重复拦截或相互干扰</string>
     <string name="conflict_disable_applist">关闭应用列表隐藏</string>

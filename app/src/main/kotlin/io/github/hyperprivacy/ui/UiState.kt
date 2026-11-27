@@ -99,20 +99,19 @@ internal data class Attention(val broken: Int = 0, val review: Int = 0, val idle
     val isEmpty: Boolean get() = rules == 0 && suspected == 0
 }
 
+/** The overlapping modules of one [area], by their own labels (shown as is), in a stable order. */
+@Immutable
+internal data class ConflictGroup(val area: OverlapArea, val labels: List<String>)
+
 /**
- * Another installed module that overlaps with this one, for the Home hint. [label] is that app's own
- * label, shown as is; [others] counts further overlapping modules. [appListOverlap] says the hint
- * is about app-list hiding, and [canDisableAppList] that this module's own app-list hiding is on
- * (so the one-tap "turn it off" action makes sense).
+ * Other installed modules that overlap with this one, for the Home hint: one [groups] entry per
+ * overlapping area (in [OverlapArea] order), naming every module in it; a module doing several
+ * things is named under each. [canDisableAppList] says one of them hides the app list and this
+ * module's own app-list hiding is on (so the one-tap "turn it off" action makes sense).
  */
 @Immutable
-internal data class ConflictUi(
-    val label: String,
-    val others: Int,
-    val area: OverlapArea,
-    val canDisableAppList: Boolean,
-) {
-    val appListOverlap: Boolean get() = area == OverlapArea.APP_LIST
+internal data class ConflictUi(val groups: List<ConflictGroup>, val canDisableAppList: Boolean) {
+    val appListOverlap: Boolean get() = groups.any { it.area == OverlapArea.APP_LIST }
 }
 
 @Immutable

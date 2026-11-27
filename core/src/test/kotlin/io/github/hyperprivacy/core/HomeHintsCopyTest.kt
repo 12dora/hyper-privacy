@@ -47,11 +47,13 @@ class HomeHintsCopyTest {
     }
 
     @Test
-    fun `chinese overlap summaries run on from the label without a space`() {
-        listOf("conflict_summary_applist", "conflict_summary_ads", "conflict_summary_privacy").forEach { key ->
-            // The placeholder reads as "0" here; the label's own trailing gap is added in code.
-            assertTrue(zh.getValue(key).startsWith("0也在"), key)
-            assertTrue(en.getValue(key).startsWith("0 also"), key)
+    fun `overlap lines name the area, then every module`() {
+        // Placeholders read as "0": the area label, then the module names (or the first few and a count).
+        assertEquals("0：0", zh["conflict_line"])
+        assertEquals("0: 0", en["conflict_line"])
+        assertTrue(zh.getValue("conflict_names_more").startsWith("0 等"))
+        listOf("conflict_area_applist", "conflict_area_ads", "conflict_area_privacy").forEach { key ->
+            assertTrue(CopyWidth.zh(zh.getValue(key)) <= ZH_AREA_MAX, key)
         }
     }
 
@@ -111,6 +113,9 @@ class HomeHintsCopyTest {
         const val EN_TITLE_MAX = 28
         const val ZH_LINE_MAX = 20.0
         const val EN_LINE_MAX = 48
+
+        /** Area labels lead a line of module names, so they stay short. */
+        const val ZH_AREA_MAX = 6.0
 
         /** Names of overlapping modules, which only ever appear as the detected app's own label. */
         val PRODUCTS = listOf("hide my applist", "hidemyapplist", "xprivacy", "xlua", "faircode", "hyperceiler")
