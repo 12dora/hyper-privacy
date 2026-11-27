@@ -14,6 +14,7 @@ import java.io.IOException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.WeakHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * OkHttp 3/4/5. Hooks the single
@@ -42,12 +43,19 @@ internal class OkHttpSink(private val sinks: SinkContext) {
     var presentButMissed: Boolean = false
         private set
 
+    private val renamedHooked = AtomicBoolean()
+
     /** Call classes met through `newCall`: entries hooked on first sight, the count kept per class. */
     private val renamed = OkHttpCalls.CallClasses { type, first ->
         if (!first) return@CallClasses 0
         val count = sinks.log.guard("OkHttp ${type.name}") { hook(type) } ?: 0
-        // Found at runtime but unusable: the observer reported the sink active, correct that.
-        if (count == 0) sinks.reportSink(Sinks.URL_OKHTTP, false)
+        // Found at runtime but unusable: the observer reported the sink active, correct that, unless
+        // another call class of the app is hooked (then the sink is active after all).
+        if (count > 0) {
+            if (!renamedHooked.getAndSet(true)) sinks.reportSink(Sinks.URL_OKHTTP, true)
+        } else if (!renamedHooked.get()) {
+            sinks.reportSink(Sinks.URL_OKHTTP, false)
+        }
         count
     }
 

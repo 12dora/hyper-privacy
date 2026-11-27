@@ -14,7 +14,8 @@ public data class ClassShape(val name: String, val fieldTypes: List<String>)
  *   `List` path segments;
  * - `Request`: an `HttpUrl` field plus the `String` method (which tells it apart from `Address`,
  *   the other OkHttp class holding an `HttpUrl`);
- * - `Response`: its `Request` plus the `int` status code.
+ * - `Response`: its `Request`, the `int` status code, the `String` message and the two `long`
+ *   timestamps (sent / received at); a class merely holding a `Request` and an `int` is not one.
  */
 public object OkHttpShapes {
     public const val HTTP_URL: String = "okhttp3.HttpUrl"
@@ -23,6 +24,10 @@ public object OkHttpShapes {
     private const val STRING = "java.lang.String"
     private const val INT = "int"
     private const val LIST = "java.util.List"
+    private const val LONG = "long"
+
+    /** `Response.sentRequestAtMillis` and `receivedResponseAtMillis`. */
+    private const val RESPONSE_LONGS = 2
 
     /** An `HttpUrl` has at least scheme, host and url plus two of username / password / fragment. */
     private const val MIN_URL_STRINGS = 4
@@ -38,8 +43,10 @@ public object OkHttpShapes {
         (STRING in shape.fieldTypes && shape.fieldTypes.any(isUrlType))
 
     /** Whether [shape] is a `Response` to requests of type [requestType]. */
-    public fun isResponse(shape: ClassShape, requestType: String): Boolean =
-        requestType in shape.fieldTypes && INT in shape.fieldTypes
+    public fun isResponse(shape: ClassShape, requestType: String): Boolean {
+        val types = shape.fieldTypes
+        return requestType in types && INT in types && STRING in types && types.count { it == LONG } >= RESPONSE_LONGS
+    }
 }
 
 /**
@@ -48,10 +55,11 @@ public object OkHttpShapes {
  * `getResponseWithInterceptorChain` by name (OkHttp 4 mangles it to `…$okhttp`); when R8 renamed it,
  * the no-arg methods returning `Response` minus `execute()` (it only forwards to the entry) unless
  * nothing else remains. Those declaring `IOException` are preferred. R8 may drop the entry's
- * `throws` clause; it is then taken only when the call contract still proves that `IOException`
- * travels through it: another `Response` method of the class (`execute()`) or of an interface it
- * implements (`Call.execute()`, [contractThrowsIo]) declares it. Without that proof nothing is
- * hooked (the sink stays off rather than throw a checked exception nobody expects).
+ * `throws` clause; it is then taken only when it is unambiguous (exactly one such method) and the
+ * call contract still proves that `IOException` travels through it: another `Response` method of
+ * the class (`execute()`) or of an interface it implements (`Call.execute()`, [contractThrowsIo])
+ * declares it. Otherwise nothing is hooked (the sink stays off rather than throw a checked
+ * exception into a helper such as a cached-response getter that nobody guards).
  */
 public object OkHttpEntries {
     public const val ENTRY: String = "getResponseWithInterceptorChain"
@@ -70,6 +78,7 @@ public object OkHttpEntries {
         val preferred = shaped.filter { name(it) != EXECUTE }.ifEmpty { shaped }
         val throwing = preferred.filter(throwsIo)
         if (throwing.isNotEmpty()) return throwing
-        return if (contractThrowsIo || shaped.any(throwsIo)) preferred else emptyList()
+        val proven = contractThrowsIo || shaped.any(throwsIo)
+        return if (proven && preferred.size == 1) preferred else emptyList()
     }
 }
