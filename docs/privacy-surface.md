@@ -71,6 +71,7 @@
 | `sofire.domains` | `sofire.baidu.com` 设备指纹 | 输入法内第三方账号登录的设备校验可能失败 |
 | `baidu-ime.ubc` | `tcbox` / `h2tcbox` / `mbd.baidu.com` 的 `/ztbox` | `/ztbox` 用 `action=` 参数复用多种服务，而匹配器忽略查询串，无法只拦 `action=zubc`，同一服务的其他云端功能可能受影响 |
 | `systemhelper.firewall` | 运营商终端管理整体断网（`dm.wo.com.cn` 登记，上报 IMEI / IMSI / 基站 / Wi-Fi / 位置） | 运营商终端登记将失败 |
+| `joyose.game-list` | 游戏加速向 `adv.sec.miui.com/game/pkg`、`/game/popGames` 与国际版 `gtglobal.intl.miui.com/game/pkg` 查询新装应用包名 | 游戏加速可能识别不到新装游戏（预置与云配置中的游戏仍可识别） |
 
 ## 3. 数据类型 × 通道覆盖矩阵
 
@@ -85,9 +86,9 @@
 | 输入内容（输入法） | 3 款预装第三方输入法 | 输入行为统计、pingback、统计 SDK；云输入 / 语音属于服务 | `baidu-ime.stats`、`baidu.mobstat`、`baidu-ime.ubc`、`baidu.ads`、`sogou-ime.pingback`、`sogou-ime.alive`、`iflytek-ime.stats`、`ime.promo`、`carrier-auth.sdk-logs`、`gdt.domains`、`qimei.domains`、`rmonitor.domains`、`bugly.domains`、`tencent.rdelivery-report` | 云输入请求本身包含正在输入的文字，属于服务；关闭云输入只能在输入法设置中操作 |
 | 屏幕内容 | 内容识别（`contentcatcher`，uid 1000）、传送门（`contentextension`）、AI 识屏（`aicr`） | 用户触发时的识别请求属于服务；AI 识屏运行时出现 `log-sdk.clickwifi.net` | `aicr.runtime-log`、OneTrack | 识别请求本身会上传屏幕文字，属于服务 |
 | 照片 / 人脸 | 相册云同步、人脸云端聚类 | `galleryfaceapi.micloud.xiaomi.net`（云同步） | 不拦截（用户开启的云服务） | — |
-| 音频 | 小爱、语音唤醒 | 语音识别属于服务；`pusherapi-iotdcm.xiaomixiaoai.com/.../uploadlog` 只见静态字符串 | `xiaoai.tracker`、`voicetrigger.log-upload` | — |
+| 音频 | 小爱、语音唤醒 | 语音识别属于服务；`pusherapi-iotdcm.xiaomixiaoai.com/.../uploadlog` 只见静态字符串 | `xiaoai.tracker`、`xiaoai.speech-dump`、`voicetrigger.log-upload` | — |
 | 日志 / 崩溃 / 性能 | MQS（电量与性能）、MiSight、服务框架远程取日志、多家第三方崩溃与性能监控 SDK | 见各规则 | 26 条 DIAGNOSTICS 规则 | uid 1000 原生守护进程的上传（见残余风险） |
-| 硬件信息 | MQS `hardwareInfoUpload` / `hwInfoUpload` / `emmcLifeUpload` / `sensorUpload` | `mqs-log.miui.com` | `mqs.domains`、`mqs.port-upload` | — |
+| 硬件信息 | MQS `hardwareInfoUpload` / `hwInfoUpload` / `emmcLifeUpload` / `sensorUpload` | `mqs-log.miui.com` | `mqs.domains`、`mqs.port-upload`、`misight.event-bus` | — |
 | 广告 | 系统广告服务、小米广告 SDK（`api.ad.xiaomi.com` 出现在 105 个应用中，OneTrack 内置广告监测 URL 处理）、多家第三方广告联盟 SDK、应用双开广告开关 | 见各规则 | 11 条 ADS 规则（天气广告默认关闭） | 由服务端在普通内容接口中混排的推广条目无法区分 |
 
 \* 默认关闭。
@@ -128,7 +129,7 @@
 ## 6. 残余风险与诊断模式
 
 1. **原生 OneTrack 上传器。** 桌面与相册中的原生 OneTrack 经 `pubsub.googleapis.com` 上报。两者都有自己的 uid，但承担核心功能，不能断网；`onetrack.pubsub` 只在应用进程内的 Java 域名解析与 TLS 路径上生效。若原生端使用自带解析与自带 TLS，该规则会失效，需要靠诊断模式（看不到原生连接）之外的抓包来确认。
-2. **uid 1000 原生进程。** 约 50 个系统包共用 uid 1000，无法断网，只能注入其中的 Java 应用进程。纯原生守护进程（如 mqsas / MiSight 的原生端、`com.bsp.catchlog`）若直接用原生套接字上报，域名与 URL 规则都管不到。抓包中 uid 1000 组的连接只能归到整组，无法确定到包。
+2. **uid 1000 与以 root 运行的诊断守护进程。** 约 50 个系统包共用 uid 1000，无法断网，只能注入其中的 Java 应用进程。MiSight 的原生守护进程以 root 运行，应用通过 `libmievent` 把故障事件交给它，由它负责整理并上传诊断日志，其中没有明文主机名，域名与 URL 规则管不到。`misight.event-bus` 在 8 个携带该库的系统应用内拦下 `nativeSendEvent`，只能阻止这些应用发出的事件；原生进程（如 `hypsys_vendor`）、框架内置的同名接口和 `com.miui.powerkeeper` 的事件仍会进入守护进程，其上传能否关闭需要另行验证。其余纯原生组件（mqsas 的原生端、`com.bsp.catchlog`）同理。抓包中 uid 1000 组的连接只能归到整组，无法确定到包。
 3. **原生网络栈与直连 IP。** 规则在应用进程内的域名解析、TLS 握手与 HTTP 客户端层生效。自带 TLS 或使用 QUIC 的原生库可以绕过，例如某第三方通信 SDK、音乐播放器中发往裸 IP 的 `POST /`、下载管理器中的 `res.res.res.res:80 POST /`。整体断网只适用于自有 uid 的纯上报应用。
 4. **加密或运行时下发的端点。** 某推送 SDK 的主机名经过加密；AI 识屏会下发新代码；某语音服务的 `ossp.voicecloud.cn/ossp/do.aspx` 以命令参数区分功能，配置与日志混在一起，无法按路径区分。
 5. **推送长连接内的统计。** 小米推送在同一条长连接上传输通知到达、点击与通知交互统计，拦截会断掉推送。
@@ -247,3 +248,19 @@
 6. **服务器端与用户授权。** 服务器依据 IP、账号做的关联，以及用户主动授予的权限，不在手机端可控的范围内。
 7. **隐藏是尽力而为。** 应用列表隐藏与模块自隐藏只覆盖常见的查询路径；个别应用若通过其他途径得知某应用存在，模块不保证完全隐藏。
 8. **功能重叠的模块。** 与其他同类模块同时启用，可能重复拦截或互相干扰；首页会提示已发现的重叠模块，并可一键关闭应用列表隐藏。
+
+## 15. uid 1000 系统应用的补充审计（0.4）
+
+对共用 uid 1000 的 44 个系统包做了静态逆向审计，补充下列通道。验证方式为反编译源码与 dex 字符串，未在真机上抓包：
+
+| 规则 | 通道 | 默认 | 备注 |
+|---|---|---|---|
+| `onetrack.pubsub`（扩展） | `com.xiaomi.joyose`、`com.miui.powerkeeper` 内置 `com.ot.pubsub` 客户端，目标为 `pubsub.googleapis.com` | 开启 | 只在这两个包内拦截 |
+| `misight.event-bus` | 8 个系统应用内的 `com.miui.misight.mievent.MiSight#nativeSendEvent`（私有静态原生方法，返回值被调用方丢弃） | 开启 | 返回 0；系统诊断守护进程收不到这些应用的事件 |
+| `joyose.game-list` | 游戏加速向 `adv.sec.miui.com/game/pkg`、`/game/popGames`、国际版 `gtglobal.intl.miui.com/game/pkg` 查询新装应用包名 | 开启（高风险） | 预置游戏清单与云配置仍可用 |
+| `misight.trial-check`（扩展） | MiSight 服务用序列号查询 `nptapi.mioffice.cn/NptApi/apk/mqs/` 内测资格 | 开启 | 与 OAID 查询同一规则 |
+| `xiaoai.speech-dump` | 小爱 `/speech/v2.0/dump`（正式、预览、测试主机） | 开启 | 实时识别走 `/speech/v1.0/*`，不受影响 |
+| `mtb.kumiho` | 调制解调测试工具向 `kumiho.pt.xiaomi.com` 的校验与消息请求 | 开启 | 仅工程用途 |
+| `simactivate.tee-report`（扩展） | 反馈组件内置的账号 SDK 向 `tz.sec.xiaomi.com/session` 的上报 | 关闭 | 与 SIM 激活服务同一调用，影响说明相同 |
+
+刻意不拦：云端设备查找与 SoC 标识接口、客服远程诊断、隐私同意接口、设备互联、AI 写真、云配置与基站日志，它们属于服务或用户主动发起。新增作用域包括 `com.xiaomi.mtb`、`com.xiaomi.gnss.polaris`、`com.xiaomi.trustservice`，升级后需要在 LSPosed 中勾选。
