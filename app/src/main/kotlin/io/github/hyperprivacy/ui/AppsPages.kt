@@ -6,6 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.hyperprivacy.ui.apps.AllowlistActions
+import io.github.hyperprivacy.ui.apps.AllowlistScreen
 import io.github.hyperprivacy.ui.apps.AppDefaultsActions
 import io.github.hyperprivacy.ui.apps.AppDefaultsScreen
 import io.github.hyperprivacy.ui.apps.AppSwitch
@@ -65,6 +67,7 @@ internal fun UserAppPage(
             onHideApps = { trackers.set(AppSwitch.HideApps(packageName), it) },
             onStrict = { trackers.set(AppSwitch.Strict(packageName), it) },
             onBack = nav::pop,
+            onOpenAllowlist = { nav.push(Route.Allowlist) },
         )
     }
     // Until the first list arrives there is nothing to show, and "not found" would flash.
@@ -98,4 +101,15 @@ internal fun AppDefaultsPage(state: UiState, trackers: AppsModel, nav: Navigator
         actions = actions,
         modifier = modifier,
     )
+}
+
+/** Apps left visible to restricted apps, reached from Settings and from an app's app-list section. */
+@Composable
+internal fun AllowlistPage(state: UiState, trackers: AppsModel, nav: Navigator, modifier: Modifier) {
+    val apps by trackers.state.collectAsStateWithLifecycle()
+    LaunchedEffect(trackers) { trackers.start() }
+    val actions = remember(trackers, nav) {
+        AllowlistActions(trackers.allowlist::setAllowed, trackers.allowlist::reset, nav::pop)
+    }
+    AllowlistScreen(state = apps, canEdit = state.module.canEdit && apps.loaded, actions = actions, modifier = modifier)
 }

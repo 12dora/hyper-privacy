@@ -83,6 +83,9 @@ internal class TrackerController(
 
     override val state: StateFlow<AppsUi> = mutableState.asStateFlow()
 
+    /** Apps left visible to restricted apps; published with the rest of the Apps state. */
+    override val allowlist = AllowlistStore(scope, worker, prefs) { publish() }
+
     /** One-shot scope request outcomes, shown on the Apps pages. */
     override val messages: Flow<ScopeResult> get() = scopes.messages
 
@@ -95,6 +98,7 @@ internal class TrackerController(
     private val detected = HashMap<String, Scan>()
     private val failed = HashMap<String, ScanKey>()
     private val pendingProtect = HashMap<String, Boolean>()
+
     private var scanJob: Job? = null
     private var reloadJob: Job? = null
     private var reloadAgain = false
@@ -138,6 +142,7 @@ internal class TrackerController(
             if (overwritten) {
                 pending.clear()
                 pendingProtect.clear()
+                allowlist.clearPending()
             }
             if (started) publishRequests.trySend(Unit)
         }
@@ -270,6 +275,7 @@ internal class TrackerController(
     private fun publish() {
         val raw = prefs()?.let { runCatching { it.all }.getOrNull() }.orEmpty()
         val builder = AppsUiBuilder(raw, pending, status(), scopes.granted, scopes.requesting)
+        val (allow, custom) = allowlist.current(raw)
         mutableState.value = AppsUi(
             loaded = true,
             apps = apps.map { app ->
@@ -287,6 +293,8 @@ internal class TrackerController(
             scanned = apps.count { it.packageName in detected || it.packageName in failed },
             total = apps.size,
             defaults = builder.defaults(),
+            allowlist = allow,
+            allowlistCustom = custom,
         )
     }
 

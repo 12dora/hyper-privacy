@@ -27,6 +27,9 @@ internal sealed interface Route {
     /** What a newly protected user-installed app starts with. */
     data object AppDefaults : Route
 
+    /** Apps left visible to apps that have app-list hiding on. */
+    data object Allowlist : Route
+
     /** A user-installed app and its protection. */
     data class UserApp(val packageName: String) : Route
 
@@ -37,6 +40,7 @@ internal sealed interface Route {
         Health -> HEALTH
         Endpoints -> ENDPOINTS
         AppDefaults -> APP_DEFAULTS
+        Allowlist -> ALLOWLIST
         is RuleDetail -> RULE_PREFIX + ruleId
         is App -> APP_PREFIX + packageName
         is UserApp -> USER_APP_PREFIX + packageName
@@ -49,6 +53,7 @@ internal sealed interface Route {
         private const val HEALTH = "health"
         private const val ENDPOINTS = "endpoints"
         private const val APP_DEFAULTS = "app-defaults"
+        private const val ALLOWLIST = "allowlist"
         private const val RULE_PREFIX = "rule:"
         private const val APP_PREFIX = "app:"
         private const val USER_APP_PREFIX = "user-app:"
@@ -66,6 +71,7 @@ internal sealed interface Route {
             text == HEALTH -> Health
             text == ENDPOINTS -> Endpoints
             text == APP_DEFAULTS -> AppDefaults
+            text == ALLOWLIST -> Allowlist
             text.startsWith(RULE_PREFIX) -> RuleDetail(text.removePrefix(RULE_PREFIX))
             text.startsWith(APP_PREFIX) -> App(text.removePrefix(APP_PREFIX))
             text.startsWith(USER_APP_PREFIX) -> UserApp(text.removePrefix(USER_APP_PREFIX))

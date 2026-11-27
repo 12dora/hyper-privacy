@@ -262,6 +262,11 @@
     <string name="apps_title">Installed apps</string>
     <string name="apps_intro">Detects tracker SDKs and blocks their reports</string>
     <string name="apps_defaults">Default settings</string>
+    <string name="apps_allow_title">Always-visible apps</string>
+    <string name="apps_allow_summary">Share, sign-in and payment apps stay visible</string>
+    <string name="apps_allow_note">Checked apps stay visible, except in strict mode</string>
+    <string name="apps_allow_default">Default</string>
+    <string name="apps_allow_reset">Reset</string>
     <string name="apps_defaults_summary">Applied when you turn on protection</string>
     <string name="apps_defaults_note">For newly protected apps; adjustable per app</string>
     <string name="apps_defaults_sdk_note">Sign-in and payment SDKs stay off until enabled</string>
