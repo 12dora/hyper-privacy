@@ -21,7 +21,10 @@ import io.github.hyperprivacy.xposed.url.UrlGuard
  * so endpoints can be observed. Toggling diagnostics later is live for installed sinks only.
  */
 internal class NetworkGuards(private val env: GuardEnv, rules: List<Rule>) {
-    private val domainRules = rules.filter { it.payload is RulePayload.Domains }
+    // An unexpanded known-trackers rule is a DOMAIN rule here; NetworkPolicy expands it while it is on.
+    private val domainRules = rules.filter { rule ->
+        rule.payload is RulePayload.Domains || rule.payload == RulePayload.KnownTrackers
+    }
     private val urlRules = rules.filter { it.payload is RulePayload.Urls }
 
     fun install() {

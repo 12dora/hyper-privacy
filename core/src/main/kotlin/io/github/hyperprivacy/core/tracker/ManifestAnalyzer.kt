@@ -136,6 +136,9 @@ public object ManifestAnalyzer {
 
     private val namespaces: List<Namespace> by lazy { namespacesOf(Trackers.all) }
 
+    /** Consent packages of ad SDKs ([TrackerSdk.excludePrefixes]): never suspects, never own code. */
+    private val exempt: List<String> by lazy { Trackers.all.flatMap { it.excludePrefixes } }
+
     /**
      * Class simple-name tokens of ad pages and ad services: `Ad`/`Ads`/`AD` as a CamelCase word
      * (not the directory / sign-in sense: `ADLogin`, `AzureAdAuth`), or an ad format name
@@ -168,10 +171,12 @@ public object ManifestAnalyzer {
         val default = trackers === Trackers.all
         val anchorList = if (default) anchors else anchorsOf(trackers)
         val spaces = if (default) namespaces else namespacesOf(trackers)
+        val exempted = if (default) exempt else trackers.flatMap { it.excludePrefixes }
         val apps = appRoots(info, matcher)
         val found = Found(apps)
         for (component in info.components) found.collect(component, matcher, anchorList, spaces)
         for (component in found.candidates) {
+            if (exempted.any { component.className.startsWith(it) }) continue
             val owner = spaces.firstOrNull { it.holdsDirectly(component.className) }?.sdkId
             if (owner == null || (owner !in found.detected && owner !in detected)) found.place(component)
         }

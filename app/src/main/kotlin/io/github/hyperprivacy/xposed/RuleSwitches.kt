@@ -90,7 +90,8 @@ internal class RuleSwitches private constructor(
         // The only clock read: once per preference change, never per check and never from a timer.
         val paused = ProtectionPause.isPaused(ProtectionPause.untilOf(raw), System.currentTimeMillis())
         val next = Snapshot(
-            enabled = if (paused) emptyMap() else decode(raw),
+            // A rule set that fails to resolve (e.g. after an app or system change) means no rule, never a crash.
+            enabled = if (paused) emptyMap() else log.guard("decode switches") { decode(raw) }.orEmpty(),
             observe = ConfigCodec.isObserveEnabled(raw),
             secret = ModuleSecret.parse(raw[ModuleSecret.KEY]),
             paused = paused,

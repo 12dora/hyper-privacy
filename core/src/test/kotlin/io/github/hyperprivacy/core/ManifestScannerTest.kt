@@ -148,6 +148,23 @@ class ManifestScannerTest {
         assertEquals(listOf(suspect), hints.suspects)
     }
 
+    @Test
+    fun `consent packages of ad sdks are never suspects or own code`() {
+        val info = ManifestInfo(
+            packageName = PKG,
+            applicationClass = "$PKG.App",
+            components = listOf(
+                ManifestInfo.Component(Kind.ACTIVITY, "$PKG.Main", launcher = true),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.huawei.hms.ads.consent.AdConsentActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.ogury.cm.ConsentActivity"),
+                ManifestInfo.Component(Kind.ACTIVITY, "com.unknown.vendor.ads.AdLoadingActivity"),
+            ),
+        )
+        val hints = ManifestAnalyzer.analyze(info)
+        assertEquals(listOf("com.unknown.vendor.ads."), hints.suspects.map { it.prefix })
+        assertTrue(hints.own.none { it.startsWith("com.huawei.") || it.startsWith("com.ogury.") }, "${hints.own}")
+    }
+
     private fun sdk(id: String, vararg prefixes: String) = TrackerSdk(
         id,
         Text(id, id),
