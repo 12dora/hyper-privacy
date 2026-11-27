@@ -68,6 +68,28 @@ class LiveStackFilterTest {
     }
 
     @Test
+    fun `a reflective backup call goes with the window, with a generated stub too`() {
+        val input = arrayOf(
+            f("dalvik.system.VMStack", "getThreadStackTrace"),
+            f("java.lang.Thread", "getStackTrace"),
+            f("java.lang.reflect.Method", "invoke"),
+            f("org.lsposed.lspd.impl.LSPosedHookChain", "proceed"),
+            f("u_qz.b", "intercept"),
+            f("LSPHooker_", "getStackTrace"),
+            f("com.app.Logger", "log"),
+        )
+        val out = filter.filter(input)
+        assertEquals(listOf("dalvik.system.VMStack", "java.lang.Thread", "com.app.Logger"), names(out))
+        assertEquals(
+            listOf("dalvik.system.VMStack", "java.lang.Thread", "com.app.Logger"),
+            names(filter.filter(input, true)),
+        )
+        // An app's own reflective call far from any window stays.
+        val app = arrayOf(f("java.lang.reflect.Method", "invoke"), f("com.app.A", "go"))
+        assertSame(app, filter.filter(app))
+    }
+
+    @Test
     fun `paused strips only the calling hook's window`() {
         val out = filter.filter(selfSample(), firstWindowOnly = true)
         assertEquals(
