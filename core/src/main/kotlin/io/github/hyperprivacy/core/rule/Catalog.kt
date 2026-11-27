@@ -4,6 +4,7 @@ import io.github.hyperprivacy.core.rule.catalog.HTTPDNS_EXCLUDED_APPS
 import io.github.hyperprivacy.core.rule.catalog.adRules
 import io.github.hyperprivacy.core.rule.catalog.analyticsRules
 import io.github.hyperprivacy.core.rule.catalog.appListRules
+import io.github.hyperprivacy.core.rule.catalog.browserHttpDnsRule
 import io.github.hyperprivacy.core.rule.catalog.deviceIdRules
 import io.github.hyperprivacy.core.rule.catalog.diagnosticsRules
 import io.github.hyperprivacy.core.rule.catalog.hardwareFingerprintRule
@@ -86,7 +87,7 @@ public object Catalog {
             .flatMapTo(sortedSetOf()) { it.packages }
             .apply { remove(SYSTEM_SCOPE) }
         return analyticsRules + adRules + diagnosticsRules + deviceIdRules + appListRules + personalDataRules +
-            httpDnsRule(injected - HTTPDNS_EXCLUDED_APPS)
+            httpDnsRule(injected - HTTPDNS_EXCLUDED_APPS) + browserHttpDnsRule(injected - HTTPDNS_EXCLUDED_APPS)
     }
 
     /** Rules applying to [packageName], in catalog order. */

@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.net.VpnService
 import io.github.hyperprivacy.BuildConfig
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.InstalledApp
@@ -93,7 +95,7 @@ internal class AppScanner(
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun scan(app: UserApp): AppScan? = try {
         val dex = DexScanner.scanApks(app.apks)
-        val hints = manifestHints(app)
+        val hints = manifestHints(app).copy(userDns = resolvesForUser(app.packageName))
         AppScan(dex + hints.detected, hints.copy(detected = emptySet())).also {
             store.putScan(app.packageName, app.key, it)
         }
@@ -109,6 +111,27 @@ internal class AppScanner(
         OriginHints.EMPTY
     }
 
+    /**
+     * Whether [packageName] resolves names for the user: a browser (an activity in
+     * [Intent.CATEGORY_APP_BROWSER], or a handler of any `http` link) or a VPN / DNS tool (a
+     * [VpnService] service). There the user may have chosen a public DoH resolver on purpose.
+     * The package is visible already (it is listed), so its own components can be queried.
+     */
+    // Same policy as the scan: a failing query means "not such an app", never a crash.
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @SuppressLint("QueryPermissionsNeeded")
+    private fun resolvesForUser(packageName: String): Boolean = try {
+        val none = PackageManager.ResolveInfoFlags.of(0)
+        val browser = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_BROWSER).setPackage(packageName)
+        val link = Intent(Intent.ACTION_VIEW, Uri.parse(ANY_LINK)).addCategory(Intent.CATEGORY_BROWSABLE)
+            .setPackage(packageName)
+        val vpn = Intent(VpnService.SERVICE_INTERFACE).setPackage(packageName)
+        pm.queryIntentActivities(browser, none).isNotEmpty() || pm.queryIntentActivities(link, none).isNotEmpty() ||
+            pm.queryIntentServices(vpn, none).isNotEmpty()
+    } catch (_: Exception) {
+        false
+    }
+
     private fun PackageInfo.installedApp(): InstalledApp? {
         val app = applicationInfo ?: return null
         return SignerDigests.installedApp(this, app.uid, app.flags and SYSTEM_FLAGS != 0)
@@ -116,5 +139,8 @@ internal class AppScanner(
 
     private companion object {
         const val SYSTEM_FLAGS = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+
+        /** A link no app claims by host, so only generic `http` handlers (browsers) match it. */
+        const val ANY_LINK = "http://example.invalid/"
     }
 }
