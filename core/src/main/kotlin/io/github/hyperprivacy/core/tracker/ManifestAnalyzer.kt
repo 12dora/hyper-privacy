@@ -128,7 +128,11 @@ public object ManifestAnalyzer {
     private val anchors: List<Anchor> by lazy { anchorsOf(Trackers.all) }
 
     /** A package an SDK owns through its class-name prefixes (see [namespacesOf]). */
-    private class Namespace(val root: String, val sdkId: String)
+    private class Namespace(val root: String, val sdkId: String) {
+        /** Whether [className] is a class of this very package, not of a subpackage. */
+        fun holdsDirectly(className: String): Boolean =
+            className.startsWith(root) && className.indexOf('.', root.length) < 0
+    }
 
     private val namespaces: List<Namespace> by lazy { namespacesOf(Trackers.all) }
 
@@ -145,29 +149,32 @@ public object ManifestAnalyzer {
 
     private val OWN_KINDS = setOf(ManifestInfo.Kind.ACTIVITY, ManifestInfo.Kind.SERVICE)
 
+    /**
+     * [detected] are SDKs already found in this app by other means (the dex scan's code prefixes);
+     * together with the SDKs this manifest proves (a code prefix or an anchor), they are the only
+     * ones a namespace may vouch for.
+     *
+     * Order per component: a code prefix detects; else an anchor relocates (unless the relocated
+     * root lies in another SDK's namespace); else the component is a candidate. Namespaces come
+     * last and only veto: a candidate directly in a detected SDK's namespace is neither a suspect
+     * nor own code. A namespace never detects, relocates or claims a subpackage.
+     */
     public fun analyze(
         info: ManifestInfo,
         matcher: CodePrefixMatcher = Trackers.matcher,
         trackers: List<TrackerSdk> = Trackers.all,
+        detected: Set<String> = emptySet(),
     ): OriginHints {
         val default = trackers === Trackers.all
         val anchorList = if (default) anchors else anchorsOf(trackers)
         val spaces = if (default) namespaces else namespacesOf(trackers)
         val apps = appRoots(info, matcher)
         val found = Found(apps)
-        for (component in info.components) {
-            val name = component.className
-            val known = matcher.match(name)
-            val anchor = if (known == null) anchorList.firstOrNull { name.endsWith(".${it.tail}") } else null
-            val space = if (known == null && anchor == null) spaces.firstOrNull { name.startsWith(it.root) } else null
-            when {
-                known != null -> found.detected += known
-                space != null -> found.detected += space.sdkId
-                anchor != null -> found.relocate(name.substring(0, name.length - anchor.tail.length), anchor.sdkId)
-                else -> found.candidates += component
-            }
+        for (component in info.components) found.collect(component, matcher, anchorList, spaces)
+        for (component in found.candidates) {
+            val owner = spaces.firstOrNull { it.holdsDirectly(component.className) }?.sdkId
+            if (owner == null || (owner !in found.detected && owner !in detected)) found.place(component)
         }
-        found.candidates.forEach(found::place)
         val suspects = found.suspectNames.filterKeys { root ->
             isSafeRoot(root, apps, found.own) && found.relocated.keys.none { root.startsWith(it) }
         }.entries.take(MAX_SUSPECTS).map { (root, names) -> OriginHints.Suspect(root, names) }
@@ -181,6 +188,30 @@ public object ManifestAnalyzer {
         val candidates = ArrayList<ManifestInfo.Component>()
         val own = LinkedHashSet(apps)
         val suspectNames = LinkedHashMap<String, MutableList<String>>()
+
+        /** First pass: a code prefix detects, else an anchor relocates, else [component] is a candidate. */
+        fun collect(
+            component: ManifestInfo.Component,
+            matcher: CodePrefixMatcher,
+            anchors: List<Anchor>,
+            spaces: List<Namespace>,
+        ) {
+            val name = component.className
+            val known = matcher.match(name)
+            if (known != null) {
+                detected += known
+                return
+            }
+            val anchor = anchors.firstOrNull { name.endsWith(".${it.tail}") }
+            val root = anchor?.let { name.substring(0, name.length - it.tail.length) }
+            // Never relocate into a package another SDK names: that component is its, or nobody's.
+            val foreign = root != null && spaces.any { root.startsWith(it.root) && it.sdkId != anchor.sdkId }
+            if (anchor != null && root != null && !foreign) {
+                relocate(root, anchor.sdkId)
+            } else {
+                candidates += component
+            }
+        }
 
         /** An anchor names [sdkId] relocated to [root]; kept when the root is safe. */
         fun relocate(root: String, sdkId: String) {
@@ -234,17 +265,19 @@ public object ManifestAnalyzer {
     /**
      * The packages SDKs own through class-name prefixes: a prefix without a trailing dot
      * (`com.google.android.gms.ads.AdView`) names a class, so its package (`com.google.android.gms.ads.`)
-     * is the SDK's namespace. A component of that package no prefix matches (the SDK's own
-     * `AdActivity`) still belongs to the SDK, never to the suspects. Packages with fewer than
-     * [MIN_NAMESPACE_SEGMENTS] segments are ignored (never `com.google.android.gms.`), and the
-     * longest root wins; a sibling SDK's longer prefix (`...ads.identifier.`) matches first anyway.
+     * is the SDK's namespace, and a component of that package no prefix matches (the SDK's own
+     * `NewAdActivity`) is not a suspect once the SDK is detected ([analyze]). Only the package
+     * itself counts, never its subpackages: SDKs list class prefixes precisely to leave sibling
+     * libraries out (`...hms.ads.identifier.`, `...firebase.analytics.connector.`). Packages with
+     * fewer than [MIN_NAMESPACE_SEGMENTS] segments are ignored (never `com.google.android.gms.`),
+     * and a package named by more than one SDK belongs to none.
      */
     private fun namespacesOf(trackers: List<TrackerSdk>): List<Namespace> = trackers.flatMap { sdk ->
         sdk.codePrefixes.filterNot { it.endsWith('.') }.mapNotNull { prefix ->
             val root = prefix.substringBeforeLast('.', "").let { if (it.isEmpty()) it else "$it." }
             root.takeIf { segments(it) >= MIN_NAMESPACE_SEGMENTS }?.let { Namespace(it, sdk.id) }
         }
-    }.distinctBy { it.root }.sortedByDescending { it.root.length }
+    }.groupBy { it.root }.values.filter { group -> group.all { it.sdkId == group[0].sdkId } }.map { it[0] }
 
     private fun anchorsOf(trackers: List<TrackerSdk>): List<Anchor> = trackers.flatMap { sdk ->
         sdk.anchors.mapNotNull { anchor ->
