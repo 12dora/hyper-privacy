@@ -5,63 +5,106 @@ package io.github.hyperprivacy.core.stack
  * `Thread#getAllStackTraces`), so an app sampling a thread while a hooked API runs does not see
  * classes its own class loader cannot resolve.
  *
- * What is dropped, always as one contiguous run around at least one module frame:
- * - module frames ([isModule]: classes the module class loader defines, R8-renamed or not);
- * - the hook framework's frames between and next to them: classes of the known framework packages
- *   ([FRAMEWORK_ROOTS]) and the generated hook stub. The stub is a class with a random name that
- *   the framework injects into the hooked method's own package, so it lives under a platform root
- *   ([PLATFORM_ROOTS]) yet no loader resolves it ([isStub], consulted only for such names that
- *   touch a module frame).
+ * Ownership is a pure name test: a frame is the module's iff its class name starts with one of
+ * [modulePrefixes] (the module ships its classes in one package of its own, see the app's R8
+ * rules). No class is loaded or looked up, so the test is collision-free against the app's own
+ * R8-renamed classes (`a`, `zn`) and never claims `kotlin.`, `kotlinx.` or `androidx.` frames:
+ * those names, wherever they appear, belong to whoever bundles them.
  *
- * App frames and genuine platform frames (the hooked method's own frame included) are never
- * dropped: a frame leaves only when it is a module frame, or a framework/stub frame in direct
- * contact with one.
+ * What is dropped, always as one contiguous run around at least one module frame (a *window*):
+ * - module frames;
+ * - hook-framework frames touching them: classes of the known framework packages and LSPosed's
+ *   generated stub classes ([FRAMEWORK_ROOTS], `LSPHooker_*` in the default package);
+ * - when the window holds no generated `LSPHooker_*` stub, a stub the framework placed elsewhere
+ *   (the hooked method's own package, or a random default-package class): the one frame right
+ *   below the window (caller side) whose method has the hooked method's name, in the hooked
+ *   method's package or the default package, but another class. The hooked method is the frame
+ *   right above the window (the framework's backup of it keeps its class and name), seen through
+ *   one reflective `Method.invoke` frame if there is one, which then goes as well. Overload
+ *   delegation (`C.m` calling `C.m`) is never mistaken for a stub: the class must differ.
  *
- * Hot path: [filter] returns the *same array* without allocating when no frame is a module frame
- * (the typical logging call); only [isModule] runs then, and it is expected to be a cached lookup.
+ * App frames and genuine platform frames (the hooked method's own frame, WebView's
+ * `com.android.webview.chromium.*`, `sun.*` callers) are never dropped otherwise. Several
+ * windows in one stack (nested hooks, a hooker calling back into app code) are filtered
+ * independently; app frames between them stay.
+ *
+ * Cost: one `startsWith` per prefix per frame, no allocation when no frame is a module frame (the
+ * original array is returned). A filtered stack costs one `BooleanArray` and the trimmed copy.
  */
-public class LiveStackFilter(private val isModule: (String) -> Boolean, private val isStub: (String) -> Boolean) {
-    /** [frames] without bridge frames, or [frames] itself when there is nothing to drop. */
-    public fun filter(frames: Array<StackTraceElement>): Array<StackTraceElement> {
-        var firstModule = -1
-        for (i in frames.indices) {
+public class LiveStackFilter(private val modulePrefixes: Array<String>) {
+    /** Whether [className] is one of the module's classes; O(prefixes), allocation-free. */
+    public fun isModule(className: String): Boolean = startsWithAny(className, modulePrefixes)
+
+    /**
+     * [frames] without module windows, or [frames] itself when there is nothing to drop (or
+     * everything would be). With [firstWindowOnly] only the innermost window goes: the calling
+     * hook's own frames when the current thread samples itself while protection is paused.
+     */
+    public fun filter(frames: Array<StackTraceElement>, firstWindowOnly: Boolean = false): Array<StackTraceElement> {
+        var marks: BooleanArray? = null
+        var floor = 0 // First index a new window may extend up to (below the previous window).
+        var i = 0
+        while (i < frames.size) {
             if (isModule(frames[i].className)) {
-                firstModule = i
-                break
+                val drop = marks ?: BooleanArray(frames.size).also { marks = it }
+                i = markWindow(frames, i, floor, drop) + 1
+                floor = i
+                if (firstWindowOnly) break
+            } else {
+                i++
             }
         }
-        if (firstModule < 0) return frames
-        val drop = BooleanArray(frames.size)
-        var dropped = 0
-        for (i in firstModule until frames.size) {
-            if (drop[i] || !isModule(frames[i].className)) continue
-            drop[i] = true
-            dropped++
-            dropped += extend(frames, drop, i, -1) + extend(frames, drop, i, 1)
+        return marks?.let { compact(frames, it) } ?: frames
+    }
+
+    /** Marks the window around module frame [at], not above [floor]; returns its last index. */
+    private fun markWindow(frames: Array<StackTraceElement>, at: Int, floor: Int, drop: BooleanArray): Int {
+        var top = at
+        while (top - 1 >= floor && isBridge(frames[top - 1].className)) top--
+        var bottom = at
+        while (bottom + 1 < frames.size && isBridge(frames[bottom + 1].className)) bottom++
+        if (!hasGeneratedStub(frames, top, bottom) && bottom + 1 < frames.size) {
+            val hooked = hookedIndex(frames, top, floor)
+            if (hooked >= 0 && isPackageStub(frames[hooked], frames[bottom + 1])) {
+                bottom++
+                top = hooked + 1 // Also the reflective invoke frame between them, if any.
+            }
         }
-        if (dropped == frames.size) return frames // Never return an empty trace: not plausible, fail open.
+        for (j in top..bottom) drop[j] = true
+        return bottom
+    }
+
+    /** [frames] without the marked ones; [frames] itself if all are marked (an empty trace is not plausible). */
+    private fun compact(frames: Array<StackTraceElement>, drop: BooleanArray): Array<StackTraceElement> {
+        var dropped = 0
+        for (marked in drop) if (marked) dropped++
+        if (dropped == frames.size) return frames
         val kept = arrayOfNulls<StackTraceElement>(frames.size - dropped)
         var next = 0
-        for (i in frames.indices) if (!drop[i]) kept[next++] = frames[i]
+        for (j in frames.indices) if (!drop[j]) kept[next++] = frames[j]
         @Suppress("UNCHECKED_CAST") // Every slot was filled above; the array type is the declared one.
         return kept as Array<StackTraceElement>
     }
 
-    /** Marks bridge frames next to [from] in direction [step]; returns how many were newly marked. */
-    private fun extend(frames: Array<StackTraceElement>, drop: BooleanArray, from: Int, step: Int): Int {
-        var count = 0
-        var j = from + step
-        while (j in frames.indices && !drop[j] && isBridge(frames[j].className)) {
-            drop[j] = true
-            count++
-            j += step
-        }
-        return count
+    private fun isBridge(className: String): Boolean = isModule(className) || startsWithAny(className, FRAMEWORK_ROOTS)
+
+    private fun hasGeneratedStub(frames: Array<StackTraceElement>, top: Int, bottom: Int): Boolean {
+        for (j in top..bottom) if (frames[j].className.startsWith(GENERATED_STUB)) return true
+        return false
     }
 
-    private fun isBridge(className: String): Boolean =
-        isModule(className) || startsWithAny(className, FRAMEWORK_ROOTS) ||
-            (startsWithAny(className, PLATFORM_ROOTS) && isStub(className))
+    /** Index of the hooked method's frame right above the window at [top], or -1. */
+    private fun hookedIndex(frames: Array<StackTraceElement>, top: Int, floor: Int): Int {
+        var at = top - 1
+        if (at >= floor && frames[at].className == REFLECT_METHOD && frames[at].methodName == INVOKE) at--
+        return if (at >= floor) at else -1
+    }
+
+    private fun isPackageStub(hooked: StackTraceElement, candidate: StackTraceElement): Boolean {
+        val stub = candidate.className
+        if (candidate.methodName != hooked.methodName || stub == hooked.className) return false
+        return stub.indexOf('.') < 0 || samePackage(stub, hooked.className)
+    }
 
     /** The `Map` form of a `getAllStackTraces` result: filters every value in place; `true` if any changed. */
     public fun filterAll(traces: MutableMap<Thread, Array<StackTraceElement>>): Boolean {
@@ -78,20 +121,22 @@ public class LiveStackFilter(private val isModule: (String) -> Boolean, private 
     }
 
     public companion object {
-        /** Hook-framework packages whose frames are bridge frames. */
+        /** Hook-framework packages and LSPosed's generated stub classes: bridge frames when touching a module frame. */
         public val FRAMEWORK_ROOTS: Array<String> =
-            arrayOf("org.lsposed.", "io.github.libxposed.", "de.robv.android.xposed.")
+            arrayOf("org.lsposed.", "io.github.libxposed.", "de.robv.android.xposed.", "LSPHooker_")
 
-        /** Packages the hook stub is injected into (the hooked method's declaring class lives here). */
-        public val PLATFORM_ROOTS: Array<String> =
-            arrayOf("java.", "javax.", "android.", "dalvik.", "libcore.", "com.android.")
-
-        /** Whether [name] is under one of [PLATFORM_ROOTS]. */
-        public fun isPlatform(name: String): Boolean = startsWithAny(name, PLATFORM_ROOTS)
+        private const val GENERATED_STUB = "LSPHooker_"
+        private const val REFLECT_METHOD = "java.lang.reflect.Method"
+        private const val INVOKE = "invoke"
 
         private fun startsWithAny(name: String, roots: Array<String>): Boolean {
             for (root in roots) if (name.startsWith(root)) return true
             return false
+        }
+
+        private fun samePackage(a: String, b: String): Boolean {
+            val end = a.lastIndexOf('.')
+            return end == b.lastIndexOf('.') && a.regionMatches(0, b, 0, end)
         }
     }
 }
