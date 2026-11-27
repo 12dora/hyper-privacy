@@ -29,7 +29,11 @@ public data class AppListConfig(
         public const val ALLOW_KEY: String = "applist.allow"
         public const val SELF_HIDE_KEY: String = "applist.self.hide"
 
-        /** Partner apps whose presence SDKs check before offering share, login or payment. */
+        /**
+         * Partner apps whose presence SDKs check before offering share, login, payment or "open in
+         * maps": mainland social, payment and shopping apps, map apps, then global login, share and
+         * payment apps.
+         */
         public val DEFAULT_ALLOWLIST: Set<String> = linkedSetOf(
             "com.tencent.mm", // WeChat
             "com.tencent.mobileqq", // QQ
@@ -41,6 +45,15 @@ public data class AppListConfig(
             "com.xingin.xhs", // Xiaohongshu
             "com.jingdong.app.mall", // JD
             "com.sankuai.meituan", // Meituan
+            "com.autonavi.minimap", // Amap
+            "com.baidu.BaiduMap", // Baidu Maps
+            "com.tencent.map", // Tencent Maps
+            "com.google.android.apps.maps", // Google Maps
+            "com.facebook.katana", // Facebook
+            "com.whatsapp", // WhatsApp
+            "org.telegram.messenger", // Telegram
+            "com.twitter.android", // X
+            "com.paypal.android.p2pmobile", // PayPal
         )
 
         /** LSPosed manager packages: they must keep seeing the module to list and configure it. */
