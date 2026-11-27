@@ -215,9 +215,11 @@ internal val ONETRACK_PUBSUB_APPS: Set<String> = setOf(
     "com.miui.notes",
     "com.miui.notification",
     "com.miui.powerinsight",
+    "com.miui.powerkeeper",
     "com.miui.thirdappassistant",
     "com.xiaomi.aiservice",
     "com.xiaomi.hypercomm",
+    "com.xiaomi.joyose",
     "com.xiaomi.misettings",
     "miui.systemui.plugin",
 )
