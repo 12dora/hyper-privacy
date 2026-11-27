@@ -34,5 +34,9 @@ class DeclaredScopeTest {
         val many = (0..DeclaredScope.MAX_ENTRIES).joinToString("\n") { "com.example.app$it" }
         assertEquals(DeclaredScope.Unknown, DeclaredScope.parseList(many))
         assertEquals(DeclaredScope.Unknown, DeclaredScope.of(listOf("com." + "a".repeat(300))))
+        // Few entries, but more text than allowed in total: rejected, not parsed partly.
+        val heavy = List(4) { "com.example.a" + "b".repeat(DeclaredScope.MAX_CHARS / 3) }
+        assertEquals(DeclaredScope.Unknown, DeclaredScope.of(heavy))
+        assertEquals(DeclaredScope.Unknown, DeclaredScope.of(List(DeclaredScope.MAX_ENTRIES * 2 + 1) { "" }))
     }
 }

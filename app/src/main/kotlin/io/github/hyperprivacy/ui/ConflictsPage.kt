@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.conflict.OurSide
@@ -48,12 +49,15 @@ internal fun ConflictsPage(state: UiState, shell: Shell, modifier: Modifier) {
             onOpenRules = { shell.openRules(stateNow.value, it) },
             onOpenRule = { shell.nav.push(Route.RuleDetail(it)) },
             onOpenApp = { pkg, protected -> shell.nav.push(if (protected) Route.UserApp(pkg) else Route.App(pkg)) },
+            onOpenSettings = { shell.nav.push(Route.Settings) },
             onRestoreHint = model.conflicts::restoreHint,
         )
     }
     val ours = remember(state.rules, apps.apps) { ourSide(state, apps) }
-    val labels = remember(state.apps, apps.apps) {
-        state.apps.associate { it.packageName to it.label } + apps.apps.associate { it.packageName to it.label }
+    val systemLabel = stringResource(R.string.conflict_system_label)
+    val labels = remember(state.apps, apps.apps, systemLabel) {
+        state.apps.associate { it.packageName to it.label } + apps.apps.associate { it.packageName to it.label } +
+            (Catalog.SYSTEM_SCOPE to systemLabel)
     }
     val categories = remember(state.byCategory) { state.byCategory.mapTo(HashSet()) { it.category } }
     // Until the first state arrives there is nothing to show, and "none found" would flash.
@@ -66,6 +70,7 @@ internal fun ConflictsPage(state: UiState, shell: Shell, modifier: Modifier) {
             ours = ours,
             labels = labels,
             dismissed = state.overlapsDismissed,
+            appsLoaded = apps.loaded,
         ),
         actions = actions,
         modifier = modifier,
@@ -75,23 +80,39 @@ internal fun ConflictsPage(state: UiState, shell: Shell, modifier: Modifier) {
 
 /**
  * What this module does, for intersecting with other modules' scopes: the built-in rules that are
- * on, and per protected app the options that are on, by the overlap area they belong to.
+ * on; per app the options that are on (a protected app's SDKs, rules and suspected components, and
+ * any app's app-list hiding, which works without protection); and in system_server, hiding this
+ * module and hiding the app list, by the overlap area they belong to.
  */
 private fun ourSide(state: UiState, apps: AppsUi): OurSide {
-    val protectedOptions = apps.apps.filter { it.protected }.associate { app ->
+    val appOptions = apps.apps.associate { app ->
         val byArea = HashMap<OverlapArea, MutableList<String>>()
         fun add(category: Category?, id: String) {
             category?.let(OverlapArea::of)?.let { byArea.getOrPut(it) { ArrayList() } += id }
         }
-        app.sdks.filter { it.blocked }.forEach { add(TrackerRules.categoryOf(it.category), it.id) }
-        app.appRules.filter { it.enabled }.forEach { rule ->
-            add(Catalog.protectedAppRules.firstOrNull { it.id == rule.id }?.category, rule.id)
+        if (app.protected) {
+            app.sdks.filter { it.blocked }.forEach { add(TrackerRules.categoryOf(it.category), it.id) }
+            app.appRules.filter { it.enabled }.forEach { rule ->
+                add(Catalog.protectedAppRules.firstOrNull { it.id == rule.id }?.category, rule.id)
+            }
+            app.suspects.filter { it.blocked }.forEach { add(Category.ADS, SUSPECT_PREFIX + it.root) }
         }
         if (app.hideApps) add(Category.APP_LIST, OverlapTarget.HIDE_APPS)
         app.packageName to byArea.mapValues { it.value.toList() }
-    }
-    return OurSide(state.rules.filter { it.enabled }.map { it.rule }, protectedOptions)
+    }.filterValues { it.isNotEmpty() }
+    val system = listOfNotNull(
+        OverlapTarget.HIDE_SELF.takeIf { state.selfHidden },
+        OverlapTarget.HIDE_APPS.takeIf { apps.apps.any { it.hideApps } },
+    )
+    return OurSide(
+        enabledRules = state.rules.filter { it.enabled }.map { it.rule },
+        appOptions = appOptions,
+        systemOptions = if (system.isEmpty()) emptyMap() else mapOf(OverlapArea.APP_LIST to system),
+    )
 }
+
+/** Option ids of suspected ad components: the prefix, then the package root. */
+internal const val SUSPECT_PREFIX = "suspect:"
 
 /**
  * Shows this module's built-in rules of [category] on the System tab: the pages over the tabs are

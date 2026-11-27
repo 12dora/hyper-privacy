@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.ui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
@@ -43,8 +44,13 @@ internal class ConflictController(
     private val dismissedStore by lazy { appContext.getSharedPreferences(DISMISSED_FILE, Context.MODE_PRIVATE) }
     private var hits: List<OverlapHit> = emptyList()
 
-    /** Declared scopes by package, read on request. Worker only. */
+    /**
+     * Declared scopes by package, read once the detail page asked ([scopesWanted]) and again after
+     * every scan, so a module found later or updated meanwhile is covered (the scanner caches per
+     * build, so an unchanged module costs nothing). Worker only.
+     */
     private var scopes: Map<String, DeclaredScope> = emptyMap()
+    private var scopesWanted = false
 
     /** A scan is running; a refresh meanwhile only asks for one more pass ([again]). Both on [worker]. */
     private var scanning = false
@@ -67,6 +73,7 @@ internal class ConflictController(
                     hits = withContext(Dispatchers.IO) {
                         runCatching { scanner.overlapping() }.getOrDefault(emptyList())
                     }
+                    if (scopesWanted) scopes = scanner.scopesOf(hits)
                     onChange()
                 } while (again)
             } finally {
@@ -92,10 +99,8 @@ internal class ConflictController(
 
     override fun loadScopes() {
         scope.launch(worker) {
-            val missing = hits.map { it.packageName }.filter { it !in scopes }
-            if (missing.isEmpty()) return@launch
-            val read = withContext(Dispatchers.IO) { missing.associateWith { scanner.declaredScope(it) } }
-            scopes = scopes + read
+            scopesWanted = true
+            scopes = scanner.scopesOf(hits)
             onChange()
         }
     }
@@ -112,8 +117,12 @@ internal class ConflictController(
     /** Every overlapping module, dismissed ones included, or `null` when there is none. */
     fun all(appListHidingOn: Boolean): ConflictUi? = ConflictUi.of(modules(), appListHidingOn)
 
-    /** Whether any module or area was dismissed from the hint. */
-    val anyDismissed: Boolean get() = dismissed().isNotEmpty()
+    /** Whether a module and area found now is dismissed from the hint (older or stale entries do not count). */
+    val anyDismissed: Boolean
+        get() {
+            val seen = dismissed()
+            return seen.isNotEmpty() && hits.any { hit -> hit.areas.any { dismissKey(hit.packageName, it) in seen } }
+        }
 
     private fun modules(): List<ConflictModule> = hits.map {
         ConflictModule(it.packageName, it.label, it.areas.toList(), scopes[it.packageName] ?: DeclaredScope.Unknown)
@@ -130,13 +139,15 @@ internal class ConflictController(
         pendingWrites.put(AppListConfig.SELF_HIDE_KEY, false)
         onChange()
         // Committed on the worker, so a call queued behind this one already reads the result.
+        // KTX edit(commit = true) drops commit()'s result, which decides here.
+        @SuppressLint("UseKtx")
         val written = runCatching {
-            target.edit(commit = true) {
+            target.edit().apply {
                 hidden.forEach(::remove)
                 putBoolean(AppListConfig.SELF_HIDE_KEY, false)
-            }
-        }
-        if (written.isFailure) {
+            }.commit()
+        }.getOrDefault(false)
+        if (!written) {
             pendingWrites.remove(AppListConfig.SELF_HIDE_KEY)
             onChange()
             return@withContext null
@@ -177,5 +188,13 @@ internal class ConflictController(
     private companion object {
         const val DISMISSED_FILE = "conflict"
         const val DISMISSED_KEY = "dismissed"
+    }
+}
+
+/** The declared scopes of [hits], read off the main thread; modules no longer found are not in the result. */
+private suspend fun ModuleScanner.scopesOf(hits: List<OverlapHit>): Map<String, DeclaredScope> {
+    val packages = hits.map { it.packageName }
+    return withContext(Dispatchers.IO) {
+        packages.associateWith { runCatching { declaredScope(it) }.getOrDefault(DeclaredScope.Unknown) }
     }
 }

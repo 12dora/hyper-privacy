@@ -12,6 +12,10 @@
         </intent>
     </queries>
 
+    <!-- No network access, ever (updates are a link to the browser): removed even if a library asks. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+
     <!-- Only used while a timed pause is pending: its receiver is disabled otherwise (PauseAlarm). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Normal permission (API 33+), granted at install: resumes a timed pause on time. -->

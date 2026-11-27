@@ -93,6 +93,8 @@ internal class ConflictActions(
     /** An app's page: a protected app's (`true`) or a covered system app's. */
     val onOpenApp: (String, Boolean) -> Unit = { _, _ -> },
     val onRestoreHint: () -> Unit = {},
+    /** Settings, where hiding this module from other apps is switched. */
+    val onOpenSettings: () -> Unit = {},
 )
 
 /** Callbacks of the status card. */

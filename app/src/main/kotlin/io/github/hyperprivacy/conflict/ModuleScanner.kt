@@ -113,30 +113,56 @@ internal class ModuleScanner(context: Context) {
 
     private val scopes = HashMap<String, Pair<Pair<Long, Long>, DeclaredScope>>()
 
-    /** `scope.list` from the base APK or a split; size-capped before it is read. */
+    /**
+     * `scope.list` from the base APK (where the module metadata lives). At most [DeclaredScope.MAX_CHARS]
+     * bytes are inflated; a longer file is rejected as a whole, never parsed truncated.
+     */
     private fun modernScope(app: ApplicationInfo): DeclaredScope {
-        val apks = listOfNotNull(app.sourceDir) + app.splitSourceDirs.orEmpty()
-        apks.forEach { path ->
-            val text = runCatching {
-                ZipFile(File(path)).use { zip ->
-                    val entry = zip.getEntry(SCOPE_ENTRY) ?: return@use null
-                    if (entry.size > DeclaredScope.MAX_CHARS) return@use null
-                    zip.getInputStream(entry).use { String(it.readNBytes(DeclaredScope.MAX_CHARS + 1), Charsets.UTF_8) }
-                }
-            }.getOrNull()
-            if (text != null) return DeclaredScope.parseList(text)
-        }
-        return DeclaredScope.Unknown
+        val path = app.sourceDir ?: return DeclaredScope.Unknown
+        val bytes = runCatching {
+            ZipFile(File(path)).use { zip ->
+                val entry = zip.getEntry(SCOPE_ENTRY) ?: return@use null
+                if (entry.size > DeclaredScope.MAX_CHARS) return@use OVERSIZE
+                zip.getInputStream(entry).use { it.readNBytes(DeclaredScope.MAX_CHARS + 1) }
+            }
+        }.getOrNull() ?: return DeclaredScope.Unknown
+        if (bytes === OVERSIZE || bytes.size > DeclaredScope.MAX_CHARS) return DeclaredScope.Unknown
+        return DeclaredScope.parseList(String(bytes, Charsets.UTF_8))
     }
 
     /** The legacy `xposedscope` meta-data: a string-array resource of the module (or a single string). */
     private fun legacyScope(app: ApplicationInfo): DeclaredScope {
         val meta = app.metaData ?: return DeclaredScope.Unknown
         val id = meta.getInt(LEGACY_SCOPE, 0)
-        if (id == 0) return DeclaredScope.of(meta.getString(LEGACY_SCOPE)?.split(';', ','))
-        val items = runCatching { pm.getResourcesForApplication(app).getStringArray(id).toList() }.getOrNull()
-        return DeclaredScope.of(items?.take(DeclaredScope.MAX_ENTRIES + 1))
+        if (id == 0) {
+            // Length checked before anything is split.
+            val text = meta.getString(LEGACY_SCOPE)?.takeIf { it.length <= DeclaredScope.MAX_CHARS }
+            return DeclaredScope.of(text?.split(';', ','))
+        }
+        return DeclaredScope.of(readArray(app, id))
     }
+
+    /**
+     * The `xposedscope` array, read entry by entry: rejected (`null`) before anything is copied when
+     * it has more than [DeclaredScope.MAX_ENTRIES] entries, and as soon as its text passes
+     * [DeclaredScope.MAX_CHARS].
+     */
+    private fun readArray(app: ApplicationInfo, id: Int): List<String?>? = runCatching {
+        val array = pm.getResourcesForApplication(app).obtainTypedArray(id)
+        try {
+            val count = array.length()
+            if (count > DeclaredScope.MAX_ENTRIES) return@runCatching null
+            var chars = 0
+            (0 until count).map { index ->
+                val item = array.getString(index)
+                chars += item?.length ?: 0
+                if (chars > DeclaredScope.MAX_CHARS) return@runCatching null
+                item
+            }
+        } finally {
+            array.recycle()
+        }
+    }.getOrNull()
 
     /** Whether the APK carries the modern module marker; an unreadable one is simply not a module. */
     private fun isModuleApk(app: ApplicationInfo): Boolean = runCatching {
@@ -163,6 +189,9 @@ internal class ModuleScanner(context: Context) {
         const val LEGACY_DESCRIPTION = "xposeddescription"
         const val LEGACY_SCOPE = "xposedscope"
         const val SCOPE_ENTRY = "META-INF/xposed/scope.list"
+
+        /** Marks a `scope.list` whose declared size is already over the limit. */
+        val OVERSIZE = ByteArray(0)
         const val YES = "1"
         const val NO = "0"
         val HEX: HexFormat = HexFormat.of()
