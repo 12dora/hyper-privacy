@@ -51,9 +51,10 @@ internal val deviceIdRules: List<Rule> = listOf(
         payload = RulePayload.Domains(listOf("sofire.baidu.com")),
         category = Category.DEVICE_ID,
         evidence = "traffic cap2: baidu.input_mi -> sofire.baidu.com; dex com.baidu.sofire.* (device risk " +
-            "fingerprint, sofire.ac.provider); Baidu Passport login uses Sofire risk tokens",
+            "fingerprint, sofire.ac.provider); Baidu Passport login uses Sofire risk tokens. Account security / " +
+            "risk control channel: off by default like every such channel (tracker database baidu-sofire)",
+        defaultOn = false,
         impact = Text("输入法内账号登录可能失败", "Account sign-in in the IME may fail"),
-        highRisk = true,
     ),
     Rule(
         id = "getui.collect",

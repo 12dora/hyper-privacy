@@ -208,20 +208,42 @@ internal val analyticsRules: List<Rule> = listOf(
                 "applog.snssdk.com",
                 "rtapplog.snssdk.com",
                 "rtlog.snssdk.com",
-                "log.snssdk.com",
-                "toblog-alink.ctobsnssdk.com",
                 "applog.zijieapi.com",
-                "log.zijieapi.com",
-                "log.byteoversea.com",
+                "rtlog.zijieapi.com",
                 "analytics.tiktok.com",
-                "analytics.us.tiktok.com",
             ),
         ),
         category = Category.ANALYTICS,
-        evidence = "dex: com/bytedance/applog (browser, smarthome); applog/rtapplog/rtlog/log.snssdk.com/monitor/" +
-            "collect/c/session, log_settings in browser; applog/log.zijieapi.com in health, gamecenter.sdk.service; " +
-            "globalbrowser log.byteoversea.com, analytics.tiktok.com. ichannel.snssdk.com (device registration, " +
-            "Douyin Pay) left allowed",
+        evidence = "dex: com/bytedance/applog (browser, smarthome); applog/rtapplog/rtlog.snssdk.com in browser; " +
+            "applog/rtlog.zijieapi.com/service/2/app_log/ in health, gamecenter.sdk.service; globalbrowser " +
+            "analytics.tiktok.com. Mixed hosts (log.snssdk.com, log.zijieapi.com, log.byteoversea.com, " +
+            "analytics.us.tiktok.com) are path-scoped in bytedance.applog-paths; toblog-alink.ctobsnssdk.com " +
+            "(deferred deep links) and ichannel.snssdk.com (device registration, Douyin Pay) left allowed",
+    ),
+    Rule(
+        id = "bytedance.applog-paths",
+        packages = BYTEDANCE_APPLOG_APPS,
+        title = Text("内容平台日志接口", "Content platform log paths"),
+        summary = Text("阻止统计与监控接口上报", "Block analytics and monitor paths"),
+        payload = RulePayload.Urls(
+            listOf(
+                UrlPrefix("log.snssdk.com", "/service/2/app_log/"),
+                UrlPrefix("log.snssdk.com", "/service/2/log_settings/"),
+                UrlPrefix("log.snssdk.com", "/monitor/collect/"),
+                UrlPrefix("log.zijieapi.com", "/service/2/app_log/"),
+                UrlPrefix("log.zijieapi.com", "/service/2/log_settings/"),
+                UrlPrefix("log.byteoversea.com", "/service/2/app_log/"),
+                UrlPrefix("log.byteoversea.com", "/service/2/app_log_test/"),
+                UrlPrefix("analytics.us.tiktok.com", "/api/v1/app_sdk/batch"),
+                UrlPrefix("analytics.us.tiktok.com", "/api/v1/app_sdk/monitor"),
+            ),
+        ),
+        category = Category.ANALYTICS,
+        evidence = "dex: log.snssdk.com/monitor/collect/c/session, /service/2/app_log/, log_settings in browser; " +
+            "log.zijieapi.com/service/2/app_log/ in health, gamecenter.sdk.service; globalbrowser " +
+            "log.byteoversea.com/service/2/app_log_test/, analytics.us.tiktok.com (tracker database " +
+            "bytedance-applog, tiktok-business-sdk). The same hosts serve /service/2/device_register/ (ByteDance " +
+            "login and pay key on the device id) and /ddl (deferred deep links), which stay allowed",
     ),
     Rule(
         id = "baidu.mobstat",
