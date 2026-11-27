@@ -165,6 +165,6 @@ internal class ConnectRefusal(private val xposed: XposedInterface, private val b
         const val PROBE_PORT = 9
         const val HARVEST_TIMEOUT_MS = 250
         val LOOPBACK = byteArrayOf(127, 0, 0, 1)
-        val PROBE_TIMEOUT: StructTimeval = StructTimeval.fromMillis(HARVEST_TIMEOUT_MS.toLong())
+        val PROBE_TIMEOUT: StructTimeval by lazy { StructTimeval.fromMillis(HARVEST_TIMEOUT_MS.toLong()) }
     }
 }

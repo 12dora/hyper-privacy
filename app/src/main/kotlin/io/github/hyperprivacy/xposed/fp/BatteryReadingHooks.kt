@@ -22,8 +22,8 @@ internal class BatteryReadingHooks(private val env: GuardEnv, private val state:
     /** Returns the number of methods hooked. */
     fun install(): Int {
         val properties = listOfNotNull(
-            env.declared(BatteryManager::class.java, "getIntProperty", Int::class.javaPrimitiveType!!),
-            env.declared(BatteryManager::class.java, "getLongProperty", Int::class.javaPrimitiveType!!),
+            env.declared(BatteryManager::class.java, "getIntProperty", java.lang.Integer.TYPE),
+            env.declared(BatteryManager::class.java, "getLongProperty", java.lang.Integer.TYPE),
         )
         val chargeTime = listOfNotNull(env.declared(BatteryManager::class.java, "computeChargeTimeRemaining"))
         return env.hookAll(properties, PropertyHook()) +

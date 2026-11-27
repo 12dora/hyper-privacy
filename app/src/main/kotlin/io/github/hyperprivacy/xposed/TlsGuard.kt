@@ -23,7 +23,9 @@ internal class TlsGuard(private val sinks: SinkContext) {
     /** Returns whether at least one socket implementation was hooked. */
     fun install(): Boolean {
         val hooked = SOCKET_CLASSES.count { className ->
-            val handshake = runCatching { Class.forName(className).getDeclaredMethod(HANDSHAKE_METHOD) }.getOrNull()
+            val handshake = runCatching {
+                Class.forName(className, false, TlsGuard::class.java.classLoader).getDeclaredMethod(HANDSHAKE_METHOD)
+            }.getOrNull()
             if (handshake == null) {
                 sinks.log.warn("TLS sink $className#$HANDSHAKE_METHOD not found")
                 return@count false
