@@ -54,8 +54,12 @@ import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.components.AppIcon
+import io.github.hyperprivacy.ui.components.AppIcons
 import io.github.hyperprivacy.ui.components.BackButton
+import io.github.hyperprivacy.ui.components.IconBadge
+import io.github.hyperprivacy.ui.components.NavRow
 import io.github.hyperprivacy.ui.components.SearchField
+import io.github.hyperprivacy.ui.components.SingleCard
 import io.github.hyperprivacy.ui.components.TabTopBar
 import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
@@ -105,7 +109,10 @@ internal fun AppsScreen(
             state = listState,
             contentPadding = listPadding(inner),
         ) {
-            if (!search.active) item(key = "intro") { Intro() }
+            if (!search.active) {
+                item(key = "intro") { Intro() }
+                item(key = "defaults") { DefaultsEntry(actions.onOpenDefaults) }
+            }
             item(key = "filter") { FilterRow(state, onlyTrackers, actions.onFilterChange) }
             when {
                 !state.loaded -> item(key = "loading") { Loading() }
@@ -153,6 +160,23 @@ private fun Intro() {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Dimens.Gutter, vertical = Dimens.Small),
     )
+}
+
+/**
+ * The way to the default settings: one row at the top of the list, where the switches they feed
+ * are, rather than an unlabeled icon in the title bar or a page deep in Settings.
+ */
+@Composable
+private fun DefaultsEntry(onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    SingleCard(Modifier.padding(bottom = Dimens.Small)) {
+        NavRow(
+            title = stringResource(R.string.apps_defaults),
+            summary = stringResource(R.string.apps_defaults_summary),
+            onClick = onClick,
+            leading = { IconBadge(AppIcons.Tune, colors.secondaryContainer, colors.onSecondaryContainer) },
+        )
+    }
 }
 
 @Composable

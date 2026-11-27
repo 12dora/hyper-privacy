@@ -9,6 +9,7 @@ import io.github.hyperprivacy.core.rule.Text
 import io.github.hyperprivacy.core.scope.DeviceCoverage
 import io.github.hyperprivacy.core.status.DisplayStatus
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.AppDefaults
 import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
@@ -110,7 +111,23 @@ internal class DemoData(private val language: String) {
 
     fun apps(switches: DemoSwitches): AppsUi {
         val apps = USER_APPS.map { app -> userApp(app, switches) }
-        return AppsUi(loaded = true, apps = apps, scanned = apps.size, total = apps.size)
+        return AppsUi(
+            loaded = true,
+            apps = apps,
+            scanned = apps.size,
+            total = apps.size,
+            defaults = AppDefaults.read(switches.appSwitches),
+        )
+    }
+
+    /** Turns protection on or off like the real controller: on applies the default settings first. */
+    fun setProtected(switches: DemoSwitches, packageName: String, on: Boolean) {
+        val app = USER_APPS.firstOrNull { it.packageName == packageName } ?: return
+        if (on) {
+            val ids = app.sdks.flatMap { (category, count) -> sdksOf(category, count) }.map { it.id }
+            switches.appSwitches += AppDefaults.read(switches.appSwitches).applyTo(switches.appSwitches, packageName, ids)
+        }
+        switches.protected[packageName] = on
     }
 
     private fun userApp(app: DemoUserApp, switches: DemoSwitches): UserAppUi {

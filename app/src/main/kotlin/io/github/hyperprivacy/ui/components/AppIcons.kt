@@ -143,6 +143,19 @@ internal object AppIcons {
             "M9 17 H13",
         )
     }
+
+    /** Sliders: the default settings of newly protected apps. */
+    val Tune: ImageVector by lazy {
+        outline(
+            "Tune",
+            "M4 7 H12",
+            "M16 7 H20",
+            "M12 7 A2 2 0 1 0 16 7 A2 2 0 1 0 12 7 Z",
+            "M4 17 H8",
+            "M12 17 H20",
+            "M8 17 A2 2 0 1 0 12 17 A2 2 0 1 0 8 17 Z",
+        )
+    }
 }
 
 internal fun Category.icon(): ImageVector = when (this) {

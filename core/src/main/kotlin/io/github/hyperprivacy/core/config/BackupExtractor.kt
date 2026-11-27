@@ -2,6 +2,7 @@ package io.github.hyperprivacy.core.config
 
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.AppDefaults
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.Trackers
 
@@ -32,6 +33,7 @@ internal object BackupExtractor {
                 allow = AppListConfig.parseAllowlist(raw[AppListConfig.ALLOW_KEY])?.toList(),
             ),
             appearance = appearance,
+            defaults = AppDefaults.read(raw),
         )
     }
 

@@ -210,7 +210,7 @@
     <string name="settings_reset">恢复默认</string>
     <string name="settings_reset_summary">恢复规则、应用选项与应用列表设置</string>
     <string name="settings_reset_title">恢复默认设置？</string>
-    <string name="settings_reset_body">规则、各应用选项和应用列表设置将恢复默认，并关闭诊断模式。已开启防护的应用保持开启。</string>
+    <string name="settings_reset_body">规则、各应用选项、默认设置和应用列表设置将恢复默认，并关闭诊断模式。已开启防护的应用保持开启。</string>
     <string name="settings_reset_confirm">恢复</string>
     <string name="settings_about">关于</string>
     <string name="about_framework">框架</string>
@@ -236,6 +236,10 @@
     <!-- 应用（第三方应用追踪防护） -->
     <string name="apps_title">已安装应用</string>
     <string name="apps_intro">识别应用内置的追踪 SDK 并拦截其上报</string>
+    <string name="apps_defaults">默认设置</string>
+    <string name="apps_defaults_summary">开启防护时自动应用</string>
+    <string name="apps_defaults_note">对之后开启防护的应用生效，可逐个调整</string>
+    <string name="apps_defaults_sdk_note">影响登录或支付的 SDK 需在应用内开启</string>
     <string name="apps_filter_trackers">含追踪 SDK</string>
     <string name="apps_scanning">正在检查 %1$d/%2$d</string>
     <plurals name="apps_sdk_count">
@@ -316,7 +320,7 @@
     <string name="backup_import">导入配置</string>
     <string name="backup_import_summary">从导出的文件恢复设置</string>
     <string name="backup_import_title">导入此配置？</string>
-    <string name="backup_import_body">将覆盖当前的规则开关、应用选项、应用列表设置和外观。已开启防护的应用保持开启，其选项按文件更新；文件中新开启防护的应用需在“应用”页确认。仅对本机已安装的第三方应用生效。</string>
+    <string name="backup_import_body">将覆盖当前的规则开关、应用选项与默认设置、应用列表设置和外观。已开启防护的应用保持开启，其选项按文件更新；文件中新开启防护的应用需在“应用”页确认。仅对本机已安装的第三方应用生效。</string>
     <string name="backup_import_confirm">导入</string>
     <plurals name="backup_summary_rules">
         <item quantity="other">%1$d 项规则开关</item>
@@ -326,6 +330,7 @@
     </plurals>
     <string name="backup_summary_applist">应用列表设置</string>
     <string name="backup_summary_appearance">外观</string>
+    <string name="backup_summary_defaults">应用默认设置</string>
     <string name="backup_summary_empty">不含任何设置</string>
     <plurals name="backup_summary_ignored">
         <item quantity="other">已跳过 %1$d 项无法识别的内容</item>

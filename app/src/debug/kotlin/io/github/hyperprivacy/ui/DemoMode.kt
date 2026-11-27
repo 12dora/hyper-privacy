@@ -83,7 +83,7 @@ internal class DemoModel(paused: Boolean) :
 
         override fun start() = Unit
 
-        override fun setProtected(packageName: String, on: Boolean) = update { protected[packageName] = on }
+        override fun setProtected(packageName: String, on: Boolean) = update { data.setProtected(this, packageName, on) }
 
         override fun retryScope(packageName: String) = Unit
 

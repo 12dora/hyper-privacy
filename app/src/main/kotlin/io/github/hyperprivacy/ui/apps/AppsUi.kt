@@ -2,6 +2,7 @@ package io.github.hyperprivacy.ui.apps
 
 import androidx.compose.runtime.Immutable
 import io.github.hyperprivacy.core.rule.Text
+import io.github.hyperprivacy.core.tracker.AppDefaults
 import io.github.hyperprivacy.core.tracker.TrackerCategory
 
 /** Where the offline scan of one app stands. */
@@ -71,6 +72,8 @@ internal data class AppsUi(
     val apps: List<UserAppUi> = emptyList(),
     val scanned: Int = 0,
     val total: Int = 0,
+    /** What a newly protected app starts with. */
+    val defaults: AppDefaults = AppDefaults.BUILT_IN,
 ) {
     val scanning: Boolean get() = scanned < total
 
@@ -101,6 +104,7 @@ internal class AppsActions(
     val onQueryChange: (String) -> Unit,
     val onToggle: (String, Boolean) -> Unit,
     val onOpen: (String) -> Unit,
+    val onOpenDefaults: () -> Unit = {},
 )
 
 /** Callbacks of the app detail page. */
@@ -110,6 +114,15 @@ internal class UserAppActions(
     val onSdk: (String, Boolean) -> Unit,
     val onAppRule: (String, Boolean) -> Unit,
     val onSuspect: (String, Boolean) -> Unit,
+    val onHideApps: (Boolean) -> Unit,
+    val onStrict: (Boolean) -> Unit,
+    val onBack: () -> Unit,
+)
+
+/** Callbacks of the default-settings page. */
+internal class AppDefaultsActions(
+    val onSdk: (TrackerCategory, Boolean) -> Unit,
+    val onRule: (String, Boolean) -> Unit,
     val onHideApps: (Boolean) -> Unit,
     val onStrict: (Boolean) -> Unit,
     val onBack: () -> Unit,

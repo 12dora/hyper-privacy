@@ -179,6 +179,8 @@ private fun Page(route: Route, state: UiState, shell: Shell, modifier: Modifier)
             AppScreen(route.packageName, state, toggleRule, openRule, nav::pop, modifier)
         }
 
+        Route.AppDefaults -> AppDefaultsPage(state, model.trackers, nav, modifier)
+
         is Route.UserApp -> UserAppPage(route.packageName, state, model.trackers, nav, shell.apps, modifier)
 
         is Route.RuleDetail -> if (state.loaded) {

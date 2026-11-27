@@ -3,6 +3,7 @@ package io.github.hyperprivacy.core.config
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
 import io.github.hyperprivacy.core.system.VendorTrust
+import io.github.hyperprivacy.core.tracker.AppDefaults
 import io.github.hyperprivacy.core.tracker.TrackerOrigin
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 
@@ -37,6 +38,8 @@ public data class BackupSummary(
     val protectedApps: Int,
     val hasAppList: Boolean,
     val hasAppearance: Boolean,
+    /** The file sets default settings for newly protected apps other than the built-in ones. */
+    val hasDefaults: Boolean = false,
     /** Entries in the file this version does not understand; they are skipped. */
     val ignored: Int,
 )
@@ -63,7 +66,8 @@ public sealed interface ParsedBackup {
 
 /**
  * The user's configuration as a portable file: rule switches, per-app protection and SDK
- * choices, app-list hiding settings and appearance. JSON, one `schema` version, unknown keys
+ * choices, the default settings of newly protected apps ([AppDefaults]), app-list hiding settings
+ * and appearance. JSON, one `schema` version, unknown keys
  * ignored on import.
  *
  * Deliberately not part of it: the module secret, diagnostics mode, the pause deadline, scan
@@ -71,7 +75,8 @@ public sealed interface ParsedBackup {
  * Everything is picked from the preferences by an explicit key whitelist, so a key added to the
  * preferences later is never exported by accident.
  *
- * An import replaces what the file covers (rule switches, per-app options, app-list settings) and
+ * An import replaces what the file covers (rule switches, per-app options, default settings when the
+ * file has them, app-list settings) and
  * only ever adds protected apps ([plan]): turning protection off also leaves the LSPosed scope
  * behind, which is the user's call to make on the Apps page.
  */
@@ -80,6 +85,8 @@ public class ConfigBackup(
     public val apps: Map<String, AppBackup> = emptyMap(),
     public val appList: AppListBackup = AppListBackup(null, null),
     public val appearance: AppearanceBackup = AppearanceBackup(null, null, null),
+    /** Default settings of newly protected apps; `null` when the file predates them (kept as they are). */
+    public val defaults: AppDefaults? = null,
     /** Entries skipped while reading (unknown ids, wrong types, over the limits). */
     public val ignored: Int = 0,
 ) {
@@ -90,6 +97,7 @@ public class ConfigBackup(
             protectedApps = apps.count { it.value.protect },
             hasAppList = !appList.isEmpty,
             hasAppearance = !appearance.isEmpty,
+            hasDefaults = defaults != null && defaults.entries().isNotEmpty(),
             ignored = ignored,
         )
 
@@ -114,6 +122,7 @@ public class ConfigBackup(
         rules.forEach { (id, on) -> puts[ConfigCodec.key(id)] = on }
         appList.hideSelf?.let { puts[AppListConfig.SELF_HIDE_KEY] = it }
         appList.allow?.let { puts[AppListConfig.ALLOW_KEY] = AppListConfig.encodeAllowlist(it) }
+        defaults?.entries()?.let(puts::putAll)
         var skipped = 0
         var skippedApps = 0
         apps.forEach { (pkg, app) ->
@@ -130,10 +139,16 @@ public class ConfigBackup(
             val ids = detected(pkg)
             if (ids == null) skipped++ else puts[key] = TrackerProtection.encodeDetected(ids)
         }
-        val removes = current.keys.filterTo(LinkedHashSet(), ::isManagedKey)
+        val removes = replacedKeys(current)
         removes.removeAll(puts.keys)
         return PrefsPlan(puts, removes, skipped, skippedApps)
     }
+
+    /** Keys this import replaces; a file without default settings (older) leaves the current ones alone. */
+    private fun replacedKeys(current: Map<String, *>): MutableSet<String> =
+        current.keys.filterTo(LinkedHashSet()) { key ->
+            isManagedKey(key) && (defaults != null || !AppDefaults.isKey(key))
+        }
 
     public companion object {
         public const val FORMAT: String = "hyperprivacy-config"
@@ -181,7 +196,8 @@ public class ConfigBackup(
             current.keys.filterTo(LinkedHashSet()) { isManagedKey(it) || TrackerOrigin.isSuspectKey(it) }
 
         /**
-         * Preference keys an import replaces wholesale; protect keys are only ever added. Global
+         * Preference keys an import replaces wholesale (default settings only when the file has
+         * them, see [plan]); protect keys are only ever added. Global
          * keys of protected-app rules (written by older versions, no switch) are removed too; the
          * device-local suspected-package switches ([TrackerOrigin.isSuspectKey]) are kept.
          */
@@ -189,7 +205,7 @@ public class ConfigBackup(
             if (TrackerOrigin.isSuspectKey(key)) return false
             val ruleId = ConfigCodec.ruleIdOf(key)
             val isRuleKey = ruleId != null && (isRuleId(ruleId) || ruleId in Catalog.protectedAppRuleIds)
-            return isRuleKey || key == AppListConfig.ALLOW_KEY ||
+            return isRuleKey || key == AppListConfig.ALLOW_KEY || AppDefaults.isKey(key) ||
                 key == AppListConfig.SELF_HIDE_KEY || listOf(
                     TrackerProtection.BLOCK_PREFIX,
                     AppListConfig.HIDE_PREFIX,
