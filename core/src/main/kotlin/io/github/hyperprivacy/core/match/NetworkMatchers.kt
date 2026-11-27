@@ -42,8 +42,15 @@ public class NetworkMatchers private constructor(
     /** Rule blocking [host] at host-only sinks, or `null` (allowed, or kept). */
     public fun findHost(host: String?): String? = hosts.find(host)?.takeIf { it != KEEP }
 
-    /** Rule blocking [host] + decoded [path] at HTTP-client sinks, or `null` (allowed, or kept). */
-    public fun findUrl(host: String?, path: String?): String? = urls.find(host, path)?.takeIf { it != KEEP }
+    /**
+     * Rule blocking [host] + decoded [path] (+ raw [query], read only when [matchesQueries]) at
+     * HTTP-client sinks, or `null` (allowed, or kept).
+     */
+    public fun findUrl(host: String?, path: String?, query: String? = null): String? =
+        urls.find(host, path, query)?.takeIf { it != KEEP }
+
+    /** Whether an enabled URL rule has a query condition, so sinks must pass the query to [findUrl]. */
+    public val matchesQueries: Boolean get() = urls.matchesQueries
 
     public companion object {
         public const val DNS_PORT: Int = 53
@@ -86,7 +93,7 @@ public class NetworkMatchers private constructor(
                     }
 
                     is RulePayload.Urls -> payload.prefixes.forEach { prefix ->
-                        urlEntries += UrlPattern(prefix.host, prefix.pathPrefix) to rule.id
+                        urlEntries += UrlPattern(prefix.host, prefix.pathPrefix, prefix.query) to rule.id
                     }
 
                     else -> Unit
