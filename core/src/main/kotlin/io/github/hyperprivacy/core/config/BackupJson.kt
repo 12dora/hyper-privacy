@@ -16,6 +16,7 @@ internal object BackupJson {
     private const val MAX_APPS = 500
     private const val MAX_ALLOWLIST = 512
     private const val MAX_VERSION = 32
+    private val DEFAULTS_KEYS = setOf("sdk", "rules", "hide", "strict")
     private val APPEARANCE_NAME = Regex("[A-Z][A-Z0-9_]{0,31}")
 
     fun encode(backup: ConfigBackup, moduleVersion: String): String {
@@ -79,6 +80,9 @@ internal object BackupJson {
 
         fun read(root: Map<*, *>): ConfigBackup {
             val rules = booleans(root["rules"], ConfigBackup::isRuleId)
+            // The small, bounded sections first, so a huge app list can never starve them of budget.
+            val appList = readAppList(root["appList"] as? Map<*, *>)
+            val defaults = root["defaults"]?.let(::readDefaults)
             val apps = LinkedHashMap<String, AppBackup>()
             (root["apps"] as? Map<*, *>)?.entries?.forEach { (key, value) ->
                 val pkg = (key as? String)?.takeIf(BackupExtractor::isPackageName)
@@ -88,9 +92,9 @@ internal object BackupJson {
             return ConfigBackup(
                 rules = rules,
                 apps = apps,
-                appList = readAppList(root["appList"] as? Map<*, *>),
+                appList = appList,
                 appearance = readAppearance(root["appearance"] as? Map<*, *>),
-                defaults = (root["defaults"] as? Map<*, *>)?.let(::readDefaults),
+                defaults = defaults,
                 ignored = ignored,
             )
         }
@@ -103,14 +107,31 @@ internal object BackupJson {
             strict = app["strict"] == true,
         )
 
-        private fun readDefaults(section: Map<*, *>): AppDefaults {
-            val sdk = booleans(section["sdk"]) { name -> TrackerCategory.entries.any { it.name == name } }
+        /**
+         * The default settings, or `null` (kept as they are) when the section is not an object.
+         * Unknown keys, wrong types and categories without a switch are skipped and counted.
+         */
+        private fun readDefaults(value: Any): AppDefaults? {
+            val section = value as? Map<*, *>
+            if (section == null) {
+                ignored++
+                return null
+            }
+            ignored += section.keys.count { it !in DEFAULTS_KEYS }
+            val sdk = booleans(section["sdk"]) { name -> AppDefaults.categories.any { it.name == name } }
             return AppDefaults(
                 sdk = sdk.mapKeys { (name, _) -> TrackerCategory.valueOf(name) },
                 rules = booleans(section["rules"]) { it in Catalog.protectedAppRuleIds },
-                hide = section["hide"] == true,
-                strict = section["strict"] == true,
+                hide = flag(section, "hide"),
+                strict = flag(section, "strict"),
             )
+        }
+
+        /** A boolean entry of [section]; absent is `false`, any other type is skipped and counted. */
+        private fun flag(section: Map<*, *>, key: String): Boolean {
+            val value = section[key]
+            if (value != null && value !is Boolean) ignored++
+            return value == true
         }
 
         private fun readAppList(section: Map<*, *>?): AppListBackup {
@@ -132,6 +153,7 @@ internal object BackupJson {
 
         /** Boolean entries of [section] whose key passes [valid]; the others count as ignored. */
         private fun booleans(section: Any?, valid: (String) -> Boolean): Map<String, Boolean> {
+            if (section != null && section !is Map<*, *>) ignored++
             val entries = (section as? Map<*, *>)?.entries ?: return emptyMap()
             val result = LinkedHashMap<String, Boolean>()
             entries.forEach { (key, value) ->

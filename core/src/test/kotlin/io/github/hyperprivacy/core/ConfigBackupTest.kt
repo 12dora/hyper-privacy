@@ -321,7 +321,40 @@ class ConfigBackupTest {
     @Test
     fun `restore defaults clears the default settings`() {
         val keys = AppDefaults(sdk = mapOf(TrackerCategory.ADS to false), hide = true, strict = true).entries().keys
-        assertEquals(keys, ConfigBackup.resetKeys(keys.associateWith { true }))
+        assertTrue(ConfigBackup.resetKeys(keys.associateWith { true }).containsAll(keys))
+        // A setting whose write has not landed yet is not stored, and still goes.
+        val always = ConfigBackup.resetKeys(emptyMap<String, Any>())
+        assertTrue(always.containsAll(AppDefaults.allKeys))
+        assertTrue(AppListConfig.ALLOW_KEY in always && AppListConfig.SELF_HIDE_KEY in always)
+        listOf(ModuleSecret.KEY, ProtectionPause.KEY).forEach { assertFalse(it in always, it) }
+    }
+
+    @Test
+    fun `a huge app list cannot starve the default settings of budget`() {
+        val many = (0 until 600).joinToString(",") { i ->
+            val sdk = Trackers.all.take(8).joinToString(",") { """"${it.id}":true""" }
+            """"com.example.c$i":{"sdk":{$sdk}}"""
+        }
+        val text = """{"format":"hyperprivacy-config","schema":1,"apps":{$many},
+            "defaults":{"sdk":{"ADS":false},"hide":true},"appList":{"allow":["com.ok.app"]}}"""
+        val backup = import(text)
+        assertTrue(backup.ignored > 0, "the app list was cut")
+        assertEquals(AppDefaults(sdk = mapOf(TrackerCategory.ADS to false), hide = true), backup.defaults)
+        assertEquals(listOf("com.ok.app"), backup.appList.allow)
+    }
+
+    @Test
+    fun `malformed default settings are skipped and counted`() {
+        val notObject = import("""{"format":"hyperprivacy-config","schema":1,"defaults":[1]}""")
+        assertNull(notObject.defaults, "kept as they are")
+        assertEquals(1, notObject.ignored)
+        val odd = TrackerCategory.entries.firstOrNull { it !in AppDefaults.categories }?.name ?: "NOPE"
+        val text = """{"format":"hyperprivacy-config","schema":1,
+            "defaults":{"sdk":{"$odd":false},"rules":"x","hide":"yes","strict":1,"extra":true}}"""
+        val backup = import(text)
+        assertEquals(AppDefaults.BUILT_IN, backup.defaults)
+        assertEquals(5, backup.ignored)
+        assertFalse(backup.summary.hasDefaults)
     }
 
     private companion object {

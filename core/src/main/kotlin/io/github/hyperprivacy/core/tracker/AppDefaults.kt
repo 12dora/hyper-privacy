@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core.tracker
 
+import io.github.hyperprivacy.core.config.ConfigCodec
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
 
@@ -15,9 +16,11 @@ import io.github.hyperprivacy.core.system.AppListConfig
  * - [HIDE_KEY], [STRICT_KEY] → Boolean: app-list hiding and its strict mode. Absent: `false`.
  *
  * Nothing in a hooked process reads these keys: [applyTo] turns them into the regular per-app
- * keys once, when protection is turned on, so the user can still change each app afterwards and a
- * later edit of the defaults never changes apps that are already protected. With nothing stored,
- * [applyTo] writes nothing and protection behaves exactly as before the defaults existed.
+ * keys once per app, the first time its protection is turned on (the app keeps track of which apps
+ * got them; turning protection off and on again re-applies nothing), so the user can still change
+ * each app afterwards and a later edit of the defaults never changes apps already protected once.
+ * SDKs a later scan finds in a protected app start as the defaults say ([sdkKeys]). With nothing
+ * stored, [applyTo] writes nothing and protection behaves exactly as before the defaults existed.
  */
 public data class AppDefaults(
     /** Per category; a category missing here is blocked ([isCategoryBlocked]). */
@@ -82,7 +85,8 @@ public data class AppDefaults(
             if (rule != null && on != rule.defaultOn) put(ruleKey(id), on)
         }
         if (hide) put(HIDE_KEY, true)
-        if (strict) put(STRICT_KEY, true)
+        // Strict mode only refines hiding: on its own it means nothing, so it is not stored.
+        if (hide && strict) put(STRICT_KEY, true)
     }
 
     public companion object {
@@ -101,6 +105,16 @@ public data class AppDefaults(
             TrackerCategory.entries.filter { it in switchable }
         }
 
+        /** Every key the defaults can be stored under, whether stored or not (restore defaults removes them all). */
+        public val allKeys: Set<String> by lazy {
+            buildSet {
+                TrackerCategory.entries.forEach { add(sdkKey(it)) }
+                Catalog.protectedAppRuleIds.forEach { add(ruleKey(it)) }
+                add(HIDE_KEY)
+                add(STRICT_KEY)
+            }
+        }
+
         public fun sdkKey(category: TrackerCategory): String = SDK_PREFIX + category.name
 
         public fun ruleKey(ruleId: String): String = RULE_PREFIX + ruleId
@@ -117,13 +131,24 @@ public data class AppDefaults(
             ?.removePrefix(RULE_PREFIX)
             ?.takeIf { it in Catalog.protectedAppRuleIds }
 
+        /**
+         * The value the defaults page shows for protected-app rule [ruleId] under [raw]: the stored
+         * default, else a legacy global `rule.<id>` switch (older versions wrote one; [applyTo] then
+         * writes nothing and the hooks follow it), else the rule's own default.
+         */
+        public fun shownRule(raw: Map<String, *>, ruleId: String): Boolean = raw[ruleKey(ruleId)] as? Boolean
+            ?: raw[ConfigCodec.key(ruleId)] as? Boolean
+            ?: Catalog.protectedAppRules.firstOrNull { it.id == ruleId }?.defaultOn
+            ?: false
+
         /** The defaults stored in [raw]; anything missing or of the wrong type is the built-in value. */
         public fun read(raw: Map<String, *>): AppDefaults {
             val sdk = LinkedHashMap<TrackerCategory, Boolean>()
             val rules = LinkedHashMap<String, Boolean>()
             raw.forEach { (key, value) ->
                 if (value !is Boolean || !key.startsWith(PREFIX)) return@forEach
-                categoryOf(key)?.let { sdk[it] = value }
+                // A category without switchable SDKs has no row and no effect, so it is not a setting.
+                categoryOf(key)?.takeIf { it in categories }?.let { sdk[it] = value }
                 ruleIdOf(key)?.let { rules[it] = value }
             }
             return AppDefaults(

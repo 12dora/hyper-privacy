@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +47,8 @@ import io.github.hyperprivacy.ui.components.groupedItems
 import io.github.hyperprivacy.ui.components.listPadding
 
 /** One installed app on the allowlist page. */
-private class AllowRow(val packageName: String, val label: String, val allowed: Boolean, val builtIn: Boolean)
+@Immutable
+private data class AllowRow(val packageName: String, val label: String, val allowed: Boolean, val builtIn: Boolean)
 
 /**
  * The apps restricted apps still see ([AppListConfig.ALLOW_KEY]), so sharing, sign-in and payment
@@ -65,18 +67,14 @@ internal fun AllowlistScreen(
     var query by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     val search = AppsSearch(active = true, query = query)
-    // Checked apps first, as they were when the page opened: a tap never makes the row jump away.
-    val opened = remember(state.loaded) { state.allowlist }
-    val rows = remember(state.apps, state.allowlist, query) {
-        state.apps.filter(search::matches)
-            .sortedWith(compareBy<UserAppUi> { it.packageName !in opened }.thenBy { it.label.lowercase() })
-            .map { AllowRow(it.packageName, it.label, it.packageName in state.allowlist, it.packageName in BUILT_IN) }
-    }
+    val rows = rememberAllowRows(state, search)
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.apps_allow_title)) },
+                title = {
+                    Text(stringResource(R.string.apps_allow_title), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
                 navigationIcon = { BackButton(actions.onBack) },
                 actions = {
                     if (state.allowlistCustom) {
@@ -107,9 +105,11 @@ internal fun AllowlistScreen(
                 }
             }
             when {
-                !state.loaded -> Unit
+                !state.loaded -> item(key = "loading") { Loading() }
 
-                rows.isEmpty() -> item(key = "empty") { EmptyText(stringResource(R.string.apps_search_empty)) }
+                rows.isEmpty() -> item(key = "empty") {
+                    EmptyText(stringResource(if (search.filtering) R.string.apps_search_empty else R.string.apps_empty))
+                }
 
                 else -> groupedItems(rows, key = { "allow/${it.packageName}" }) { row ->
                     AllowAppRow(row, canEdit) { actions.onToggle(row.packageName, it) }
@@ -120,6 +120,25 @@ internal fun AllowlistScreen(
 }
 
 private val BUILT_IN: Set<String> get() = AppListConfig.DEFAULT_ALLOWLIST
+
+/**
+ * The rows, checked apps first as they were when the page opened (kept across rotation), so a tap
+ * never makes a row jump away. Only names and the list matter: scan progress republishes the app
+ * list often, and must not re-sort it.
+ */
+@Composable
+private fun rememberAllowRows(state: AppsUi, search: AppsSearch): List<AllowRow> {
+    val opened = rememberSaveable(state.loaded) { ArrayList(state.allowlist) }.toSet()
+    val names = state.apps.map { it.packageName to it.label }
+    val sorted = remember(names, opened, search) {
+        names.filter { (pkg, label) -> search.matches(pkg, label) }
+            .map { (pkg, label) -> Triple(pkg, label, label.lowercase()) }
+            .sortedWith(compareBy({ it.first !in opened }, { it.third }))
+    }
+    return remember(sorted, state.allowlist) {
+        sorted.map { (pkg, label) -> AllowRow(pkg, label, pkg in state.allowlist, pkg in BUILT_IN) }
+    }
+}
 
 @Composable
 private fun AllowAppRow(row: AllowRow, enabled: Boolean, onToggle: (Boolean) -> Unit) {

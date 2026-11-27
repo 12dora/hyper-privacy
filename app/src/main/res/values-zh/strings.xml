@@ -311,7 +311,7 @@
     <string name="conflict_area_privacy">隐私上报拦截</string>
     <string name="conflict_line">%1$s：%2$s</string>
     <plurals name="conflict_names_more">
-        <item quantity="other">%1$s 等 %2$d 个</item>
+        <item quantity="other">%1$s及另外 %2$d&#160;个</item>
     </plurals>
     <string name="conflict_hint">同时启用可能重复拦截或相互干扰</string>
     <string name="conflict_disable_applist">关闭应用列表隐藏</string>

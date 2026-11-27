@@ -182,10 +182,15 @@ internal class DemoData(private val language: String) {
         const val SDK_HITS = 64L
         const val SUSPECT_HITS = 6L
 
-        /** Overlapping modules by area; one does two things and is named under both. */
+        /** Overlapping modules by area; one does two things and is named under both, ads has more than are named. */
         val CONFLICTS: List<Pair<OverlapArea, List<Text>>> = listOf(
             OverlapArea.APP_LIST to listOf(Text("示例模块", "Sample module")),
-            OverlapArea.ADS to listOf(Text("Example AdKit", "Example AdKit"), Text("净化助手", "Cleaner")),
+            OverlapArea.ADS to listOf(
+                Text("Example AdKit", "Example AdKit"),
+                Text("净化助手", "Cleaner"),
+                Text("去广告", "No Ads"),
+                Text("开屏跳过", "Splash Skip"),
+            ),
             OverlapArea.PRIVACY to listOf(Text("净化助手", "Cleaner")),
         )
 
