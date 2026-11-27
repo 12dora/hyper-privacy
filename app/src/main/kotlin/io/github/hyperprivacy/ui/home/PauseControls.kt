@@ -7,9 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,19 +28,25 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import io.github.hyperprivacy.R
 import io.github.hyperprivacy.core.config.ProtectionPause
 import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.components.AppIcons
+import io.github.hyperprivacy.ui.components.GroupedSurface
 import io.github.hyperprivacy.ui.components.IconBadge
 import kotlinx.coroutines.delay
 
 private const val TICK_MS = 15_000L
 private const val PREVIEW_PAUSE_MS = 12 * 60_000L
+
+/** Material's dialog inset, so title and options line up with other dialogs. */
+private val DialogPadding = 24.dp
 
 /** The wall clock, refreshed while [active], so the remaining time of a pause counts down. */
 @Composable
@@ -66,7 +76,7 @@ internal fun PausedRow(until: Long, now: Long, onResume: () -> Unit, modifier: M
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.TallRowMinHeight)
-            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical + Dimens.Tiny),
+            .padding(horizontal = Dimens.Gutter, vertical = Dimens.RowVertical),
         horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -97,36 +107,58 @@ internal fun PauseButton(onClick: () -> Unit) {
     TextButton(onClick = onClick) { Text(stringResource(R.string.pause_action)) }
 }
 
-/** Asks how long to pause; each option applies at once. */
+/**
+ * Asks how long to pause; each option applies at once. The options form one rounded group, like the
+ * app's lists (each whole row is the target), with only "cancel" below them.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PauseDialog(onChoose: (ProtectionPause.Option) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.pause_dialog_title)) },
-        text = {
-            Column {
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = AlertDialogDefaults.containerColor,
+            tonalElevation = AlertDialogDefaults.TonalElevation,
+        ) {
+            Column(Modifier.padding(top = DialogPadding, bottom = Dimens.Tiny)) {
+                Text(
+                    text = stringResource(R.string.pause_dialog_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(horizontal = DialogPadding).semantics { heading() },
+                )
                 Text(
                     text = stringResource(R.string.pause_dialog_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = Dimens.Small),
+                    modifier = Modifier.padding(start = DialogPadding, end = DialogPadding, top = Dimens.Small),
                 )
-                ProtectionPause.Option.entries.forEach { option ->
-                    Text(
-                        text = stringResource(option.labelRes()),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = Dimens.TouchTarget)
-                            .clickable(role = Role.Button) { onChoose(option) }
-                            .padding(vertical = Dimens.Small),
-                    )
+                val options = ProtectionPause.Option.entries
+                // Inset so the option text lines up with the title.
+                Column(Modifier.padding(start = Dimens.Small, end = Dimens.Small, top = Dimens.Gutter)) {
+                    options.forEachIndexed { index, option ->
+                        GroupedSurface(index, options.size, color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                            Text(
+                                text = stringResource(option.labelRes()),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(role = Role.Button) { onChoose(option) }
+                                    .heightIn(min = Dimens.RowMinHeight)
+                                    .wrapContentHeight(Alignment.CenterVertically)
+                                    .padding(horizontal = Dimens.Gutter),
+                            )
+                        }
+                    }
+                }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End).padding(end = Dimens.Small + Dimens.Tiny),
+                ) {
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+        }
+    }
 }
 
 @Preview(showBackground = true)

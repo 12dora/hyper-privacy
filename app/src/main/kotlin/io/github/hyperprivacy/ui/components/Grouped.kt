@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +40,7 @@ internal fun GroupedSurface(
     index: Int,
     count: Int,
     modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.surfaceContainer,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
@@ -46,7 +48,7 @@ internal fun GroupedSurface(
             .fillMaxWidth()
             .padding(bottom = if (index == count - 1) 0.dp else Dimens.RowGap),
         shape = groupedShape(index, count),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = color,
         content = { Column(content = content) },
     )
 }
@@ -68,7 +70,7 @@ internal fun <T> LazyListScope.groupedItems(
 internal fun SingleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
     GroupedSurface(index = 0, count = 1, modifier = modifier, content = content)
 
-/** A 36dp group label above a card; [leading] is an optional 20dp icon. */
+/** A 32dp group label above a card; [leading] is an optional 20dp icon. */
 @Composable
 internal fun SectionHeader(
     text: String,
