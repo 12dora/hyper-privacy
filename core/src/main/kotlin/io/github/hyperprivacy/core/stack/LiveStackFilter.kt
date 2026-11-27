@@ -14,13 +14,14 @@ package io.github.hyperprivacy.core.stack
  * What is dropped, always as one contiguous run around at least one module frame (a *window*):
  * - module frames;
  * - hook-framework frames touching them: classes of the known framework packages and LSPosed's
- *   generated stub classes ([FRAMEWORK_ROOTS], `LSPHooker_*` in the default package);
+ *   generated stub classes ([FRAMEWORK_ROOTS], `LSPHooker_*` in the default package), plus one
+ *   reflective `Method.invoke` frame right above the window (the framework calling the hooked
+ *   method's backup), whatever the stub;
  * - when the window holds no generated `LSPHooker_*` stub, a stub the framework placed elsewhere
  *   (the hooked method's own package, or a random default-package class): the one frame right
  *   below the window (caller side) whose method has the hooked method's name, in the hooked
  *   method's package or the default package, but another class. The hooked method is the frame
- *   right above the window (the framework's backup of it keeps its class and name), seen through
- *   one reflective `Method.invoke` frame if there is one, which then goes as well. Overload
+ *   right above the window (the framework's backup of it keeps its class and name). Overload
  *   delegation (`C.m` calling `C.m`) is never mistaken for a stub: the class must differ.
  *
  * App frames and genuine platform frames (the hooked method's own frame, WebView's
@@ -61,15 +62,11 @@ public class LiveStackFilter(private val modulePrefixes: Array<String>) {
     private fun markWindow(frames: Array<StackTraceElement>, at: Int, floor: Int, drop: BooleanArray): Int {
         var top = at
         while (top - 1 >= floor && isBridge(frames[top - 1].className)) top--
+        // The framework may call the hooked method's backup reflectively: that invoke frame is ours too.
+        if (top - 1 >= floor && isReflectInvoke(frames[top - 1])) top--
         var bottom = at
         while (bottom + 1 < frames.size && isBridge(frames[bottom + 1].className)) bottom++
-        if (!hasGeneratedStub(frames, top, bottom) && bottom + 1 < frames.size) {
-            val hooked = hookedIndex(frames, top, floor)
-            if (hooked >= 0 && isPackageStub(frames[hooked], frames[bottom + 1])) {
-                bottom++
-                top = hooked + 1 // Also the reflective invoke frame between them, if any.
-            }
-        }
+        if (hasPackageStub(frames, top, bottom, floor)) bottom++
         for (j in top..bottom) drop[j] = true
         return bottom
     }
@@ -93,12 +90,15 @@ public class LiveStackFilter(private val modulePrefixes: Array<String>) {
         return false
     }
 
-    /** Index of the hooked method's frame right above the window at [top], or -1. */
-    private fun hookedIndex(frames: Array<StackTraceElement>, top: Int, floor: Int): Int {
-        var at = top - 1
-        if (at >= floor && frames[at].className == REFLECT_METHOD && frames[at].methodName == INVOKE) at--
-        return if (at >= floor) at else -1
+    /** Whether the frame right below the window [top]..[bottom] is a stub outside the generated `LSPHooker_` class. */
+    private fun hasPackageStub(frames: Array<StackTraceElement>, top: Int, bottom: Int, floor: Int): Boolean {
+        val hooked = top - 1 // The hooked method's backup frame.
+        if (hooked < floor || bottom + 1 >= frames.size) return false
+        return !hasGeneratedStub(frames, top, bottom) && isPackageStub(frames[hooked], frames[bottom + 1])
     }
+
+    private fun isReflectInvoke(frame: StackTraceElement): Boolean =
+        frame.className == REFLECT_METHOD && frame.methodName == INVOKE
 
     private fun isPackageStub(hooked: StackTraceElement, candidate: StackTraceElement): Boolean {
         val stub = candidate.className

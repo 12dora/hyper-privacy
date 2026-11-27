@@ -19,3 +19,8 @@
 # package uses it, and R8 only reaches four-character names past hundreds of thousands of packages.
 # Keep it neutral (it shows in nothing but our own frames, which are scrubbed).
 -repackageclasses 'u_qz'
+
+# ModuleFrames reads the package above from its own runtime name: never merge or inline it away,
+# but let it be renamed (and so repackaged). The release build checks the mapping for this
+# (checkReleaseModulePackage in app/build.gradle.kts).
+-keep,allowobfuscation class io.github.hyperprivacy.xposed.ModuleFrames
