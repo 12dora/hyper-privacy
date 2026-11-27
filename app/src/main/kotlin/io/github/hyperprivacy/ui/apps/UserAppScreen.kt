@@ -36,6 +36,7 @@ import io.github.hyperprivacy.ui.Dimens
 import io.github.hyperprivacy.ui.HyperPrivacyTheme
 import io.github.hyperprivacy.ui.components.AppIcon
 import io.github.hyperprivacy.ui.components.BackButton
+import io.github.hyperprivacy.ui.components.NavRow
 import io.github.hyperprivacy.ui.components.SectionHeader
 import io.github.hyperprivacy.ui.components.SingleCard
 import io.github.hyperprivacy.ui.components.SwitchRow
@@ -171,12 +172,21 @@ private fun LazyListScope.appRuleSection(app: UserAppUi, canEdit: Boolean, onTog
     }
 }
 
-private enum class AppListRow { HIDE, STRICT }
+private enum class AppListRow { HIDE, STRICT, ALLOWLIST }
 
-/** Strict mode refines app-list hiding, so its row exists only while hiding is on. */
+/**
+ * Strict mode refines app-list hiding, so its row exists only while hiding is on; so does the way to
+ * the apps left visible, which strict mode hides too.
+ */
 private fun LazyListScope.appListSection(app: UserAppUi, canEdit: Boolean, actions: UserAppActions) {
     item(key = "applist-title") { SectionHeader(stringResource(R.string.app_section_privacy)) }
-    val rows = AppListRow.entries.filter { it == AppListRow.HIDE || app.hideApps }
+    val rows = AppListRow.entries.filter {
+        when (it) {
+            AppListRow.HIDE -> true
+            AppListRow.STRICT -> app.hideApps
+            AppListRow.ALLOWLIST -> app.hideApps && !app.strict
+        }
+    }
     groupedItems(rows, key = { "applist/$it" }) { row ->
         when (row) {
             AppListRow.HIDE -> SwitchRow(
@@ -193,6 +203,12 @@ private fun LazyListScope.appListSection(app: UserAppUi, canEdit: Boolean, actio
                 checked = app.strict,
                 enabled = canEdit,
                 onCheckedChange = actions.onStrict,
+            )
+
+            AppListRow.ALLOWLIST -> NavRow(
+                title = stringResource(R.string.apps_allow_title),
+                summary = stringResource(R.string.apps_allow_summary),
+                onClick = actions.onOpenAllowlist,
             )
         }
     }

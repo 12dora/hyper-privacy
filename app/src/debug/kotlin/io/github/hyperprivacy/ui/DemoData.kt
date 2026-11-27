@@ -30,6 +30,8 @@ internal class DemoSwitches(
     var diagnosticMode: Boolean = false,
     var conflictDismissed: Boolean = false,
     var observedCleared: Boolean = false,
+    /** The user's own allowlist; `null`: the built-in one. */
+    var allowlist: Set<String>? = null,
 ) {
     val rules = HashMap<String, Boolean>()
     val appSwitches = HashMap<String, Boolean>()
@@ -115,6 +117,8 @@ internal class DemoData(private val language: String) {
             scanned = apps.size,
             total = apps.size,
             defaults = AppDefaults.read(switches.appSwitches),
+            allowlist = switches.allowlist ?: AppListConfig.DEFAULT_ALLOWLIST,
+            allowlistCustom = switches.allowlist != null,
         )
     }
 
@@ -312,6 +316,9 @@ internal class DemoData(private val language: String) {
                 sdks = listOf(TrackerCategory.LOCATION to 1, TrackerCategory.ADS to 1),
                 protected = false,
             ),
+            // Partner apps on the built-in allowlist, under neutral names.
+            DemoUserApp("com.tencent.mm", Text("聊天", "Chat"), sdks = emptyList(), protected = false),
+            DemoUserApp("com.eg.android.AlipayGphone", Text("支付", "Pay"), sdks = emptyList(), protected = false),
             DemoUserApp(
                 packageName = "com.example.notes",
                 label = Text("便签", "Notes"),

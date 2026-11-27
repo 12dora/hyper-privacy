@@ -39,7 +39,6 @@ import io.github.hyperprivacy.ui.UiState
 import io.github.hyperprivacy.ui.components.BackButton
 import io.github.hyperprivacy.ui.components.NavRow
 import io.github.hyperprivacy.ui.components.SectionHeader
-import io.github.hyperprivacy.ui.components.SingleCard
 import io.github.hyperprivacy.ui.components.SwitchRow
 import io.github.hyperprivacy.ui.components.TitleSummary
 import io.github.hyperprivacy.ui.components.ValueRow
@@ -66,6 +65,7 @@ internal fun SettingsScreen(
     onSelfHideChange: (Boolean) -> Unit,
     onResetDefaults: () -> Unit,
     onOpenEndpoints: () -> Unit,
+    onOpenAllowlist: () -> Unit,
     onRefreshObserved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -86,7 +86,7 @@ internal fun SettingsScreen(
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(inner)) {
             appearanceSection(appearance, onAppearanceChange)
-            privacySection(state, onSelfHideChange)
+            privacySection(state, onSelfHideChange, onOpenAllowlist)
             backupSection(state.module.canEdit, backup) { confirmReset = true }
             diagnosticsSection(state, DiagnosticsActions(onOpenHealth, onExport, onDiagnosticChange, onOpenEndpoints))
             aboutSection(state, repository, onOpenRepository = { runCatching { uriHandler.openUri(repository) } })
@@ -119,16 +119,28 @@ internal fun ObservedRefresh(polling: Boolean, onRefresh: () -> Unit) {
     }
 }
 
-private fun LazyListScope.privacySection(state: UiState, onSelfHideChange: (Boolean) -> Unit) {
+private enum class PrivacyRow { SELF_HIDE, ALLOWLIST }
+
+private fun LazyListScope.privacySection(
+    state: UiState,
+    onSelfHideChange: (Boolean) -> Unit,
+    onOpenAllowlist: () -> Unit,
+) {
     item(key = "privacy-title") { SectionHeader(stringResource(R.string.settings_privacy)) }
-    item(key = "privacy") {
-        SingleCard {
-            SwitchRow(
+    groupedItems(PrivacyRow.entries, key = { "privacy/$it" }) { row ->
+        when (row) {
+            PrivacyRow.SELF_HIDE -> SwitchRow(
                 title = stringResource(R.string.settings_self_hide),
                 summary = stringResource(R.string.settings_self_hide_summary),
                 checked = state.selfHidden,
                 enabled = state.module.canEdit,
                 onCheckedChange = onSelfHideChange,
+            )
+
+            PrivacyRow.ALLOWLIST -> NavRow(
+                title = stringResource(R.string.apps_allow_title),
+                summary = stringResource(R.string.apps_allow_summary),
+                onClick = onOpenAllowlist,
             )
         }
     }
@@ -259,6 +271,7 @@ private fun SettingsPreview() {
             onSelfHideChange = {},
             onResetDefaults = {},
             onOpenEndpoints = {},
+            onOpenAllowlist = {},
             onRefreshObserved = {},
         )
     }

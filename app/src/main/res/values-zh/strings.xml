@@ -237,6 +237,11 @@
     <string name="apps_title">已安装应用</string>
     <string name="apps_intro">识别应用内置的追踪 SDK 并拦截其上报</string>
     <string name="apps_defaults">默认设置</string>
+    <string name="apps_allow_title">保持可见的应用</string>
+    <string name="apps_allow_summary">分享、登录与支付应用不被隐藏</string>
+    <string name="apps_allow_note">勾选的应用不会被隐藏，严格模式除外</string>
+    <string name="apps_allow_default">默认</string>
+    <string name="apps_allow_reset">恢复默认</string>
     <string name="apps_defaults_summary">开启防护时自动应用</string>
     <string name="apps_defaults_note">对之后开启防护的应用生效，可逐个调整</string>
     <string name="apps_defaults_sdk_note">影响登录或支付的 SDK 需在应用内开启</string>

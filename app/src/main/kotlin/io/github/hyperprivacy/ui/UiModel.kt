@@ -55,6 +55,18 @@ internal interface AppsModel {
     fun retryScope(packageName: String)
 
     fun set(switch: AppSwitch, on: Boolean)
+
+    /** Apps left visible to restricted apps (the list itself is part of [state]). */
+    val allowlist: AllowlistModel
+}
+
+/** Edits the apps left visible to apps that have app-list hiding on. */
+internal interface AllowlistModel {
+    /** Adds [packageName] to, or removes it from, the list. */
+    fun setAllowed(packageName: String, on: Boolean)
+
+    /** Goes back to the built-in list. */
+    fun reset()
 }
 
 /** Configuration export and import. */
