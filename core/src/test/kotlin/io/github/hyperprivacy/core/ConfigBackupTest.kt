@@ -9,6 +9,8 @@ import io.github.hyperprivacy.core.config.ParsedBackup
 import io.github.hyperprivacy.core.config.ProtectionPause
 import io.github.hyperprivacy.core.rule.Catalog
 import io.github.hyperprivacy.core.system.AppListConfig
+import io.github.hyperprivacy.core.tracker.AppDefaults
+import io.github.hyperprivacy.core.tracker.TrackerCategory
 import io.github.hyperprivacy.core.tracker.TrackerProtection
 import io.github.hyperprivacy.core.tracker.Trackers
 import org.junit.jupiter.api.Test
@@ -235,7 +237,10 @@ class ConfigBackupTest {
         assertEquals(1, backup.ignored)
         val legacy = mapOf(ConfigCodec.key(appRuleId) to false)
         assertTrue(ConfigCodec.key(appRuleId) in backup.plan(legacy, SELF, { true }) { null }.removes)
-        assertFalse(appRuleId in ConfigBackup.encode(ConfigBackup.of(legacy, look), "1"))
+        val exported = import(ConfigBackup.encode(ConfigBackup.of(legacy, look), "1"))
+        assertFalse(appRuleId in exported.rules)
+        // The default settings name the rule, but carry no legacy global value.
+        assertEquals(AppDefaults.BUILT_IN, exported.defaults)
     }
 
     @Test
@@ -272,6 +277,51 @@ class ConfigBackupTest {
         assertTrue(count * (Trackers.all.size + 1) > 4_000)
         assertTrue(entries <= 4_000, "$entries entries")
         assertTrue(wide.ignored > 0)
+    }
+
+    @Test
+    fun `default settings round-trip and replace the current ones`() {
+        val defaults = AppDefaults(
+            sdk = mapOf(TrackerCategory.ANALYTICS to false),
+            rules = mapOf(appRuleId to !Catalog.protectedAppRules.first().defaultOn),
+            hide = true,
+        )
+        val stored = raw + defaults.entries()
+        val backup = import(ConfigBackup.encode(ConfigBackup.of(stored, look), "1"))
+        assertEquals(defaults.entries(), backup.defaults?.entries())
+        assertTrue(backup.summary.hasDefaults)
+        assertFalse(import(export()).summary.hasDefaults, "built-in defaults are not worth a summary line")
+        // Importing a file with built-in defaults clears the stored ones.
+        val plan = import(export()).plan(stored, SELF, { true }) { setOf(sdkId) }
+        defaults.entries().keys.forEach { assertTrue(it in plan.removes, it) }
+        val restored = backup.plan(emptyMap<String, Any>(), SELF, { true }) { setOf(sdkId) }
+        assertEquals(defaults.entries(), restored.puts.filterKeys(AppDefaults::isKey))
+    }
+
+    @Test
+    fun `a file without default settings keeps the current ones`() {
+        val stored = mapOf(AppDefaults.HIDE_KEY to true, AppDefaults.sdkKey(TrackerCategory.ADS) to false)
+        val old = import("""{"format":"hyperprivacy-config","schema":1,"rules":{"$ruleId":true}}""")
+        assertEquals(null, old.defaults)
+        val plan = old.plan(stored, SELF, { true }) { null }
+        stored.keys.forEach { assertFalse(it in plan.removes || it in plan.puts, it) }
+    }
+
+    @Test
+    fun `invalid default settings are ignored and counted`() {
+        val text = """
+            {"format":"hyperprivacy-config","schema":1,
+             "defaults":{"sdk":{"ADS":false,"NOPE":false,"ANALYTICS":"no"},"rules":{"gone.rule":true},"hide":true}}
+        """.trimIndent()
+        val backup = import(text)
+        assertEquals(AppDefaults(sdk = mapOf(TrackerCategory.ADS to false), hide = true), backup.defaults)
+        assertEquals(3, backup.ignored)
+    }
+
+    @Test
+    fun `restore defaults clears the default settings`() {
+        val keys = AppDefaults(sdk = mapOf(TrackerCategory.ADS to false), hide = true, strict = true).entries().keys
+        assertEquals(keys, ConfigBackup.resetKeys(keys.associateWith { true }))
     }
 
     private companion object {

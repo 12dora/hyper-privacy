@@ -231,7 +231,7 @@
     <string name="settings_reset">Restore defaults</string>
     <string name="settings_reset_summary">Reset rules, app options and app-list settings</string>
     <string name="settings_reset_title">Restore defaults?</string>
-    <string name="settings_reset_body">Rules, per-app options and app-list settings return to their defaults, and diagnostic mode turns off. Protected apps stay protected.</string>
+    <string name="settings_reset_body">Rules, per-app options, default settings and app-list settings return to their defaults, and diagnostic mode turns off. Protected apps stay protected.</string>
     <string name="settings_reset_confirm">Restore</string>
     <string name="settings_about">About</string>
     <string name="about_framework">Framework</string>
@@ -261,6 +261,10 @@
     <!-- Apps (tracker protection for installed apps) -->
     <string name="apps_title">Installed apps</string>
     <string name="apps_intro">Detects tracker SDKs and blocks their reports</string>
+    <string name="apps_defaults">Default settings</string>
+    <string name="apps_defaults_summary">Applied when you turn on protection</string>
+    <string name="apps_defaults_note">For newly protected apps; adjustable per app</string>
+    <string name="apps_defaults_sdk_note">Sign-in and payment SDKs stay off until enabled</string>
     <string name="apps_filter_trackers">With trackers</string>
     <string name="apps_scanning">Checking %1$d of %2$d</string>
     <plurals name="apps_sdk_count">
@@ -344,7 +348,7 @@
     <string name="backup_import">Import configuration</string>
     <string name="backup_import_summary">Restore settings from an exported file</string>
     <string name="backup_import_title">Import this configuration?</string>
-    <string name="backup_import_body">This replaces your rule switches, app options, app-list settings and appearance. Apps already protected stay protected and take the file\'s options. Apps newly protected by the file need approval in the Apps tab. Only third-party apps installed on this device are configured.</string>
+    <string name="backup_import_body">This replaces your rule switches, app options and defaults, app-list settings and appearance. Apps already protected stay protected and take the file\'s options. Apps newly protected by the file need approval in the Apps tab. Only third-party apps installed on this device are configured.</string>
     <string name="backup_import_confirm">Import</string>
     <plurals name="backup_summary_rules">
         <item quantity="one">%1$d rule switch</item>
@@ -356,6 +360,7 @@
     </plurals>
     <string name="backup_summary_applist">App-list settings</string>
     <string name="backup_summary_appearance">Appearance</string>
+    <string name="backup_summary_defaults">App default settings</string>
     <string name="backup_summary_empty">No settings</string>
     <plurals name="backup_summary_ignored">
         <item quantity="one">%1$d unrecognised item skipped</item>
