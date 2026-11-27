@@ -4,6 +4,7 @@ import io.github.hyperprivacy.core.method.DefaultReturn
 import io.github.hyperprivacy.core.method.Replacement
 import io.github.hyperprivacy.core.rule.Rule
 import io.github.hyperprivacy.core.rule.RulePayload
+import io.github.libxposed.api.XposedInterface.ExceptionMode
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
@@ -22,6 +23,7 @@ internal class MethodGuard(private val env: GuardEnv) {
             log.warn("${rule.id}: class ${payload.className} not found in $packageName")
             return 0
         }
+        if (!prepareNative(rule, type, payload)) return 0
         val hooked = type.declaredMethods.filter { it.isCandidate(payload) }.count { method ->
             when (val replacement = DefaultReturn.forType(method.returnType, payload.allowNullReturn)) {
                 Replacement.Skip -> false
@@ -36,8 +38,22 @@ internal class MethodGuard(private val env: GuardEnv) {
         return hooked
     }
 
+    /**
+     * A native method is only safe to hook once its class's static initialiser has bound the library
+     * (`System.loadLibrary` / `RegisterNatives`); otherwise the original, run when the switch is off,
+     * could fail with `UnsatisfiedLinkError`. The app runs that initialiser on first use anyway, so
+     * it is run here; if it fails the hook is skipped and the app is left untouched (fail open).
+     */
+    private fun prepareNative(rule: Rule, type: Class<*>, payload: RulePayload.Method): Boolean {
+        val hasNative = type.declaredMethods.any { Modifier.isNative(it.modifiers) && payload.method.matches(it.name) }
+        if (!hasNative) return true
+        val ready = runCatching { Class.forName(type.name, true, env.classLoader) }.isSuccess
+        if (!ready) log.warn("${rule.id}: ${payload.className} did not initialise in $packageName; not hooked")
+        return ready
+    }
+
     private fun hook(ruleId: String, method: Method, value: Any?) {
-        xposed.hook(method).intercept(
+        xposed.hook(method).setExceptionMode(ExceptionMode.PROTECTIVE).intercept(
             FailOpenHooker(log, ruleId) {
                 if (!env.switches.isEnabled(ruleId)) return@FailOpenHooker Verdict.Proceed
                 env.reporter.hit(packageName, ruleId, method.name)

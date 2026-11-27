@@ -412,8 +412,10 @@ internal val HTTPDNS_EXCLUDED_APPS: Set<String> = setOf(
     "com.xiaomi.account", // Xiaomi account
     "com.xiaomi.digitalkey", // digital car key
     "com.xiaomi.finddevice", // Find Device
+    "com.xiaomi.gnss.polaris", // GNSS geofence service; only the MiSight event hook targets it
     "com.xiaomi.payment", // Mi Pay / wallet
     "com.xiaomi.simactivate.service", // SIM activation
+    "com.xiaomi.trustservice", // TEE / Find Device key service; only the MiSight event hook targets it
     "com.xiaomi.xmsf", // MiPush
 )
 
