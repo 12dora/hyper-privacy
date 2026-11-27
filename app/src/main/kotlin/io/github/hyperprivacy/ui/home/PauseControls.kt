@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -120,7 +122,8 @@ internal fun PauseDialog(onChoose: (ProtectionPause.Option) -> Unit, onDismiss: 
             color = AlertDialogDefaults.containerColor,
             tonalElevation = AlertDialogDefaults.TonalElevation,
         ) {
-            Column(Modifier.padding(top = DialogPadding, bottom = Dimens.Tiny)) {
+            // Scrolls at large font scales or in landscape, so cancel and the last option stay reachable.
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(top = DialogPadding, bottom = Dimens.Tiny)) {
                 Text(
                     text = stringResource(R.string.pause_dialog_title),
                     style = MaterialTheme.typography.headlineSmall,

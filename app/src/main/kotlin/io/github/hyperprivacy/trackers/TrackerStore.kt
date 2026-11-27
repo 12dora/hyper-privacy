@@ -10,7 +10,8 @@ import io.github.hyperprivacy.core.tracker.Trackers
 internal data class ScanKey(val versionCode: Long, val lastUpdateTime: Long)
 
 /**
- * App-private tracker scan cache, never shared with hooked processes: scan results per package
+ * App-private tracker scan cache, never shared with hooked processes (it also remembers which apps
+ * already got the default settings, see [defaultsApplied]): scan results per package
  * (`scan.<pkg>` → `versionCode,lastUpdateTime,dbVersion,format|id,id|hints`, hints as
  * [OriginHints.encode]), valid while the app build, the signature database version and the cache
  * format are unchanged.
@@ -35,11 +36,33 @@ internal class TrackerStore(context: Context) {
         putString(SCAN_PREFIX + packageName, listOf(header(key), ids, scan.hints.encode()).joinToString(FIELD))
     }
 
-    /** Drops scan results of packages that are no longer installed. */
+    /** Drops scan results (and the default-settings marks) of packages that are no longer installed. */
     fun retainScans(installed: Set<String>) {
         val stale = prefs.all.keys.filter { it.startsWith(SCAN_PREFIX) && it.removePrefix(SCAN_PREFIX) !in installed }
-        if (stale.isNotEmpty()) prefs.edit { stale.forEach(::remove) }
+        val applied = appliedPackages()
+        val kept = applied.filterTo(HashSet()) { it in installed }
+        if (stale.isEmpty() && kept.size == applied.size) return
+        prefs.edit {
+            stale.forEach(::remove)
+            putStringSet(APPLIED_KEY, kept)
+        }
     }
+
+    /**
+     * Whether [packageName] already got the default settings: they apply once per app, the first
+     * time its protection is turned on, never again when it is turned off and on.
+     */
+    fun defaultsApplied(packageName: String): Boolean = packageName in appliedPackages()
+
+    fun markDefaultsApplied(packages: Collection<String>) {
+        val applied = appliedPackages()
+        if (applied.containsAll(packages)) return
+        prefs.edit { putStringSet(APPLIED_KEY, applied + packages) }
+    }
+
+    /** A missing or corrupted value (another type under the key) reads as "none yet", never throws. */
+    private fun appliedPackages(): Set<String> =
+        runCatching { prefs.getStringSet(APPLIED_KEY, null) }.getOrNull().orEmpty()
 
     private fun header(key: ScanKey) =
         listOf(key.versionCode, key.lastUpdateTime, Trackers.version, FORMAT).joinToString(SEPARATOR)
@@ -47,6 +70,7 @@ internal class TrackerStore(context: Context) {
     private companion object {
         const val FILE_NAME = "trackers"
         const val SCAN_PREFIX = "scan."
+        const val APPLIED_KEY = "defaults.applied"
         const val SEPARATOR = ","
         const val FIELD = "|"
         const val FIELDS = 3

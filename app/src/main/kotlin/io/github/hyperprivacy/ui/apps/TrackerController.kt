@@ -83,6 +83,9 @@ internal class TrackerController(
 
     override val state: StateFlow<AppsUi> = mutableState.asStateFlow()
 
+    /** Per-app switch keys written here and not yet visible in the preferences (restore defaults removes them too). */
+    val pendingKeys: Set<String> get() = pending.keys()
+
     /** Apps left visible to restricted apps; published with the rest of the Apps state. */
     override val allowlist = AllowlistStore(scope, worker, prefs) { publish() }
 
@@ -161,9 +164,12 @@ internal class TrackerController(
             val written = runCatching {
                 val editor = target.edit()
                 if (on) {
-                    val raw = target.all
                     editor.putScanResult(packageName, result)
-                    AppDefaults.read(raw).applyTo(raw, packageName, result.ids).forEach(editor::putBoolean)
+                    // Once per app, the first time it is protected; switch writes still on their way count.
+                    if (!store.defaultsApplied(packageName)) {
+                        val raw = pending.overlay(target.all)
+                        AppDefaults.read(raw).applyTo(raw, packageName, result.ids).forEach(editor::putBoolean)
+                    }
                 } else {
                     editor.removeScanResult(packageName)
                 }
@@ -172,6 +178,7 @@ internal class TrackerController(
             if (!written) {
                 pendingProtect.remove(packageName)
             } else if (on) {
+                runCatching { store.markDefaultsApplied(setOf(packageName)) }
                 scopes.request(packageName)
             } else {
                 scopes.remove(packageName)
@@ -235,8 +242,11 @@ internal class TrackerController(
         // Unreadable APKs are retried once the app changes (e.g. after it finished updating) or on the next start.
         failed.keys.retainAll { byPackage[it]?.key == failed[it] }
         val missing = listed.filter { it.packageName !in detected }
+        val protectedNow = prefs()?.let { runCatching { TrackerProtection.protectedPackages(it.all) }.getOrNull() }
         val cached = withContext(Dispatchers.IO) {
             runCatching { store.retainScans(byPackage.keys) }
+            // Apps protected before default settings existed (or by an import) already had their first protection.
+            protectedNow?.let { runCatching { store.markDefaultsApplied(it) } }
             missing.mapNotNull { app -> runCatching { appScanner.cached(app) }.getOrNull()?.let { app to it } }
         }
         cached.forEach { (app, result) -> detected[app.packageName] = Scan(app.key, result) }
@@ -259,7 +269,7 @@ internal class TrackerController(
                         failed[app.packageName] = app.key
                     } else {
                         detected[app.packageName] = Scan(app.key, found)
-                        prefs()?.let { updateStoredResult(it, app.packageName, found) }
+                        prefs()?.let { updateStoredResult(it, pending, app.packageName, found) }
                     }
                     publishRequests.trySend(Unit)
                 }
@@ -329,13 +339,13 @@ internal sealed class AppSwitch(val key: String) {
  * A protected app was updated and rescanned: hooks pick up the new SDK set on its next start. SDKs
  * it did not have before start as the default settings say.
  */
-private fun updateStoredResult(prefs: SharedPreferences, packageName: String, found: AppScan) {
+private fun updateStoredResult(prefs: SharedPreferences, pending: PendingWrites, packageName: String, found: AppScan) {
     val key = TrackerProtection.protectKey(packageName)
     val stored = runCatching { prefs.getString(key, null) }.getOrNull() ?: return
     val origin = runCatching { prefs.getString(TrackerOrigin.originKey(packageName), null) }.getOrNull()
     if (stored == TrackerProtection.encodeDetected(found.ids) && origin.orEmpty() == found.hints.encode()) return
     runCatching {
-        val raw = prefs.all
+        val raw = pending.overlay(prefs.all)
         val added = found.ids - TrackerProtection.detected(raw, packageName).orEmpty().toSet()
         val defaults = AppDefaults.read(raw).sdkKeys(raw, packageName, added)
         prefs.edit {
@@ -417,7 +427,7 @@ private class AppsUiBuilder(
     fun defaults(): AppDefaults {
         val stored = AppDefaults.read(raw)
         val keys = AppDefaults.categories.map { AppDefaults.sdkKey(it) to stored.isCategoryBlocked(it) } +
-            Catalog.protectedAppRuleIds.map { AppDefaults.ruleKey(it) to stored.isRuleOn(it) } +
+            Catalog.protectedAppRuleIds.map { AppDefaults.ruleKey(it) to AppDefaults.shownRule(raw, it) } +
             listOf(AppDefaults.HIDE_KEY to stored.hide, AppDefaults.STRICT_KEY to stored.strict)
         return AppDefaults.read(keys.associate { (key, value) -> key to pending.resolve(raw, key, value) })
     }

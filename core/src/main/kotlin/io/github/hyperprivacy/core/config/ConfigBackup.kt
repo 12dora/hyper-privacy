@@ -193,7 +193,16 @@ public class ConfigBackup(
          * the Apps page.
          */
         public fun resetKeys(current: Map<String, *>): Set<String> =
-            current.keys.filterTo(LinkedHashSet()) { isManagedKey(it) || TrackerOrigin.isSuspectKey(it) }
+            current.keys.filterTo(LinkedHashSet()) { isManagedKey(it) || TrackerOrigin.isSuspectKey(it) } +
+                RESET_ALWAYS
+
+        /**
+         * Global keys "Restore defaults" removes even when [resetKeys] does not see them stored yet
+         * (a write still on its way): the default settings and the app-list settings.
+         */
+        private val RESET_ALWAYS: Set<String> by lazy {
+            AppDefaults.allKeys + AppListConfig.ALLOW_KEY + AppListConfig.SELF_HIDE_KEY
+        }
 
         /**
          * Preference keys an import replaces wholesale (default settings only when the file has
