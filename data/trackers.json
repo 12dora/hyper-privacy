@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026.11.27g",
+  "version": "2026.11.27h",
   "trackers": [
     {
       "id": "aatkit",
@@ -517,6 +517,9 @@
       "codePrefixes": [
         "com.applovin."
       ],
+      "excludePrefixes": [
+        "com.applovin.impl.privacy."
+      ],
       "blockHosts": [
         "a.applovin.com",
         "b.applovin.com",
@@ -538,9 +541,10 @@
       ],
       "evidence": [
         "apk: com.mi.globalbrowser dex types Lcom/applovin/sdk/AppLovinSdk;, com.applovin.mediation.MaxDebuggerActivity",
-        "sdk: https://repo1.maven.org/maven2/com/applovin/applovin-sdk/13.7.0/ (AAR strings {a,b,d,ms,md,rt,sts,prod-a}.applovin.com, CDN {assets,img,res,vid,pdn}.applovin.com, fallbacks {a,d,ms,md,rt}.applvn.com)"
+        "sdk: https://repo1.maven.org/maven2/com/applovin/applovin-sdk/13.7.0/ (AAR strings {a,b,d,ms,md,rt,sts,prod-a}.applovin.com, CDN {assets,img,res,vid,pdn}.applovin.com, fallbacks {a,d,ms,md,rt}.applvn.com)",
+        "sdk: applovin-sdk 13.7.0 classes.jar com/applovin/impl/privacy/cmp/* wrap com.google.android.ump (UserMessagingPlatform, ConsentForm); com/applovin/impl/privacy/consentFlow (terms and privacy flow) — no own consent host"
       ],
-      "notes": "applvn.com is AppLovin's ad-only fallback domain. www.applovin.com / dash.applovin.com are not blocked. Adjust is an AppLovin company but listed separately."
+      "notes": "applvn.com is AppLovin's ad-only fallback domain. www.applovin.com / dash.applovin.com are not blocked. Adjust is an AppLovin company but listed separately. The built-in consent flow (com.applovin.impl.privacy.*, Google UMP underneath) is in excludePrefixes: origin blocking never attributes the consent form or its requests to the ad SDK; the UMP host fundingchoicesmessages.google.com is a keep host of google-admob."
     },
     {
       "id": "appsflyer",
@@ -634,10 +638,13 @@
       ],
       "blockHosts": [
         "daup.map.baidu.com",
-        "itsdata.map.baidu.com",
         "blg.map.baidu.com"
       ],
       "blockUrls": [
+        {
+          "host": "itsdata.map.baidu.com",
+          "pathPrefix": "/long-conn-gps/"
+        },
         {
           "host": "loc.map.baidu.com",
           "pathPrefix": "/statloc"
@@ -659,7 +666,7 @@
         "apk: com.xiaomi.metoknlp string http://loc.map.baidu.com/statloc",
         "traffic: com.mobiletools.systemhelper → loc.map.baidu.com, ofloc.map.baidu.com"
       ],
-      "notes": "Collector (cltr/rcvr) and background GPS-trace upload are blocked; positioning stays on loc/ofloc/cnloc.map.baidu.com."
+      "notes": "Collector (cltr/rcvr) and background GPS-trace upload (itsdata.map.baidu.com /long-conn-gps/, path-scoped like the vendor-app rule location.uplink-apps; the host's other paths are unverified) are blocked; positioning stays on loc/ofloc/cnloc.map.baidu.com."
     },
     {
       "id": "baidu-mobads",
@@ -679,6 +686,11 @@
         "com.baidu.mobads.upgrade.",
         "com.baidu.ad.magic."
       ],
+      "anchors": [
+        "com.baidu.mobads.sdk.api.BdShellActivity",
+        "com.baidu.mobads.sdk.api.MobCPUDramaActivity",
+        "com.baidu.mobads.sdk.api.MobRewardVideoActivity"
+      ],
       "blockHosts": [
         "cpro.baidustatic.com",
         "mobads-logs.baidu.com",
@@ -690,7 +702,8 @@
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/baidu-ads/9.3223/ (vendor SDK mirror; classes Lcom/baidu/mobads/sdk/, Lcom/baidu/mobads/container/, Lcom/baidu/ad/magic/; assets/bdxadsdk.jar dex; hosts mobads.baidu.com, mobads-logs.baidu.com, mobads-pre-config.cdn.bcebos.com)",
         "apk: com.baidu.input_mi classes contain Lcom/baidu/mobads/container/, Lcom/baidu/mobads/cid/, Lcom/baidu/mobads/proxy/; const-strings in com.baidu.mobads.* reference mobads.baidu.com, mobads-logs.baidu.com, mobads-pre-config.bj.bcebos.com, wn.pos.baidu.com",
-        "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard (-keep com.baidu.mobads.**)"
+        "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard (-keep com.baidu.mobads.**)",
+        "sdk: Maven Central com.tradplusad:baidu-ads:9.3223 AAR AndroidManifest.xml declares com.baidu.mobads.sdk.api.{AppActivity,MobRewardVideoActivity,MobCPUDramaActivity,BdShellActivity,BdFileProvider} (manifest anchors)"
       ],
       "notes": "Prefixes are listed per sub-package so the separate OCPC SDK (com.baidu.mobads.action.) is not misattributed. The SDK also bundles com.baidu.mobstat.forbes (Baidu stats) and generic namespaces com.component.*/com.style.widget.* (not claimed). Not blocked: cpu.baidu.com / cpu-openapi.baidu.com (百青藤 content feed, user-visible content), union.baidu.com (portal), haokan.baidu.com, m.baidu.com. Uncertain ad hosts seen in SDK strings: cpro.baidu.com, als.baidu.com, ada.baidu.com, aden.baidu.com, bes-mtj.baidu.com, hmma.baidu.com, dxp.baidu.com, lupic.cdn.bcebos.com, render-server.cdn.bcebos.com."
     },
@@ -1010,6 +1023,7 @@
         "api16-access-sg.pangle.io",
         "api16-access-ttp-b.tiktokpangle-b.us",
         "api16-access-ttp.tiktokpangle.us",
+        "api16-access-wf-sg.pangle.io",
         "api16-endcard-pack-sg.pangle.io",
         "lf-static.tiktokpangle-cdn-us.com",
         "log-api.pangolin-sdk-toutiao-b.com",
@@ -1025,7 +1039,8 @@
         "sdk: https://artifact.bytedance.com/repository/pangle/com/pangle/global/ads-sdk/6.5.1.2/ (global Pangle AAR: same com.bytedance.sdk.openadsdk / com.bykv.vk.openvk / com.bytedance.adsdk packages as the CN build, so one entry covers both; hosts api16-access-sg.pangle.io, api16-endcard-pack-sg.pangle.io, sf16-static.i18n-pglstatp.com)",
         "apk: com.mi.globalbrowser dex strings https://api16-access-ttp.tiktokpangle.us/service/2/app_log/, api16-access-ttp-b.tiktokpangle-b.us, https://lf-static.tiktokpangle-cdn-us.com/obj/ad-pattern-tx/ (from the former pangle-global entry)",
         "doc: https://www.pangleglobal.com/integration/android-initialize-pangle-sdk (PAGSdk.init / PAGConfig, classes under com.bytedance.sdk.openadsdk.api.*)",
-        "sdk: com.pangle.global:ads-sdk 6.5.1.2 AAR AndroidManifest.xml declares com.bytedance.sdk.openadsdk.activity.TT*Activity (reward / full-screen / interstitial / app-open / landing-page) and multipro.aidl.BinderPoolService (manifest anchors)"
+        "sdk: com.pangle.global:ads-sdk 6.5.1.2 AAR AndroidManifest.xml declares com.bytedance.sdk.openadsdk.activity.TT*Activity (reward / full-screen / interstitial / app-open / landing-page) and multipro.aidl.BinderPoolService (manifest anchors)",
+        "traffic cap4: com.mi.globalbrowser → api16-access-wf-sg.pangle.io (Pangle global ad API, regional)"
       ],
       "notes": "Merged from the former pangle-global entry: CN (穿山甲) and global (Pangle PAG) builds share the com.bytedance.sdk.openadsdk namespace, so a global APK now matches exactly this one entry (the PAG* entry classes are subsumed by com.bytedance.sdk.openadsdk.; com.google.ads.mediation.pangle. is intentionally not claimed — it belongs to AdMob's adapter namespace). pangle.io apex is not blocked (www.pangle.io is the vendor site); only the ad subdomains api16-access-sg / api16-endcard-pack-sg are. Only the verified Pangle subdomains are blocked (api16-access-ttp / api16-access-ttp-b, lf-static, sf16-static, api16-access-sg, api16-endcard-pack-sg); the tiktokpangle*.us, tiktokpangle-cdn-us.com, i18n-pglstatp.com and pangle.io apexes are not. com.pgl.* moved to bytedance-pgl-secsdk; obfuscated com.byazt./com.byakv. dropped (unstable). Not listed (shared with ByteDance apps or DataRangers analytics): com.ss.android.downloadlib./socialbase. (download lib), applog.snssdk.com, toblog/tobapplog/success.ctobsnssdk.com, mon.zijieapi.com, tnc3-*.zijieapi.com. log.byteoversea.com app_log paths are handled by bytedance-applog. Uncertain: apps.bytesfield.com / apps.bytesfield-b.com, sf1-amtos-cdn.bytesmanager.com, playable.oceanengine.com."
     },
@@ -2098,9 +2113,11 @@
         "com.huawei.hms.ads.splash.",
         "com.huawei.hms.ads.reward.",
         "com.huawei.hms.ads.uiengine.",
-        "com.huawei.hms.ads.consent.",
         "com.huawei.hms.ads.jsb.",
         "com.huawei.hms.ads.whythisad."
+      ],
+      "excludePrefixes": [
+        "com.huawei.hms.ads.consent."
       ],
       "blockHosts": [],
       "evidence": [
@@ -2108,7 +2125,7 @@
         "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README (华为联盟 -keep com.huawei.openalliance.ad.**)",
         "doc: decompiled aggregator constants in github.com/Coaixy/android_wh_physicalfitness_analyse (com.huawei.hms.ads.HwAds)"
       ],
-      "notes": "Deliberately does NOT use the bare com.huawei.hms.ads. prefix: com.huawei.hms.ads.identifier.* is the OAID library found in many apps without ads (apk: com.xiaomi.youpin, com.baidu.input_mi). Detection only: hosts are resolved via HMS GRS at runtime (regional *.op.hicloud.com / *.op.dbankcloud.cn, e.g. events-dra.op.hicloud.com per Netify) and could not be verified; do not block hicloud.com/dbankcloud apexes (HMS core services)."
+      "notes": "Deliberately does NOT use the bare com.huawei.hms.ads. prefix: com.huawei.hms.ads.identifier.* is the OAID library found in many apps without ads (apk: com.xiaomi.youpin, com.baidu.input_mi). Detection only: hosts are resolved via HMS GRS at runtime (regional *.op.hicloud.com / *.op.dbankcloud.cn, e.g. events-dra.op.hicloud.com per Netify) and could not be verified; do not block hicloud.com/dbankcloud apexes (HMS core services). com.huawei.hms.ads.consent.* (HUAWEI consent SDK, the GDPR consent dialog) is not claimed and is listed in excludePrefixes: a consent dialog the ad SDK opens is never blocked by origin; com.huawei.hms.ads.whythisad.* (ad feedback UI of the ads themselves) stays."
     },
     {
       "id": "huawei-agc-crash-apms",
@@ -2570,6 +2587,14 @@
         "com.ksad.",
         "com.kwai.adclient."
       ],
+      "anchors": [
+        "com.kwad.sdk.api.proxy.app.AdWebViewActivity",
+        "com.kwad.sdk.api.proxy.app.FeedDownloadActivity",
+        "com.kwad.sdk.api.proxy.app.KSRewardLandScapeVideoActivity",
+        "com.kwad.sdk.api.proxy.app.KsFullScreenLandScapeVideoActivity",
+        "com.kwad.sdk.api.proxy.app.KsFullScreenVideoActivity",
+        "com.kwad.sdk.api.proxy.app.KsRewardVideoActivity"
+      ],
       "blockHosts": [
         "open.e.kuaishou.cn",
         "open.e.kuaishou.com",
@@ -2582,7 +2607,8 @@
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/ksad-ads/3.3.75/ (vendor SDK mirror; classes Lcom/kwad/sdk/, Lcom/kwad/components/ad/, Lcom/kwai/adclient/kscommerciallogger/; hosts open.e.kuaishou.com, ulog-sdk.gifshow.com, p1-lm.adkwai.com)",
         "sdk: kuaishoubase 4.8.10.1 mirrored at https://maven.admobile.top/repository/maven-releases/cn/admobiletop/adsuyi/ad/third/kuaishoubase/ (same packages; p2-lm/p5-lm.adkwai.com)",
-        "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard (-keep com.kwad.sdk.**, -dontwarn com.ksad.**)"
+        "doc: https://github.com/ADSuyi/ADSuyiSdkDemo-Android README proguard (-keep com.kwad.sdk.**, -dontwarn com.ksad.**)",
+        "sdk: Maven Central com.tradplusad:ksad-ads:3.3.75 AAR AndroidManifest.xml declares com.kwad.sdk.api.proxy.app.{AdWebViewActivity,KsFullScreenVideoActivity,KsFullScreenLandScapeVideoActivity,KsRewardVideoActivity,KSRewardLandScapeVideoActivity,FeedDownloadActivity,DownloadService} (manifest anchors)"
       ],
       "notes": "Bundles com.kuaishou.weapon (Kuaishou device-risk SDK, IDENTIFICATION) and com.yxcorp.kuaishou.addfp; not claimed here. Not blocked: static.yximgs.com (shared Kuaishou CDN). Uncertain: api.kuaishouzt.com, api.kwaizt.com, w1/w2.kskwai.com, w1/w2.gskwai.com."
     },
@@ -3343,16 +3369,29 @@
         "PROFILING"
       ],
       "codePrefixes": [
-        "com.ogury.",
+        "com.ogury.ad.",
+        "com.ogury.ed.",
         "io.presage."
+      ],
+      "excludePrefixes": [
+        "com.ogury.cm.",
+        "com.ogury.consent.",
+        "com.ogury.consent_manager.",
+        "com.ogury.fairchoice."
+      ],
+      "anchors": [
+        "com.ogury.ad.interstitial.ui.InterstitialActivity",
+        "io.presage.interstitial.ui.InterstitialActivity"
       ],
       "blockHosts": [
         "presage.io"
       ],
       "evidence": [
-        "sdk: https://maven.ogury.co/co/ogury/module/ogury-ads/5.4.0/ (AAR packages com.ogury.ad/com.ogury.core, URL pattern https://%s.presage.io/%s with ms-bidder-adsync, ms-ads-monitoring-events)"
+        "sdk: https://maven.ogury.co/co/ogury/module/ogury-ads/5.4.0/ (AAR packages com.ogury.ad/com.ogury.core, URL pattern https://%s.presage.io/%s with ms-bidder-adsync, ms-ads-monitoring-events)",
+        "sdk: https://maven.ogury.co/co/ogury/module/ogury-ads/5.4.0/ and 4.7.0/ AARs — ad code only under com.ogury.ad (5.x), com.ogury.ed + io.presage (4.x); manifests declare com.ogury.ad.interstitial.ui.InterstitialActivity / io.presage.interstitial.ui.InterstitialActivity (anchors); ogury-core 2.4.0 (com.ogury.core, shared runtime)",
+        "sdk: https://maven.ogury.co/co/ogury/module/ogury-choice-manager/3.3.3/ (consent manager: com.ogury.cm, com.ogury.fairchoice, com.ogury.consent_manager; hosts consent-form.ogury.co, consent-manager-events.ogury.io) and co/ogury/ogury-sdk 4.9.1 (bundles com.ogury.cm, com.ogury.consent)"
       ],
-      "notes": "presage.io is Ogury's ad-delivery domain. Legacy io.presage SDK collected installed-app lists (profiling)."
+      "notes": "presage.io is Ogury's ad-delivery domain (%s.presage.io templates in ogury-ads); the consent manager uses ogury.co / ogury.io hosts, which are not blocked. Only ad packages are claimed: com.ogury.core (shared with the consent manager) and com.ogury.sdk (init wrapper) are left out, and the consent packages are in excludePrefixes, so origin blocking never stops the consent dialog. Legacy io.presage SDK collected installed-app lists (profiling)."
     },
     {
       "id": "ok-tracer",
@@ -3824,6 +3863,13 @@
         "com.czhj.sdk.",
         "com.czhj.devicehelper."
       ],
+      "anchors": [
+        "com.sigmob.sdk.base.common.LandscapeAdActivity",
+        "com.sigmob.sdk.base.common.LandscapeTransparentAdActivity",
+        "com.sigmob.sdk.base.common.PortraitAdActivity",
+        "com.sigmob.sdk.base.common.PortraitTransparentAdActivity",
+        "com.sigmob.sdk.base.common.TransparentAdActivity"
+      ],
       "blockHosts": [
         "adservice.sigmob.cn",
         "dc.sigmob.cn",
@@ -3834,7 +3880,8 @@
       ],
       "evidence": [
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/sigmob-ads/4.22.1/ and sigmob-ads-common/1.7.9 (vendor SDK mirror; classes Lcom/sigmob/sdk/, Lcom/sigmob/windad/, Lcom/czhj/sdk/common/; hosts adservice/dc/n/rtbcallback/track/tracktp.sigmob.cn)",
-        "sdk: windAd-2.25.2.aar in vendor demo repo gitee.com/TopOnTeam/TopOn-Android-SDK (anythink_sdk/network_china_sdk/network/sigmob)"
+        "sdk: windAd-2.25.2.aar in vendor demo repo gitee.com/TopOnTeam/TopOn-Android-SDK (anythink_sdk/network_china_sdk/network/sigmob)",
+        "sdk: Maven Central com.tradplusad:sigmob-ads:4.22.1 AAR AndroidManifest.xml declares com.sigmob.sdk.base.common.{AdActivity,TransparentAdActivity,PortraitAdActivity,LandscapeAdActivity,PortraitTransparentAdActivity,LandscapeTransparentAdActivity} (manifest anchors)"
       ],
       "notes": "Uncertain: adxtool.sigmob.cn, c.etoolads.cn."
     },
@@ -4073,7 +4120,7 @@
       "evidence": [
         "apk: com.miui.player (QQ Music based) classes contain Lcom/tencent/ams/adcore/, Lcom/tencent/ams/fusion/, Lcom/tencent/ams/tangram/, Lcom/tencent/ad/tangram/; const-strings in com.tencent.ams.* reference p.l.qq.com, livep.l.qq.com, xs.gdt.qq.com, sdkreport.e.qq.com"
       ],
-      "notes": "In-house Tencent ad SDK used by Tencent first-party apps (video/music); shares GDT delivery hosts. vv6.video.qq.com (video CDN) deliberately not blocked; us.l.qq.com / c.l.qq.com also seen, likely ad hosts but unverified."
+      "notes": "In-house Tencent ad SDK used by Tencent first-party apps (video/music); shares GDT delivery hosts. vv6.video.qq.com (video CDN) deliberately not blocked; us.l.qq.com is the GDT ad request host (blocked under tencent-gdt, referenced from com.qq.e code); c.l.qq.com also seen, unverified."
     },
     {
       "id": "tencent-beacon",
@@ -4132,7 +4179,7 @@
         "sdk: Maven Central com.tencent.bugly:crashreport:4.1.9 has only com.tencent.bugly.crashreport/proguard (no com.tencent.feedback); bugly-pro 4.4.8.3 / crashreport-pro 4.4.7.13 bundle com.tencent.feedback.eup (2 classes) and com.tencent.feedback.upload (1 class) — hence the narrowed prefixes",
         "apk: com.sohu.inputmethod.sogou.xiaomi classes contain Lcom/tencent/feedback/eup/ and Lcom/tencent/feedback/upload/"
       ],
-      "notes": "Bugly “Beta” upgrade/hotfix (crashreport_upgrade, tinker-support) checks for updates over the same /rqd/async endpoint, so in-app upgrade prompts and Bugly hot patches stop when blocked. Relocated copies (com.tencent.bugly.idasc / .webank inside Tencent Cloud KYC SDKs) are matched too. bugly.djigate.com / buglypro.iot-tencent.com are private deployments (not listed). defaultBlock=false: Bugly Beta upgrade prompts and Tinker hot patches (crashreport_upgrade, tinker-support) share the /rqd/async endpoint, so blocking it also stops in-app updates and hotfixes; blocking is opt-in per app. com.tencent.feedback. narrowed to .eup./.upload. (generic Tencent feedback packages otherwise match unrelated code)."
+      "notes": "Bugly “Beta” upgrade/hotfix (crashreport_upgrade, tinker-support) checks for updates over the same /rqd/async endpoint, so in-app upgrade prompts and Bugly hot patches stop when blocked. Relocated copies (com.tencent.bugly.idasc / .webank inside Tencent Cloud KYC SDKs) are matched too. bugly.djigate.com / buglypro.iot-tencent.com are private deployments (not listed). defaultBlock=false: Bugly Beta upgrade prompts and Tinker hot patches (crashreport_upgrade, tinker-support) share the /rqd/async endpoint, so blocking it also stops in-app updates and hotfixes; blocking is opt-in per app. com.tencent.feedback. narrowed to .eup./.upload. (generic Tencent feedback packages otherwise match unrelated code). The vendor-app catalog rule bugly.domains blocks these hosts by default in preinstalled apps: those are updated through the app store, not Bugly Beta, so nothing user-visible depends on the endpoint there."
     },
     {
       "id": "tencent-cls",
@@ -4165,7 +4212,15 @@
         "com.qq.e.",
         "com.android.gdt."
       ],
+      "anchors": [
+        "com.qq.e.ads.LandscapeADActivity",
+        "com.qq.e.ads.PortraitADActivity",
+        "com.qq.e.ads.RewardvideoLandscapeADActivity",
+        "com.qq.e.ads.RewardvideoPortraitADActivity",
+        "com.qq.e.comm.DownloadService"
+      ],
       "blockHosts": [
+        "adsmind.gdtimg.com",
         "adsmind.ugdtimg.com",
         "c.gdt.qq.com",
         "c2.gdt.qq.com",
@@ -4174,6 +4229,7 @@
         "h5.gdt.qq.com",
         "ii.gdt.qq.com",
         "mi.gdt.qq.com",
+        "pgdt.gtimg.cn",
         "pgdt.ugdtimg.com",
         "qzs.gdtimg.com",
         "rpt.gdt.qq.com",
@@ -4183,6 +4239,7 @@
         "t.gdt.qq.com",
         "tangram.e.qq.com",
         "ttc.gdt.qq.com",
+        "us.l.qq.com",
         "v.gdt.qq.com",
         "v2.gdt.qq.com",
         "v2mi.gdt.qq.com",
@@ -4199,9 +4256,12 @@
         "sdk: https://repo1.maven.org/maven2/com/tradplusad/gdt-sdk/4.603.1473/ (vendor SDK mirror, same packages/hosts)",
         "apk: com.baidu.input_mi classes contain Lcom/qq/e/ads/ and Lcom/qq/e/comm/; const-strings in com.qq.e.* reference mi.gdt.qq.com, v2mi.gdt.qq.com, win.gdt.qq.com",
         "apk: com.miui.player classes contain Lcom/qq/e/comm/ and Lcom/qq/e/tg/; strings rpt.gdt.qq.com, sdkreport.e.qq.com, tangram.e.qq.com",
-        "apk: com.sohu.inputmethod.sogou.xiaomi classes contain Lcom/qq/e/comm/"
+        "apk: com.sohu.inputmethod.sogou.xiaomi classes contain Lcom/qq/e/comm/",
+        "apk: com.miui.player com.qq.e.comm.plugin.base.ad.f.d / tangramsplash const-string https://us.l.qq.com/exapp (ad request endpoint)",
+        "traffic cap2/cap4: com.miui.player → pgdt.gtimg.cn x13, adsmind.gdtimg.com (ad creative CDN, counterparts of pgdt/adsmind.ugdtimg.com)",
+        "sdk: Maven Central com.qq.e.union:union:4.640.1510 AAR AndroidManifest.xml declares com.qq.e.ads.{ADActivity,PortraitADActivity,LandscapeADActivity,RewardvideoPortraitADActivity,RewardvideoLandscapeADActivity,DialogActivity}, com.qq.e.comm.DownloadService (manifest anchors)"
       ],
-      "notes": "com.android.gdt.* is GDT's bundled device-id/QIMEI module (shipped inside the union AAR). The union AAR also bundles com.tencent.turingfd.sdk (Turing device security, IDENTIFICATION; left to that slice). Not blocked (shared Tencent infra): e.qq.com (advertiser portal), qzs.qq.com, i.gtimg.cn, qzonestyle.gtimg.cn, snowflake.qq.com, tdid.m.qq.com. union.eff.qq.com seen in SDK strings, purpose unclear."
+      "notes": "com.android.gdt.* is GDT's bundled device-id/QIMEI module (shipped inside the union AAR). The union AAR also bundles com.tencent.turingfd.sdk (Turing device security, IDENTIFICATION; left to that slice). Not blocked (shared Tencent infra): l.qq.com apex (only us.l.qq.com, the GDT ad request host, is), gtimg.cn apex (only pgdt.gtimg.cn), e.qq.com (advertiser portal), qzs.qq.com, i.gtimg.cn, qzonestyle.gtimg.cn, snowflake.qq.com, tdid.m.qq.com. union.eff.qq.com seen in SDK strings, purpose unclear."
     },
     {
       "id": "tencent-gdt-action",
@@ -4314,7 +4374,7 @@
         "traffic: com.sohu.inputmethod.sogou.xiaomi → snowflake.qq.com",
         "apk: com.miui.player classes contain Lcom/tencent/qimei/"
       ],
-      "notes": "QIMEI is Tencent’s cross-SDK device ID (used by Beacon, Bugly, GDT ads). Blocking leaves the ID unresolved; some Tencent SDK features (ad targeting, risk checks) may degrade. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app."
+      "notes": "QIMEI is Tencent’s cross-SDK device ID (used by Beacon, Bugly, GDT ads). Blocking leaves the ID unresolved; some Tencent SDK features (ad targeting, risk checks) may degrade. defaultBlock=false: blocking this risk-control/fingerprint SDK may cause login to require extra verification or fail (拦截可能导致登录需要额外验证或失败), payment declines or captcha failures; users can opt in per app. The vendor-app catalog rule qimei.domains blocks snowflake.qq.com by default inside the preinstalled IME and music app: there the QIMEI id only feeds Tencent analytics/ad SDKs, while the apps' own sign-in uses their vendor account; in third-party apps the host may back account risk checks, hence opt-in here."
     },
     {
       "id": "tencent-rmonitor",
@@ -4836,12 +4896,13 @@
         "pre-aaid.umeng.com",
         "audid.umeng.com"
       ],
+      "defaultBlock": true,
       "evidence": [
         "sdk: Maven Central com.umeng.umsdk:asms:1.8.7.2 — com.umeng.umzid.ZIDManager references utoken.umeng.com; pre-aaid.umeng.com",
         "sdk: Maven Central com.umeng.umsdk:umdid:1.1.0 — com.umeng.ut requests audid.umeng.com /v3/a/audid/req",
         "sdk: Maven Central com.umeng.umsdk:push:7.0.4 — U-Push also calls audid.umeng.com /v3/a/audid/req"
       ],
-      "notes": "Device-ID registration for Umeng SDKs. Blocking only prevents server-side ID binding; Umeng statistics still fall back to local IDs."
+      "notes": "Device-ID registration for Umeng SDKs. Blocking only prevents server-side ID binding; Umeng statistics still fall back to local IDs. defaultBlock=true is stated explicitly (unchanged default): the hosts bind Umeng's own device ids for its analytics and push SDKs, and no sign-in or payment dependency has been observed; set it to false if one is found."
     },
     {
       "id": "umeng-yumao",

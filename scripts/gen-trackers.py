@@ -6,7 +6,7 @@ Usage: python3 -I scripts/gen-trackers.py [trackers.json]
 The JSON is the tracker SDK signature database (schema 1): code prefixes that identify an SDK in
 an app's dex, and the hosts / URL prefixes it reports to. Only what the app needs at runtime is
 kept (names, optional display names, vendor, categories, defaultBlock, originBlock, prefixes,
-manifest anchors, hosts); evidence
+origin-exempt prefixes, manifest anchors, hosts); evidence
 and notes stay in the JSON. Output is deterministic: trackers sorted by id, list fields in source order.
 
 The generated file also records SHA-256 digests of the source JSON and of the emitted table, so
@@ -48,8 +48,8 @@ package io.github.hyperprivacy.core.tracker
  * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
  * display name (zh / en), `v` vendor, optional `o 0` (not blocked by origin unless the user turns
  * the SDK on; its defaultBlock is then 0), and the space-separated, repeatable lists `p` code
- * prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs (`host/path`) and `k` keep
- * hosts. Unknown tags are ignored by the parser.
+ * prefixes, `x` origin-exempt prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs
+ * (`host/path`) and `k` keep hosts. Unknown tags are ignored by the parser.
  */
 internal object TrackerData {
     const val VERSION: String = "{version}"
@@ -103,6 +103,19 @@ def anchors(tracker: dict, prefixes: list) -> list:
     return values
 
 
+def excludes(tracker: dict, all_prefixes: set) -> list:
+    """Origin-exempt packages (consent dialogs): package prefixes no entry claims as code prefixes."""
+    values = strings(tracker, "excludePrefixes", PREFIX_PATTERN)
+    if values and ("ADS" not in tracker["categories"] or "IDENTIFICATION" in tracker["categories"]):
+        fail(f"{tracker['id']}: excludePrefixes applies to ADS entries without IDENTIFICATION only")
+    for value in values:
+        if not value.endswith("."):
+            fail(f"{tracker['id']}: excludePrefixes entry {value!r} must be a package prefix ending with '.'")
+        if value in all_prefixes:
+            fail(f"{tracker['id']}: excludePrefixes entry {value!r} is a code prefix of an entry")
+    return values
+
+
 def urls(tracker: dict) -> list:
     out = []
     for entry in tracker.get("blockUrls", []):
@@ -136,7 +149,7 @@ def wrapped(tag: str, values: list) -> list:
     return lines
 
 
-def record(tracker: dict) -> list:
+def record(tracker: dict, all_prefixes: set) -> list:
     tid = tracker.get("id")
     if not isinstance(tid, str) or not ID_PATTERN.match(tid):
         fail(f"invalid id {tid!r}")
@@ -155,6 +168,11 @@ def record(tracker: dict) -> list:
         fail(f"{tid}: originBlock applies to ADS entries without IDENTIFICATION only")
     if not tracker.get("evidence"):
         fail(f"{tid}: evidence must not be empty")
+    # Account security / risk control: a wrong default breaks sign-in or payment for every user, so
+    # an IDENTIFICATION entry that can block must say whether it does by default.
+    blocks = bool(tracker.get("blockHosts")) or bool(tracker.get("blockUrls"))
+    if "IDENTIFICATION" in categories and blocks and "defaultBlock" not in tracker:
+        fail(f"{tid}: IDENTIFICATION entries with blockHosts/blockUrls must set defaultBlock explicitly")
     # An SDK kept out of default origin blocking is opt-in as a whole: its switch starts off.
     default_on = default_block and origin_block
     lines = [f"sdk {tid} {1 if default_on else 0} {','.join(categories)}"]
@@ -173,6 +191,7 @@ def record(tracker: dict) -> list:
         lines.append("o 0")
     prefixes = strings(tracker, "codePrefixes", PREFIX_PATTERN, required=True)
     lines += wrapped("p", prefixes)
+    lines += wrapped("x", excludes(tracker, all_prefixes))
     lines += wrapped("a", anchors(tracker, prefixes))
     lines += wrapped("b", strings(tracker, "blockHosts", HOST_PATTERN))
     lines += wrapped("u", urls(tracker))
@@ -208,7 +227,8 @@ def main() -> None:
     ids = [t.get("id") for t in trackers]
     if len(set(ids)) != len(ids):
         fail("duplicate tracker ids")
-    table = parts([record(t) for t in trackers])
+    all_prefixes = {p for t in trackers for p in t.get("codePrefixes", []) if isinstance(p, str)}
+    table = parts([record(t, all_prefixes) for t in trackers])
     source_sha = hashlib.sha256(raw).hexdigest()
     # Each Kotlin raw string starts with the newline after its opening quotes.
     table_sha = hashlib.sha256("".join("\n" + part for part in table).encode("utf-8")).hexdigest()

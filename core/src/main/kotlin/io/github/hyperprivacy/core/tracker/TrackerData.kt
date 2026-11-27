@@ -6,17 +6,17 @@ package io.github.hyperprivacy.core.tracker
  * <CATEGORY,...>`; the following lines are `n` name (zh), `e` name (en), optional `dn` / `de`
  * display name (zh / en), `v` vendor, optional `o 0` (not blocked by origin unless the user turns
  * the SDK on; its defaultBlock is then 0), and the space-separated, repeatable lists `p` code
- * prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs (`host/path`) and `k` keep
- * hosts. Unknown tags are ignored by the parser.
+ * prefixes, `x` origin-exempt prefixes, `a` manifest anchors, `b` block hosts, `u` block URLs
+ * (`host/path`) and `k` keep hosts. Unknown tags are ignored by the parser.
  */
 internal object TrackerData {
-    const val VERSION: String = "2026.11.27g"
+    const val VERSION: String = "2026.11.27h"
 
     /** SHA-256 of data/trackers.json as generated. */
-    const val SOURCE_SHA256: String = "a54f0f0b9c84cb4a8d99880efad2fc80a63e96dc4983caeb7adeb89367a12a98"
+    const val SOURCE_SHA256: String = "1079cd6fd17deb0f7df859b509fff8d00a1e6ce6d6814a02192fdd0afe8333db"
 
     /** SHA-256 of [PARTS] joined, so a hand edit of the table is caught by tests. */
-    const val TABLE_SHA256: String = "c81db0438a46600642938d29720905d2ef4b69a909599a249abc3958da368eb3"
+    const val TABLE_SHA256: String = "45a782caac8f033db2e419a61bb35aac270466cae1423927347014dc5118d4ad"
 
     val PARTS: List<String> = listOf(PART_0, PART_1)
 }
@@ -165,6 +165,7 @@ v AppLovin
 dn AppLovin MAX 广告
 de AppLovin MAX
 p com.applovin.
+x com.applovin.impl.privacy.
 b a.applovin.com b.applovin.com d.applovin.com ms.applovin.com md.applovin.com rt.applovin.com
 b sts.applovin.com prod-a.applovin.com assets.applovin.com img.applovin.com res.applovin.com
 b res1.applovin.com res2.applovin.com res3.applovin.com vid.applovin.com pdn.applovin.com applvn.com
@@ -196,8 +197,9 @@ n 百度定位 SDK
 e Baidu Location SDK
 v Baidu
 p com.baidu.location.
-b daup.map.baidu.com itsdata.map.baidu.com blg.map.baidu.com
-u loc.map.baidu.com/statloc aispace.baidu.com/aispacelbs/receiver/recordlog
+b daup.map.baidu.com blg.map.baidu.com
+u itsdata.map.baidu.com/long-conn-gps/ loc.map.baidu.com/statloc
+u aispace.baidu.com/aispacelbs/receiver/recordlog
 k loc.map.baidu.com api.map.baidu.com ofloc.map.baidu.com cnloc.map.baidu.com
 sdk baidu-mobads 1 ADS
 n 百度联盟 / 百青藤广告
@@ -206,6 +208,8 @@ v 百度 (Baidu)
 dn 百青藤广告
 p com.baidu.mobads.sdk. com.baidu.mobads.container. com.baidu.mobads.proxy. com.baidu.mobads.cid.
 p com.baidu.mobads.annotation. com.baidu.mobads.upgrade. com.baidu.ad.magic.
+a com.baidu.mobads.sdk.api.BdShellActivity com.baidu.mobads.sdk.api.MobCPUDramaActivity
+a com.baidu.mobads.sdk.api.MobRewardVideoActivity
 b cpro.baidustatic.com mobads-logs.baidu.com mobads-pre-config.bj.bcebos.com
 b mobads-pre-config.cdn.bcebos.com mobads.baidu.com wn.pos.baidu.com
 sdk baidu-mobstat 1 ANALYTICS
@@ -303,7 +307,7 @@ a com.bytedance.sdk.openadsdk.activity.TTWebsiteActivity
 a com.bytedance.sdk.openadsdk.multipro.aidl.BinderPoolService
 b 5log-api.pangolin-sdk-toutiao-b.com api-access.pangolin-sdk-toutiao-b.com
 b api-access.pangolin-sdk-toutiao.com api-access.pangolin-sdk-toutiao1.com api16-access-sg.pangle.io
-b api16-access-ttp-b.tiktokpangle-b.us api16-access-ttp.tiktokpangle.us
+b api16-access-ttp-b.tiktokpangle-b.us api16-access-ttp.tiktokpangle.us api16-access-wf-sg.pangle.io
 b api16-endcard-pack-sg.pangle.io lf-static.tiktokpangle-cdn-us.com
 b log-api.pangolin-sdk-toutiao-b.com log-api.pangolin-sdk-toutiao.com sf16-static.i18n-pglstatp.com
 b sf3-fe-tos.pglstatp-toutiao.com
@@ -614,8 +618,8 @@ e HUAWEI Ads Kit (PPS)
 v 华为 (Huawei)
 p com.huawei.openalliance.ad. com.huawei.hms.ads.HwAds com.huawei.hms.ads.AdParam
 p com.huawei.hms.ads.nativead. com.huawei.hms.ads.splash. com.huawei.hms.ads.reward.
-p com.huawei.hms.ads.uiengine. com.huawei.hms.ads.consent. com.huawei.hms.ads.jsb.
-p com.huawei.hms.ads.whythisad.
+p com.huawei.hms.ads.uiengine. com.huawei.hms.ads.jsb. com.huawei.hms.ads.whythisad.
+x com.huawei.hms.ads.consent.
 sdk huawei-agc-crash-apms 1 CRASH,ANALYTICS
 n 华为 AGC 崩溃服务/应用性能管理
 e Huawei AppGallery Connect Crash & APM (APMS)
@@ -752,6 +756,11 @@ e Kuaishou Ad Union
 v 快手 (Kuaishou)
 p com.kwad.sdk. com.kwad.components. com.kwad.framework. com.kwad.library. com.ksad.
 p com.kwai.adclient.
+a com.kwad.sdk.api.proxy.app.AdWebViewActivity com.kwad.sdk.api.proxy.app.FeedDownloadActivity
+a com.kwad.sdk.api.proxy.app.KSRewardLandScapeVideoActivity
+a com.kwad.sdk.api.proxy.app.KsFullScreenLandScapeVideoActivity
+a com.kwad.sdk.api.proxy.app.KsFullScreenVideoActivity
+a com.kwad.sdk.api.proxy.app.KsRewardVideoActivity
 b open.e.kuaishou.cn open.e.kuaishou.com p1-lm.adkwai.com p2-lm.adkwai.com p5-lm.adkwai.com
 b ulog-sdk.gifshow.com ulog-sdk.ksapisrv.com
 sdk kuaishou-kwai-ads-global 1 ADS
@@ -801,6 +810,9 @@ v Mapbox
 p com.mapbox.android.telemetry. com.mapbox.maps.module.telemetry.
 b events.mapbox.com
 k api.mapbox.com
+"""
+
+private const val PART_1: String = """
 sdk meishu-ads 1 ADS
 n 美数广告 SDK
 e Meishu Ads
@@ -820,9 +832,6 @@ v Meta Platforms
 p com.facebook.ads.
 b an.facebook.com
 u www.facebook.com/adnw_logging/
-"""
-
-private const val PART_1: String = """
 sdk microsoft-clarity 1 PROFILING,ANALYTICS
 n Microsoft Clarity 会话回放
 e Microsoft Clarity (mobile session replay)
@@ -967,7 +976,9 @@ sdk ogury 1 ADS,PROFILING
 n Ogury 广告
 e Ogury (Presage)
 v Ogury
-p com.ogury. io.presage.
+p com.ogury.ad. com.ogury.ed. io.presage.
+x com.ogury.cm. com.ogury.consent. com.ogury.consent_manager. com.ogury.fairchoice.
+a com.ogury.ad.interstitial.ui.InterstitialActivity io.presage.interstitial.ui.InterstitialActivity
 b presage.io
 sdk ok-tracer 1 CRASH
 n OK Tracer 崩溃/性能 (VK)
@@ -1099,6 +1110,11 @@ n Sigmob 广告
 e Sigmob Ads
 v Sigmob（创智汇聚）
 p com.sigmob.sdk. com.sigmob.windad. com.czhj.sdk. com.czhj.devicehelper.
+a com.sigmob.sdk.base.common.LandscapeAdActivity
+a com.sigmob.sdk.base.common.LandscapeTransparentAdActivity
+a com.sigmob.sdk.base.common.PortraitAdActivity
+a com.sigmob.sdk.base.common.PortraitTransparentAdActivity
+a com.sigmob.sdk.base.common.TransparentAdActivity
 b adservice.sigmob.cn dc.sigmob.cn n.sigmob.cn rtbcallback.sigmob.cn track.sigmob.cn
 b tracktp.sigmob.cn
 sdk sigmob-windmill 1 ADS
@@ -1190,11 +1206,14 @@ e Tencent GDT / Youlianghui Ads
 v 腾讯 (Tencent)
 de Tencent GDT Ads
 p com.qq.e. com.android.gdt.
-b adsmind.ugdtimg.com c.gdt.qq.com c2.gdt.qq.com c3.gdt.qq.com fv.gdt.qq.com h5.gdt.qq.com
-b ii.gdt.qq.com mi.gdt.qq.com pgdt.ugdtimg.com qzs.gdtimg.com rpt.gdt.qq.com sdk.e.qq.com
-b sdkreport.e.qq.com sg.ylhglobal.com t.gdt.qq.com tangram.e.qq.com ttc.gdt.qq.com v.gdt.qq.com
-b v2.gdt.qq.com v2mi.gdt.qq.com v3.gdt.qq.com v3mi.gdt.qq.com win.gdt.qq.com xc.gdt.qq.com
-b xj-landing.gdtimg.com xs.gdt.qq.com xsweb.gdt.qq.com
+a com.qq.e.ads.LandscapeADActivity com.qq.e.ads.PortraitADActivity
+a com.qq.e.ads.RewardvideoLandscapeADActivity com.qq.e.ads.RewardvideoPortraitADActivity
+a com.qq.e.comm.DownloadService
+b adsmind.gdtimg.com adsmind.ugdtimg.com c.gdt.qq.com c2.gdt.qq.com c3.gdt.qq.com fv.gdt.qq.com
+b h5.gdt.qq.com ii.gdt.qq.com mi.gdt.qq.com pgdt.gtimg.cn pgdt.ugdtimg.com qzs.gdtimg.com
+b rpt.gdt.qq.com sdk.e.qq.com sdkreport.e.qq.com sg.ylhglobal.com t.gdt.qq.com tangram.e.qq.com
+b ttc.gdt.qq.com us.l.qq.com v.gdt.qq.com v2.gdt.qq.com v2mi.gdt.qq.com v3.gdt.qq.com
+b v3mi.gdt.qq.com win.gdt.qq.com xc.gdt.qq.com xj-landing.gdtimg.com xs.gdt.qq.com xsweb.gdt.qq.com
 sdk tencent-gdt-action 1 ATTRIBUTION
 n 腾讯广告用户行为数据源 SDK (GDTAction)
 e Tencent Ads Conversion SDK (GDTAction)

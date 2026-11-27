@@ -1,5 +1,6 @@
 package io.github.hyperprivacy.core
 
+import io.github.hyperprivacy.core.config.MiniJson
 import io.github.hyperprivacy.core.match.HostMatcher
 import io.github.hyperprivacy.core.match.HostNames
 import io.github.hyperprivacy.core.rule.Text
@@ -18,10 +19,7 @@ import kotlin.test.assertTrue
 class TrackerDataTest {
     @Test
     fun `generated table is up to date with data json`() {
-        val source = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }
-            .map { File(it, "data/trackers.json") }
-            .firstOrNull { it.isFile }
-        assertNotNull(source, "data/trackers.json not found")
+        val source = sourceFile()
         assertEquals(
             TrackerData.SOURCE_SHA256,
             sha256(source.readBytes()),
@@ -32,6 +30,23 @@ class TrackerDataTest {
             sha256(TrackerData.PARTS.joinToString("").toByteArray()),
             "TrackerData.kt was edited by hand: run python3 -I scripts/gen-trackers.py",
         )
+    }
+
+    @Test
+    fun `identification entries that block state their default`() {
+        // Mirrors the gen-trackers.py gate: a silent default (true) would block account security /
+        // risk control checks for every user the moment someone adds a host.
+        val json = MiniJson.parse(sourceFile().readText()) as Map<*, *>
+        val trackers = (json["trackers"] as List<*>).map { it as Map<*, *> }
+        val offenders = trackers.filter { entry ->
+            val categories = entry["categories"] as List<*>
+            val blocks = (entry["blockHosts"] as? List<*>).orEmpty().isNotEmpty() ||
+                (entry["blockUrls"] as? List<*>).orEmpty().isNotEmpty()
+            "IDENTIFICATION" in categories && blocks && "defaultBlock" !in entry
+        }.map { it["id"] }
+        assertTrue(offenders.isEmpty(), "IDENTIFICATION entries without an explicit defaultBlock: $offenders")
+        val parsed = Trackers.all.filter { TrackerCategory.IDENTIFICATION in it.categories && it.blockable }
+        assertTrue(parsed.isNotEmpty())
     }
 
     @Test
@@ -167,6 +182,13 @@ class TrackerDataTest {
         assertEquals(Text("甲 SDK 广告", "AMap Location SDK"), a.displayName)
         assertEquals(Text("乙推送", "OPPO Push"), b.displayName)
         assertEquals(Text("乙", "OPPO / HeyTap Push"), b.name)
+    }
+
+    private fun sourceFile(): File {
+        val source = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }
+            .map { File(it, "data/trackers.json") }
+            .firstOrNull { it.isFile }
+        return assertNotNull(source, "data/trackers.json not found")
     }
 
     private fun sha256(bytes: ByteArray): String =
