@@ -31,7 +31,8 @@
 
 - **离线 SDK 识别**：在本地解析安装包并识别内嵌追踪 SDK（特征库涵盖 210 个 SDK，其中广告 SDK 71 个），不执行目标应用代码，不联网；支持按应用、按 SDK 单独控制与默认策略预设。针对加固后无法识别 SDK 的应用，可按应用开启「拦截全部已知追踪」。
 - **按来源拦截广告 SDK**：依据请求与广告页面的代码来源执行拦截，不依赖固定域名，应对域名变更、重打包或插件化加载；隐私同意弹窗默认放行，疑似广告组件单独列出且默认不拦截。
-- **按应用隐私增强**：默认开启「隔离 DRM 设备号」与「强制系统 DNS」；另提供默认关闭的「随机化硬件指纹」「保护传感器数据」与「拦截原生网络请求」（使应用原生代码中的常见域名请求同样遵守域名规则），可按应用启用。
+- **按应用隐私增强**：默认开启「隔离 DRM 设备号」与「强制系统 DNS」；另提供默认关闭的「随机化硬件指纹」与「拦截原生网络请求」（使应用原生代码中的常见域名请求同样遵守域名规则），可按应用启用。
+- **传感器防护**（按应用，默认关闭）：适度降低应用读到的运动、磁场、气压、光线与电池读数的精度和刷新频率，使应用难以借此推断键盘输入、通话语音、所在楼层与行动轨迹，或利用传感器出厂误差生成跨应用追踪的设备指纹；无需权限即可读取的传感器同样受保护。系统的自动亮度、屏幕旋转与电量显示不受影响，高精度测量与体感游戏等功能可能受影响。
 
 ### 系统层隐藏
 
@@ -123,7 +124,8 @@ python3 -I scripts/gen-trackers.py   # 修改特征库后重新生成 SDK 特征
 **HyperPrivacy** is an LSPosed module for Xiaomi HyperOS that blocks telemetry, ad SDKs, device-ID collection, and app-list uploads across system and user-installed apps without disrupting vendor services (app store, push, cloud sync, Find Device, weather, OTA).
 
 - **System app protection**: 110 evidence-backed built-in rules (97 enabled by default) covering 123 system apps across six data categories, with zeroed OAID/VAID/AAID returned to third-party apps.
-- **Third-party app protection**: offline scanner identifying 210 tracker SDK signatures (71 ad SDKs) with per-app and per-SDK controls, origin-based ad SDK blocking independent of domains, per-app DRM ID isolation, forced system DNS, and optional hardware-fingerprint randomization, sensor-data protection, and domain blocking for native libraries.
+- **Third-party app protection**: offline scanner identifying 210 tracker SDK signatures (71 ad SDKs) with per-app and per-SDK controls, origin-based ad SDK blocking independent of domains, per-app DRM ID isolation, forced system DNS, and optional hardware-fingerprint randomization and domain blocking for native libraries.
+- **Sensor protection** (per app, opt-in): coarsens motion, magnetic, barometer, light and battery readings so apps cannot easily infer keystrokes, speech, floor level or movement, or fingerprint the device from sensor calibration errors.
 - **System-level hiding**: hides identifier-bearing system settings, custom device names, installed app lists (per app), and the module itself from third-party apps.
 - **Layered enforcement with stability safeguards**: combines kernel firewall for pure-telemetry system apps, DNS, TLS SNI, path-level HTTP/WebView hooks, and SDK method no-ops. Uses no VPN slot and requests no network permission in the app itself.
 - **Requirements**: HyperOS (Android 14+), root with LSPosed (libxposed API 101+). One reboot is required after install or update for system-level features; rule switches apply immediately, and per-app protection takes effect after the app restarts.
